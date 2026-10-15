@@ -1,0 +1,902 @@
+
+> blotstudio-free@0.4.0 test:all
+> node --test tests/*.test.cjs native/tests/*.test.cjs
+
+TAP version 13
+# Subtest: Swift native callback delivers saved, cancelled and error as distinct results
+ok 1 - Swift native callback delivers saved, cancelled and error as distinct results
+  ---
+  duration_ms: 1.618209
+  type: 'test'
+  ...
+# Subtest: Swift callback JSON survives quotes, newlines, Unicode and script-looking error text
+ok 2 - Swift callback JSON survives quotes, newlines, Unicode and script-looking error text
+  ---
+  duration_ms: 0.462541
+  type: 'test'
+  ...
+# Subtest: native navigation only accepts its own HTML and an optional fragment
+ok 3 - native navigation only accepts its own HTML and an optional fragment
+  ---
+  duration_ms: 0.138
+  type: 'test'
+  ...
+# Subtest: native callback is harmless if its originating page no longer has a handler
+ok 4 - native callback is harmless if its originating page no longer has a handler
+  ---
+  duration_ms: 0.498084
+  type: 'test'
+  ...
+# Subtest: native shutdown commits focused inputs and waits for the asynchronous local write
+ok 5 - native shutdown commits focused inputs and waits for the asynchronous local write
+  ---
+  duration_ms: 2.47525
+  type: 'test'
+  ...
+# Subtest: native shutdown rejects unconfirmed or failed local writes
+ok 6 - native shutdown rejects unconfirmed or failed local writes
+  ---
+  duration_ms: 1.899625
+  type: 'test'
+  ...
+# Subtest: native shutdown fails explicitly if the frontend save interface is unavailable
+ok 7 - native shutdown fails explicitly if the frontend save interface is unavailable
+  ---
+  duration_ms: 1.196875
+  type: 'test'
+  ...
+# Subtest: production ROI change handler clamps all four boundaries against remaining source dimensions
+ok 8 - production ROI change handler clamps all four boundaries against remaining source dimensions
+  ---
+  duration_ms: 817.690959
+  type: 'test'
+  ...
+# Subtest: production ROI handler rejects nonfinite input and duplicate sample assignment without changing state/history
+ok 9 - production ROI handler rejects nonfinite input and duplicate sample assignment without changing state/history
+  ---
+  duration_ms: 550.149875
+  type: 'test'
+  ...
+# Subtest: damaged native pixel payload is rejected before openProject replaces the existing project
+ok 10 - damaged native pixel payload is rejected before openProject replaces the existing project
+  ---
+  duration_ms: 534.693042
+  type: 'test'
+  ...
+# Subtest: invalid commit completely rolls back project, history, redo and UI including newly introduced keys
+ok 11 - invalid commit completely rolls back project, history, redo and UI including newly introduced keys
+  ---
+  duration_ms: 510.408125
+  type: 'test'
+  ...
+# Subtest: frozen original sources cannot be altered by a failed commit or contaminate undo history
+ok 12 - frozen original sources cannot be altered by a failed commit or contaminate undo history
+  ---
+  duration_ms: 503.024333
+  type: 'test'
+  ...
+# Subtest: locked image blocks clear/auto/delete ROI and production ROI field editing
+ok 13 - locked image blocks clear/auto/delete ROI and production ROI field editing
+  ---
+  duration_ms: 561.474584
+  type: 'test'
+  ...
+# Subtest: cloned groups cannot double the biological n when both are checked for statistics
+ok 14 - cloned groups cannot double the biological n when both are checked for statistics
+  ---
+  duration_ms: 1271.404583
+  type: 'test'
+  ...
+# Subtest: switching groups updates and immediately flushes activeGroup, and reopening restores it
+ok 15 - switching groups updates and immediately flushes activeGroup, and reopening restores it
+  ---
+  duration_ms: 584.643584
+  type: 'test'
+  ...
+# Subtest: async native TIFF import retains its captured target group when the user changes groups during decoding
+ok 16 - async native TIFF import retains its captured target group when the user changes groups during decoding
+  ---
+  duration_ms: 698.131125
+  type: 'test'
+  ...
+# Subtest: async TIFF import aborts when its project is switched and cannot leak images into the new project
+ok 17 - async TIFF import aborts when its project is switched and cannot leak images into the new project
+  ---
+  duration_ms: 579.575042
+  type: 'test'
+  ...
+# Subtest: async TIFF import also aborts on reopening the same project ID, using the project epoch
+ok 18 - async TIFF import also aborts on reopening the same project ID, using the project epoch
+  ---
+  duration_ms: 524.871833
+  type: 'test'
+  ...
+# Subtest: thin and tall original image objects and real TIFF import preserve their crop aspect ratio
+ok 19 - thin and tall original image objects and real TIFF import preserve their crop aspect ratio
+  ---
+  duration_ms: 531.332167
+  type: 'test'
+  ...
+# Subtest: deleting an unlocked reference image clears remaining protein links and retains a valid project
+ok 20 - deleting an unlocked reference image clears remaining protein links and retains a valid project
+  ---
+  duration_ms: 534.070875
+  type: 'test'
+  ...
+# Subtest: native save Promise waits for the matching confirmed native callback
+ok 21 - native save Promise waits for the matching confirmed native callback
+  ---
+  duration_ms: 527.998375
+  type: 'test'
+  ...
+# Subtest: native save cancellation/failure rejects, concurrent save is refused, and the bridge can recover
+ok 22 - native save cancellation/failure rejects, concurrent save is refused, and the bridge can recover
+  ---
+  duration_ms: 569.611375
+  type: 'test'
+  ...
+# Subtest: a synchronous native postMessage failure releases its pending request
+ok 23 - a synchronous native postMessage failure releases its pending request
+  ---
+  duration_ms: 550.117916
+  type: 'test'
+  ...
+# Subtest: flushSave cancels the debounce and waits for immediate persistence confirmation
+ok 24 - flushSave cancels the debounce and waits for immediate persistence confirmation
+  ---
+  duration_ms: 538.980333
+  type: 'test'
+  ...
+# Subtest: flushSave reports a rejected database transaction without claiming success
+ok 25 - flushSave reports a rejected database transaction without claiming success
+  ---
+  duration_ms: 519.637833
+  type: 'test'
+  ...
+# Subtest: statistics Excel exports the selected metric, normalized rows, descriptive summary and optional tests
+ok 26 - statistics Excel exports the selected metric, normalized rows, descriptive summary and optional tests
+  ---
+  duration_ms: 572.796458
+  type: 'test'
+  ...
+# Subtest: statistics XLSX actual normalized cells agree with independent NumPy via openpyxl
+ok 27 - statistics XLSX actual normalized cells agree with independent NumPy via openpyxl
+  ---
+  duration_ms: 1053.392167
+  type: 'test'
+  ...
+# Subtest: multi-sheet Excel preserves XML text and gives colliding long names unique valid identifiers
+ok 28 - multi-sheet Excel preserves XML text and gives colliding long names unique valid identifiers
+  ---
+  duration_ms: 581.076833
+  type: 'test'
+  ...
+# Subtest: cancelled native export retains the export dialog and never claims file success
+ok 29 - cancelled native export retains the export dialog and never claims file success
+  ---
+  duration_ms: 535.429459
+  type: 'test'
+  ...
+# Subtest: opening a new project clears stale modal and gesture UI so old group IDs cannot crash rendering
+ok 30 - opening a new project clears stale modal and gesture UI so old group IDs cannot crash rendering
+  ---
+  duration_ms: 555.897958
+  type: 'test'
+  ...
+# Subtest: a control pointer gesture defers field rerender until its intended click is handled
+ok 31 - a control pointer gesture defers field rerender until its intended click is handled
+  ---
+  duration_ms: 507.431541
+  type: 'test'
+  ...
+# Subtest: project byte budget matches actual UTF-8 JSON for empty, Unicode and multi-source projects
+ok 32 - project byte budget matches actual UTF-8 JSON for empty, Unicode and multi-source projects
+  ---
+  duration_ms: 505.407625
+  type: 'test'
+  ...
+# Subtest: frozen source sizing is cached while edited project metadata is always recounted
+ok 33 - frozen source sizing is cached while edited project metadata is always recounted
+  ---
+  duration_ms: 506.384042
+  type: 'test'
+  ...
+# Subtest: project byte cap accepts the exact boundary and rejects one byte over including Unicode metadata
+ok 34 - project byte cap accepts the exact boundary and rejects one byte over including Unicode metadata
+  ---
+  duration_ms: 501.627542
+  type: 'test'
+  ...
+# Subtest: commit accounts for its new audit entry before applying state or scheduling persistence
+ok 35 - commit accounts for its new audit entry before applying state or scheduling persistence
+  ---
+  duration_ms: 524.644083
+  type: 'test'
+  ...
+# Subtest: oversized real TIFF import rolls back instead of creating a project that cannot reopen
+ok 36 - oversized real TIFF import rolls back instead of creating a project that cannot reopen
+  ---
+  duration_ms: 526.245833
+  type: 'test'
+  ...
+# Subtest: save, export and flush consistently refuse oversized projects before claiming success
+ok 37 - save, export and flush consistently refuse oversized projects before claiming success
+  ---
+  duration_ms: 541.671083
+  type: 'test'
+  ...
+# Subtest: a project saved exactly at the byte cap reopens with the same original pixels
+ok 38 - a project saved exactly at the byte cap reopens with the same original pixels
+  ---
+  duration_ms: 542.318875
+  type: 'test'
+  ...
+# Subtest: oversized project files are rejected before reading text or replacing the current project
+ok 39 - oversized project files are rejected before reading text or replacing the current project
+  ---
+  duration_ms: 509.231083
+  type: 'test'
+  ...
+# Subtest: PowerPoint retains full source preview, editable crop, both flips, rotation and native opacity
+ok 40 - PowerPoint retains full source preview, editable crop, both flips, rotation and native opacity
+  ---
+  duration_ms: 19.426458
+  type: 'test'
+  ...
+# Subtest: PowerPoint preserves opacity and shorthand alpha colors for editable vectors and text
+ok 41 - PowerPoint preserves opacity and shorthand alpha colors for editable vectors and text
+  ---
+  duration_ms: 2.537
+  type: 'test'
+  ...
+# Subtest: PowerPoint reuses one full-source preview for different crops and flips without merging editable picture layers
+ok 42 - PowerPoint reuses one full-source preview for different crops and flips without merging editable picture layers
+  ---
+  duration_ms: 1.582125
+  type: 'test'
+  ...
+# Subtest: PowerPoint custom paths preserve the three sides of brackets and arrow geometry
+ok 43 - PowerPoint custom paths preserve the three sides of brackets and arrow geometry
+  ---
+  duration_ms: 2.551542
+  type: 'test'
+  ...
+# Subtest: PowerPoint omits hidden objects and constrains large slides to Office limits without moving relative geometry
+ok 44 - PowerPoint omits hidden objects and constrains large slides to Office limits without moving relative geometry
+  ---
+  duration_ms: 1.393083
+  type: 'test'
+  ...
+# Subtest: PowerPoint rejects missing sources and out-of-source crop before generating a misleading picture
+ok 45 - PowerPoint rejects missing sources and out-of-source crop before generating a misleading picture
+  ---
+  duration_ms: 1.227958
+  type: 'test'
+  ...
+# Subtest: quick layout preserves native crop aspect ratio for thin synthetic WB strips
+ok 46 - quick layout preserves native crop aspect ratio for thin synthetic WB strips
+  ---
+  duration_ms: 1.195541
+  type: 'test'
+  ...
+# Subtest: quick layout rejects locked bands and locked automatic labels without mutating the figure
+ok 47 - quick layout rejects locked bands and locked automatic labels without mutating the figure
+  ---
+  duration_ms: 0.530333
+  type: 'test'
+  ...
+# Subtest: quick layout rejects extreme image ratios and excessive figure heights atomically
+ok 48 - quick layout rejects extreme image ratios and excessive figure heights atomically
+  ---
+  duration_ms: 1.439542
+  type: 'test'
+  ...
+# Subtest: quick layout does not label hidden images and splits interleaved sample groups into contiguous spans
+ok 49 - quick layout does not label hidden images and splits interleaved sample groups into contiguous spans
+  ---
+  duration_ms: 4.564083
+  type: 'test'
+  ...
+# Subtest: SVG keeps multiline spaces, image crop, filtering, local flips, rotation and opacity in separate layers
+ok 50 - SVG keeps multiline spaces, image crop, filtering, local flips, rotation and opacity in separate layers
+  ---
+  duration_ms: 0.749666
+  type: 'test'
+  ...
+# Subtest: raster export rejects nonfinite, negative and excessive sizes before allocating a canvas
+ok 51 - raster export rejects nonfinite, negative and excessive sizes before allocating a canvas
+  ---
+  duration_ms: 0.844
+  type: 'test'
+  ...
+# Subtest: PNG resolution is unique, CRC-valid, and leaves pixel data untouched
+ok 52 - PNG resolution is unique, CRC-valid, and leaves pixel data untouched
+  ---
+  duration_ms: 1.1465
+  type: 'test'
+  ...
+# Subtest: PNG resolution writer rejects invalid DPI and incomplete input
+ok 53 - PNG resolution writer rejects invalid DPI and incomplete input
+  ---
+  duration_ms: 0.896916
+  type: 'test'
+  ...
+# Subtest: ImageJ bundle is a CRC-valid ZIP with one native TIFF per image object and explicit untested-runtime provenance
+ok 54 - ImageJ bundle is a CRC-valid ZIP with one native TIFF per image object and explicit untested-runtime provenance
+  ---
+  duration_ms: 22.60525
+  type: 'test'
+  ...
+# Subtest: bundle expected measurements match production raw-pixel measurement on the same effective integer ROIs
+ok 55 - bundle expected measurements match production raw-pixel measurement on the same effective integer ROIs
+  ---
+  duration_ms: 3.042459
+  type: 'test'
+  ...
+# Subtest: CSV distinguishes raw sums, directional signal and background rows and preserves Unicode, quotes and multiline sample IDs
+ok 56 - CSV distinguishes raw sums, directional signal and background rows and preserves Unicode, quotes and multiline sample IDs
+  ---
+  duration_ms: 4.611833
+  type: 'test'
+  ...
+# Subtest: generated ImageJ macro uses raw histogram statistics and never mutates images, Results tables or ROI Manager
+ok 57 - generated ImageJ macro uses raw histogram statistics and never mutates images, Results tables or ROI Manager
+  ---
+  duration_ms: 4.223542
+  type: 'test'
+  ...
+# Subtest: macro metadata is encoded as UTF-16 code units, so Unicode and quote-bearing labels cannot become macro statements
+ok 58 - macro metadata is encoded as UTF-16 code units, so Unicode and quote-bearing labels cannot become macro statements
+  ---
+  duration_ms: 6.417084
+  type: 'test'
+  ...
+# Subtest: absence of a background preserves directional signal as corrected signal, with empty background fields
+ok 59 - absence of a background preserves directional signal as corrected signal, with empty background fields
+  ---
+  duration_ms: 2.371416
+  type: 'test'
+  ...
+# Subtest: ImageJ bundle rejects damaged native pixels, missing sources, out-of-image ROI and absent sample mapping
+ok 60 - ImageJ bundle rejects damaged native pixels, missing sources, out-of-image ROI and absent sample mapping
+  ---
+  duration_ms: 1.722958
+  type: 'test'
+  ...
+# Subtest: independent Pillow reads exact unsigned native 8/16-bit pixels, little-endian TIFF, single pages and no calibration
+ok 61 - independent Pillow reads exact unsigned native 8/16-bit pixels, little-endian TIFF, single pages and no calibration
+  ---
+  duration_ms: 367.747417
+  type: 'test'
+  ...
+# Subtest: production analysis page includes ImageJ measurement names, scope and profile exports
+ok 62 - production analysis page includes ImageJ measurement names, scope and profile exports
+  ---
+  duration_ms: 128.338334
+  type: 'test'
+  ...
+# Subtest: profile uses the selected original ROI independently of displayed crop, rotation and zoom
+ok 63 - profile uses the selected original ROI independently of displayed crop, rotation and zoom
+  ---
+  duration_ms: 27.107959
+  type: 'test'
+  ...
+# Subtest: ImageJ measurement sheet keeps pixel sum distinct from dark directional signal
+ok 64 - ImageJ measurement sheet keeps pixel sum distinct from dark directional signal
+  ---
+  duration_ms: 53.40025
+  type: 'test'
+  ...
+# Subtest: ImageJ exports preserve real profile values and Excel format with truthful browser status
+ok 65 - ImageJ exports preserve real profile values and Excel format with truthful browser status
+  ---
+  duration_ms: 64.627125
+  type: 'test'
+  ...
+# Subtest: ImageJ export cancellation cannot announce success and no-ROI profile is rejected clearly
+ok 66 - ImageJ export cancellation cannot announce success and no-ROI profile is rejected clearly
+  ---
+  duration_ms: 53.884
+  type: 'test'
+  ...
+# Subtest: ImageJ compatible method scope is explicit and original Java oracle is not implied
+ok 67 - ImageJ compatible method scope is explicit and original Java oracle is not implied
+  ---
+  duration_ms: 1.4425
+  type: 'test'
+  ...
+# Subtest: 36 simulated WB ROIs agree with independent NumPy measurements without changing existing results
+ok 68 - 36 simulated WB ROIs agree with independent NumPy measurements without changing existing results
+  ---
+  duration_ms: 80.434958
+  type: 'test'
+  ...
+# Subtest: RawIntDen remains a raw pixel sum and dark inversion has a separately named output
+ok 69 - RawIntDen remains a raw pixel sum and dark inversion has a separately named output
+  ---
+  duration_ms: 1.200625
+  type: 'test'
+  ...
+# Subtest: effective clipped integer coordinates are returned for reproducible macro measurement
+ok 70 - effective clipped integer coordinates are returned for reproducible macro measurement
+  ---
+  duration_ms: 0.846208
+  type: 'test'
+  ...
+# Subtest: x and y mean profiles agree with hand-calculated values at original pixel positions
+ok 71 - x and y mean profiles agree with hand-calculated values at original pixel positions
+  ---
+  duration_ms: 0.529209
+  type: 'test'
+  ...
+# Subtest: profile inversion uses the native bit-depth maximum and preserves sub-8-bit differences
+ok 72 - profile inversion uses the native bit-depth maximum and preserves sub-8-bit differences
+  ---
+  duration_ms: 0.592375
+  type: 'test'
+  ...
+# Subtest: profile and measurements do not modify pixels, display settings or supplied rectangles
+ok 73 - profile and measurements do not modify pixels, display settings or supplied rectangles
+  ---
+  duration_ms: 0.178041
+  type: 'test'
+  ...
+# Subtest: threshold, calibration, invalid axes and malformed rectangles are rejected
+ok 74 - threshold, calibration, invalid axes and malformed rectangles are rejected
+  ---
+  duration_ms: 0.472959
+  type: 'test'
+  ...
+# Subtest: PPTX contains independent editable texts and all template relationships
+ok 75 - PPTX contains independent editable texts and all template relationships
+  ---
+  duration_ms: 11.932542
+  type: 'test'
+  ...
+# Subtest: malformed, empty and entirely external ROIs fail before computing a number
+ok 76 - malformed, empty and entirely external ROIs fail before computing a number
+  ---
+  duration_ms: 2.361084
+  type: 'test'
+  ...
+# Subtest: partly external fractional ROI exposes its effective original-pixel area
+ok 77 - partly external fractional ROI exposes its effective original-pixel area
+  ---
+  duration_ms: 4.447916
+  type: 'test'
+  ...
+# Subtest: pixel cache is invalidated if source bytes change and malformed native pixels are rejected
+ok 78 - pixel cache is invalidated if source bytes change and malformed native pixels are rejected
+  ---
+  duration_ms: 0.918584
+  type: 'test'
+  ...
+# Subtest: background overlap is disclosed without hiding the measured raw values
+ok 79 - background overlap is disclosed without hiding the measured raw values
+  ---
+  duration_ms: 1.74825
+  type: 'test'
+  ...
+# Subtest: clipped background, overlapping bands and saturated reference warnings remain visible
+ok 80 - clipped background, overlapping bands and saturated reference warnings remain visible
+  ---
+  duration_ms: 0.896667
+  type: 'test'
+  ...
+# Subtest: self reference cannot fabricate unit ratios
+ok 81 - self reference cannot fabricate unit ratios
+  ---
+  duration_ms: 0.155417
+  type: 'test'
+  ...
+# Subtest: reference matching follows sample identity when ROI order differs
+ok 82 - reference matching follows sample identity when ROI order differs
+  ---
+  duration_ms: 0.166375
+  type: 'test'
+  ...
+# Subtest: duplicate reference assignments and missing references never generate ratios
+ok 83 - duplicate reference assignments and missing references never generate ratios
+  ---
+  duration_ms: 0.713667
+  type: 'test'
+  ...
+# Subtest: duplicate sample IDs cannot enter statistics or reference normalization
+ok 84 - duplicate sample IDs cannot enter statistics or reference normalization
+  ---
+  duration_ms: 1.108708
+  type: 'test'
+  ...
+# Subtest: missing ROI sample mapping is explicit instead of silently omitted
+ok 85 - missing ROI sample mapping is explicit instead of silently omitted
+  ---
+  duration_ms: 1.340917
+  type: 'test'
+  ...
+# Subtest: multiple exposures of one sample cannot inflate biological n
+ok 86 - multiple exposures of one sample cannot inflate biological n
+  ---
+  duration_ms: 0.688667
+  type: 'test'
+  ...
+# Subtest: all invalid observations and invalid metric are reported without synthetic values
+ok 87 - all invalid observations and invalid metric are reported without synthetic values
+  ---
+  duration_ms: 0.160583
+  type: 'test'
+  ...
+# Subtest: Holm correction identifies comparisons by index, including repeated group labels
+ok 88 - Holm correction identifies comparisons by index, including repeated group labels
+  ---
+  duration_ms: 0.135042
+  type: 'test'
+  ...
+# Subtest: empty, singleton, nonfinite and zero-variance statistics are explicit
+ok 89 - empty, singleton, nonfinite and zero-variance statistics are explicit
+  ---
+  duration_ms: 0.204458
+  type: 'test'
+  ...
+# Subtest: Welch probabilities, degrees of freedom and scale invariance agree with SciPy
+ok 90 - Welch probabilities, degrees of freedom and scale invariance agree with SciPy
+  ---
+  duration_ms: 3.386917
+  type: 'test'
+  ...
+# Subtest: ROI generation rejects empty, noninteger and unbounded lane counts
+ok 91 - ROI generation rejects empty, noninteger and unbounded lane counts
+  ---
+  duration_ms: 0.1365
+  type: 'test'
+  ...
+# Subtest: Pillow independent full pixel reference: multipage.tif
+ok 92 - Pillow independent full pixel reference: multipage.tif
+  ---
+  duration_ms: 64.2375
+  type: 'test'
+  ...
+# Subtest: Pillow independent full pixel reference: native-big-packbits-p1.tif
+ok 93 - Pillow independent full pixel reference: native-big-packbits-p1.tif
+  ---
+  duration_ms: 3.484416
+  type: 'test'
+  ...
+# Subtest: Pillow independent full pixel reference: native-big-raw-p1.tif
+ok 94 - Pillow independent full pixel reference: native-big-raw-p1.tif
+  ---
+  duration_ms: 3.83075
+  type: 'test'
+  ...
+# Subtest: Pillow independent full pixel reference: native-big-tiff_adobe_deflate-p1.tif
+ok 95 - Pillow independent full pixel reference: native-big-tiff_adobe_deflate-p1.tif
+  ---
+  duration_ms: 34.404291
+  type: 'test'
+  ...
+# Subtest: Pillow independent full pixel reference: native-big-tiff_adobe_deflate-p2.tif
+ok 96 - Pillow independent full pixel reference: native-big-tiff_adobe_deflate-p2.tif
+  ---
+  duration_ms: 11.268
+  type: 'test'
+  ...
+# Subtest: Pillow independent full pixel reference: native-big-tiff_lzw-p1.tif
+ok 97 - Pillow independent full pixel reference: native-big-tiff_lzw-p1.tif
+  ---
+  duration_ms: 12.69475
+  type: 'test'
+  ...
+# Subtest: Pillow independent full pixel reference: native-big-tiff_lzw-p2.tif
+ok 98 - Pillow independent full pixel reference: native-big-tiff_lzw-p2.tif
+  ---
+  duration_ms: 4.121708
+  type: 'test'
+  ...
+# Subtest: Pillow independent full pixel reference: native-little-packbits-p1.tif
+ok 99 - Pillow independent full pixel reference: native-little-packbits-p1.tif
+  ---
+  duration_ms: 2.644542
+  type: 'test'
+  ...
+# Subtest: Pillow independent full pixel reference: native-little-raw-p1.tif
+ok 100 - Pillow independent full pixel reference: native-little-raw-p1.tif
+  ---
+  duration_ms: 2.502458
+  type: 'test'
+  ...
+# Subtest: Pillow independent full pixel reference: native-little-tiff_adobe_deflate-p1.tif
+ok 101 - Pillow independent full pixel reference: native-little-tiff_adobe_deflate-p1.tif
+  ---
+  duration_ms: 8.42425
+  type: 'test'
+  ...
+# Subtest: Pillow independent full pixel reference: native-little-tiff_adobe_deflate-p2.tif
+ok 102 - Pillow independent full pixel reference: native-little-tiff_adobe_deflate-p2.tif
+  ---
+  duration_ms: 7.655875
+  type: 'test'
+  ...
+# Subtest: Pillow independent full pixel reference: native-little-tiff_lzw-p1.tif
+ok 103 - Pillow independent full pixel reference: native-little-tiff_lzw-p1.tif
+  ---
+  duration_ms: 10.442708
+  type: 'test'
+  ...
+# Subtest: Pillow independent full pixel reference: native-little-tiff_lzw-p2.tif
+ok 104 - Pillow independent full pixel reference: native-little-tiff_lzw-p2.tif
+  ---
+  duration_ms: 7.230791
+  type: 'test'
+  ...
+# Subtest: Pillow independent full pixel reference: rgb-predictor.tif
+ok 105 - Pillow independent full pixel reference: rgb-predictor.tif
+  ---
+  duration_ms: 11.905292
+  type: 'test'
+  ...
+# Subtest: Pillow independent full pixel reference: simulated-wb16.tif
+ok 106 - Pillow independent full pixel reference: simulated-wb16.tif
+  ---
+  duration_ms: 9.910916
+  type: 'test'
+  ...
+# Subtest: Pillow independent full pixel reference: white-zero-16.tif
+ok 107 - Pillow independent full pixel reference: white-zero-16.tif
+  ---
+  duration_ms: 8.523375
+  type: 'test'
+  ...
+# Subtest: Pillow independent full pixel reference: white-zero-8.tif
+ok 108 - Pillow independent full pixel reference: white-zero-8.tif
+  ---
+  duration_ms: 1.321291
+  type: 'test'
+  ...
+# Subtest: 12 simulated 16-bit WB lanes agree with independent NumPy ROI calculations
+ok 109 - 12 simulated 16-bit WB lanes agree with independent NumPy ROI calculations
+  ---
+  duration_ms: 20.334125
+  type: 'test'
+  ...
+# Subtest: TIFF rejects truncated headers, empty files and out-of-range IFD pointers
+ok 110 - TIFF rejects truncated headers, empty files and out-of-range IFD pointers
+  ---
+  duration_ms: 2.23675
+  type: 'test'
+  ...
+# Subtest: TIFF rejects zero rows, mismatched strip counts, extra raw samples and non-gray photometry
+ok 111 - TIFF rejects zero rows, mismatched strip counts, extra raw samples and non-gray photometry
+  ---
+  duration_ms: 0.410959
+  type: 'test'
+  ...
+# Subtest: unsupported TIFF orientation, planar, predictor, sample format and tiles are explicit errors
+ok 112 - unsupported TIFF orientation, planar, predictor, sample format and tiles are explicit errors
+  ---
+  duration_ms: 1.368167
+  type: 'test'
+  ...
+# Subtest: cyclic TIFF directories and unknown compression are rejected
+ok 113 - cyclic TIFF directories and unknown compression are rejected
+  ---
+  duration_ms: 1.25025
+  type: 'test'
+  ...
+# Subtest: TIFF compression expands only to the exact expected strip length
+ok 114 - TIFF compression expands only to the exact expected strip length
+  ---
+  duration_ms: 0.881917
+  type: 'test'
+  ...
+# Subtest: Deflate truncation and over-expansion cannot create incomplete quantitative pixels
+ok 115 - Deflate truncation and over-expansion cannot create incomplete quantitative pixels
+  ---
+  duration_ms: 7.749958
+  type: 'test'
+  ...
+# Subtest: mixed channel bit depths cannot silently decode as 8-bit RGB
+ok 116 - mixed channel bit depths cannot silently decode as 8-bit RGB
+  ---
+  duration_ms: 0.442667
+  type: 'test'
+  ...
+# Subtest: TIFF export validates geometry and writes exact RGB after white alpha composition
+ok 117 - TIFF export validates geometry and writes exact RGB after white alpha composition
+  ---
+  duration_ms: 0.410959
+  type: 'test'
+  ...
+# Subtest: 8-bit dark band correction uses background mean and ROI area
+ok 118 - 8-bit dark band correction uses background mean and ROI area
+  ---
+  duration_ms: 3.529334
+  type: 'test'
+  ...
+# Subtest: 16-bit native values are preserved, not mapped through preview
+ok 119 - 16-bit native values are preserved, not mapped through preview
+  ---
+  duration_ms: 0.7675
+  type: 'test'
+  ...
+# Subtest: negative corrected signals remain negative for audit
+ok 120 - negative corrected signals remain negative for audit
+  ---
+  duration_ms: 0.376125
+  type: 'test'
+  ...
+# Subtest: bright-on-dark polarity, edge saturation and ROI clipping
+ok 121 - bright-on-dark polarity, edge saturation and ROI clipping
+  ---
+  duration_ms: 0.446458
+  type: 'test'
+  ...
+# Subtest: display brightness and contrast have no influence on original quantification
+ok 122 - display brightness and contrast have no influence on original quantification
+  ---
+  duration_ms: 1.266542
+  type: 'test'
+  ...
+# Subtest: reference protein is matched by sample ID and zero references are excluded
+ok 123 - reference protein is matched by sample ID and zero references are excluded
+  ---
+  duration_ms: 5.480084
+  type: 'test'
+  ...
+# Subtest: normalization uses included control mean and does not clamp or fabricate data
+ok 124 - normalization uses included control mean and does not clamp or fabricate data
+  ---
+  duration_ms: 0.457041
+  type: 'test'
+  ...
+# Subtest: Welch t probabilities agree with independent SciPy fixtures
+ok 125 - Welch t probabilities agree with independent SciPy fixtures
+  ---
+  duration_ms: 1.277791
+  type: 'test'
+  ...
+# Subtest: Holm adjusts the full valid comparison family monotonically
+ok 126 - Holm adjusts the full valid comparison family monotonically
+  ---
+  duration_ms: 0.68775
+  type: 'test'
+  ...
+# Subtest: ROI generation maintains source coordinates and sample assignment
+ok 127 - ROI generation maintains source coordinates and sample assignment
+  ---
+  duration_ms: 0.418666
+  type: 'test'
+  ...
+# Subtest: equal spacing and alignment use actual object extents
+ok 128 - equal spacing and alignment use actual object extents
+  ---
+  duration_ms: 0.229
+  type: 'test'
+  ...
+# Subtest: SVG exports escaped text and preserves independent objects
+ok 129 - SVG exports escaped text and preserves independent objects
+  ---
+  duration_ms: 0.651291
+  type: 'test'
+  ...
+# Subtest: project importer rejects unsafe image URLs and malformed geometry
+ok 130 - project importer rejects unsafe image URLs and malformed geometry
+  ---
+  duration_ms: 1.892417
+  type: 'test'
+  ...
+# Subtest: 8-bit RGB TIFF encoder roundtrips without losing gray pixel values
+ok 131 - 8-bit RGB TIFF encoder roundtrips without losing gray pixel values
+  ---
+  duration_ms: 1.477041
+  type: 'test'
+  ...
+# Subtest: independent Pillow TIFF native 16-bit raw
+ok 132 - independent Pillow TIFF native 16-bit raw
+  ---
+  duration_ms: 1.263667
+  type: 'test'
+  ...
+# Subtest: independent Pillow TIFF native 16-bit tiff_lzw
+ok 133 - independent Pillow TIFF native 16-bit tiff_lzw
+  ---
+  duration_ms: 11.088334
+  type: 'test'
+  ...
+# Subtest: independent Pillow TIFF native 16-bit packbits
+ok 134 - independent Pillow TIFF native 16-bit packbits
+  ---
+  duration_ms: 2.2205
+  type: 'test'
+  ...
+# Subtest: independent Pillow TIFF native 16-bit tiff_adobe_deflate
+ok 135 - independent Pillow TIFF native 16-bit tiff_adobe_deflate
+  ---
+  duration_ms: 20.630334
+  type: 'test'
+  ...
+# Subtest: independent Pillow TIFF native 16-bit big-endian
+ok 136 - independent Pillow TIFF native 16-bit big-endian
+  ---
+  duration_ms: 1.428708
+  type: 'test'
+  ...
+# Subtest: ZIP / XLSX exports have valid CRCs and UTF-8 local entries
+ok 137 - ZIP / XLSX exports have valid CRCs and UTF-8 local entries
+  ---
+  duration_ms: 2.857917
+  type: 'test'
+  ...
+# Subtest: PNG export replaces existing resolution metadata instead of duplicating pHYs
+ok 138 - PNG export replaces existing resolution metadata instead of duplicating pHYs
+  ---
+  duration_ms: 0.989083
+  type: 'test'
+  ...
+# Subtest: Windows save waits for native disk completion and sanitizes the name
+ok 139 - Windows save waits for native disk completion and sanitizes the name
+  ---
+  duration_ms: 8.473042
+  type: 'test'
+  ...
+# Subtest: Windows save cancellation is rejected and permits the next save
+ok 140 - Windows save cancellation is rejected and permits the next save
+  ---
+  duration_ms: 0.922875
+  type: 'test'
+  ...
+# Subtest: Windows write failure preserves error text
+ok 141 - Windows write failure preserves error text
+  ---
+  duration_ms: 0.596333
+  type: 'test'
+  ...
+# Subtest: Windows concurrent saves cannot overwrite the active callback
+ok 142 - Windows concurrent saves cannot overwrite the active callback
+  ---
+  duration_ms: 1.126459
+  type: 'test'
+  ...
+# Subtest: Windows bridge exception cleans up the pending save
+ok 143 - Windows bridge exception cleans up the pending save
+  ---
+  duration_ms: 1.761375
+  type: 'test'
+  ...
+# Subtest: all four primary surfaces produce meaningful markup without runtime exceptions
+ok 144 - all four primary surfaces produce meaningful markup without runtime exceptions
+  ---
+  duration_ms: 240.343625
+  type: 'test'
+  ...
+# Subtest: real editor actions create, modify, duplicate, undo, redo and delete independent objects
+ok 145 - real editor actions create, modify, duplicate, undo, redo and delete independent objects
+  ---
+  duration_ms: 7.900458
+  type: 'test'
+  ...
+# Subtest: group clone, reference IDs, library data and project serialization stay coherent
+ok 146 - group clone, reference IDs, library data and project serialization stay coherent
+  ---
+  duration_ms: 10.21875
+  type: 'test'
+  ...
+# Subtest: merging figure panels preserves source groups and removes ambiguous copy quantification
+ok 147 - merging figure panels preserves source groups and removes ambiguous copy quantification
+  ---
+  duration_ms: 1.443375
+  type: 'test'
+  ...
+# Subtest: new real projects start without simulated data and markup handles narrow canvas dimensions
+ok 148 - new real projects start without simulated data and markup handles narrow canvas dimensions
+  ---
+  duration_ms: 2.690667
+  type: 'test'
+  ...
+1..148
+# tests 148
+# suites 0
+# pass 148
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 18979.077958

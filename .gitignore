@@ -1,0 +1,8 @@
+dist/
+.swift-cache/
+release/
+node_modules/
+**/bin/
+**/obj/
+.DS_Store
+*.log

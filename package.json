@@ -1,0 +1,14 @@
+{
+  "name": "blotstudio-free",
+  "version": "0.4.0",
+  "private": true,
+  "description": "Free offline Western blot figure editor and native-depth densitometry",
+  "license": "MIT",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test tests/*.test.cjs",
+    "start": "python3 -m http.server 8765 --bind 127.0.0.1 --directory dist",
+    "build:mac": "node build.mjs --mac",
+    "test:all": "node --test tests/*.test.cjs native/tests/*.test.cjs"
+  }
+}

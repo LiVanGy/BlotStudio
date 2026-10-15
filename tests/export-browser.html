@@ -1,0 +1,30 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>BlotStudio export pixel regression</title>
+<style>body{font:16px system-ui;padding:24px;background:#f7faf9}pre{white-space:pre-wrap}canvas{image-rendering:pixelated;width:512px;height:128px;border:1px solid #bbb} .pass{color:#096d43}.fail{color:#be2222}</style>
+<h1>BlotStudio · 实际浏览器导出像素回归</h1><p>以下为程序生成的已知像素测试图，不是实验结果。</p><div id="preview"></div><pre id="results">运行中…</pre>
+<script src="../src/core.js"></script><script src="../src/scene.js"></script><script src="../src/pptx.js"></script><script src="../src/tiff.js"></script>
+<script>
+(async()=>{
+const B=BS,logs=[],results=document.querySelector('#results'),assert=(ok,msg)=>{if(!ok)throw Error(msg);},near=(a,b)=>{assert(a.length===b.length,'像素数量不一致');a.forEach((v,i)=>assert(Math.abs(v-b[i])<=1,'像素 '+i+': '+v+' ≠ '+b[i]));};
+B.loadImage=url=>new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>reject(Error('图像解码失败'));im.src=url;});
+const check=async(name,f)=>{try{await f();logs.push({name,pass:true});}catch(e){logs.push({name,pass:false,error:e.message});}results.textContent=logs.map(v=>(v.pass?'PASS':'FAIL')+' '+v.name+(v.error?' · '+v.error:'')).join('\n');};
+const source=document.createElement('canvas');source.width=8;source.height=4;const cx=source.getContext('2d'),pixels=cx.createImageData(8,4),values=[0,32,64,96,128,160,224,255];
+for(let y=0;y<4;y++)for(let x=0;x<8;x++){const at=(y*8+x)*4;pixels.data.set([values[x],values[x],values[x],255],at);}cx.putImageData(pixels,0,0);document.querySelector('#preview').append(source);
+const p=B.blankProject(),g=p.groups[0],s={id:'pixel-source',name:'SYNTHETIC-WB.png',url:source.toDataURL(),width:8,height:4},original=B.imageObject(s);p.sources=[s];
+const render=async(props={},background='#ffffff',width=4,height=2)=>{const o={...original,x:0,y:0,w:4,h:2,strokeWidth:0,crop:{x:2,y:1,w:4,h:2},...props};g.canvas={width,height,background};g.objects=[o];return B.rasterize(B.svg(p,g),width,height);};
+const gray=(c,x=0,y=0,w=c.width,h=c.height)=>{const a=c.getContext('2d').getImageData(x,y,w,h).data;return Array.from({length:w*h},(_,i)=>a[i*4]);};
+await check('裁剪按原图坐标，结果 4 × 2 像素',async()=>near(gray(await render()),[64,96,128,160,64,96,128,160]));
+await check('水平和垂直翻转',async()=>near(gray(await render({flipX:true,flipY:true})),[160,128,96,64,160,128,96,64]));
+await check('反相 + 亮度 + 对比度',async()=>near(gray(await render({brightness:150,contrast:125,invert:true})),[183,123,63,3,183,123,63,3]));
+await check('图层透明度和非白色背景',async()=>near(gray(await render({opacity:.25},'#202020')),[40,48,56,64,40,48,56,64]));
+await check('绕对象中心旋转 90°',async()=>near(gray(await render({x:0,y:1,rotation:90,crop:{x:0,y:1,w:4,h:2}},'#ffffff',4,4),1,0,2,4),[0,0,32,32,64,64,96,96]));
+await check('PNG 写入 600 dpi 后解码像素不变',async()=>{const c=await render(),bytes=await B.pngDpi(c,600),im=await B.loadImage('data:image/png;base64,'+B.base64(bytes)),d=document.createElement('canvas');d.width=4;d.height=2;d.getContext('2d').drawImage(im,0,0);near(gray(d),gray(c));});
+await check('TIFF 排版输出与浏览器像素一致',async()=>{const c=await render(),a=c.getContext('2d').getImageData(0,0,4,2).data,t=B.encodeTIFF(a,4,2,300),pages=await B.decodeTIFF(t.buffer);near(Array.from(pages[0].samples),gray(c));});
+await check('实际栅格化的 PPTX 保留完整源预览及原生透明度',async()=>{
+  await render({opacity:.25,flipX:true,rotation:30});g.canvas={width:1000,height:590,background:'#202020'};
+  const bytes=await B.pptx(p,g),d=new DataView(bytes.buffer),files={};let at=0;
+  while(d.getUint32(at,true)===0x04034b50){const size=d.getUint32(at+18,true),n=d.getUint16(at+26,true),extra=d.getUint16(at+28,true),name=new TextDecoder().decode(bytes.subarray(at+30,at+30+n)),start=at+30+n+extra;files[name]=bytes.subarray(start,start+size);at=start+size;}
+  const media=files[Object.keys(files).find(k=>k.startsWith('ppt/media/'))],im=await B.loadImage('data:image/png;base64,'+B.base64(media)),c=document.createElement('canvas');assert(im.width===8&&im.height===4,'PPTX 源图丢失裁剪外像素');c.width=8;c.height=4;c.getContext('2d').drawImage(im,0,0);near(gray(c),Array(4).fill(values).flat());assert(c.getContext('2d').getImageData(0,0,1,1).data[3]===255,'PPTX 提前烘焙图层透明度');const xml=new TextDecoder().decode(files['ppt/slides/slide1.xml']);assert(xml.includes('alphaModFix amt="25000"'),'PPTX 图层原生透明度缺失');
+});
+window.exportTestResults={passed:logs.filter(v=>v.pass).length,total:logs.length,tests:logs};results.className=logs.every(v=>v.pass)?'pass':'fail';results.textContent+='\n\n'+window.exportTestResults.passed+' / '+logs.length+' passed';document.title='Export '+window.exportTestResults.passed+'/'+logs.length;
+})();
+</script></html>
