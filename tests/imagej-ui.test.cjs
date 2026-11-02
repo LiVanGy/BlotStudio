@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 for(const name of ['core','science','imagej','scene','ui','imagej-ui'])require('../src/'+name+'.js');
 const B=globalThis.BS;
 function setup(){
-  const p=JSON.parse(fs.readFileSync(path.join(__dirname,'../examples/SYNTHETIC-WB-workflow.wbproj'),'utf8'));B.validate(p);const g=p.groups[0],o=g.objects[0],s=p.sources[0];
+  const p=JSON.parse(fs.readFileSync(path.join(process.env.BLOTSTUDIO_EXAMPLE_DIR||path.join(__dirname,'../examples'),'SYNTHETIC-WB-workflow.wbproj'),'utf8'));B.validate(p);const g=p.groups[0],o=g.objects[0],s=p.sources[0];
   B.state={p,ui:{group:g.id,analysisId:o.id,roiId:o.rois[0].id,analysisTool:'roi',analysisZoom:.5,imagejAxis:'y',imagejInvert:false}};
   B.toast=()=>{};return{p,g,o,s};
 }
@@ -15,7 +15,7 @@ test('profile uses the selected original ROI independently of displayed crop, ro
   const {profile,roi}=B.currentImagejProfile();assert.equal(roi.sampleIndex,2);assert.equal(profile.coords[0],32);assert.equal(profile.coords.at(-1),63);const pixels=B.pixels(s),sum=Array.from({length:42},(_,i)=>pixels[32*s.width+129+i]).reduce((a,v)=>a+v,0);assert.equal(profile.values[0],sum/42);
 });
 test('ImageJ measurement sheet keeps pixel sum distinct from dark directional signal',()=>{
-  const {p,g}=setup(),rows=B.imagejResultRows(p,g),reference=JSON.parse(fs.readFileSync(path.join(__dirname,'../examples/workflow-fixture.json'),'utf8')).expected[0],row=rows[4];
+  const {p,g}=setup(),rows=B.imagejResultRows(p,g),reference=JSON.parse(fs.readFileSync(path.join(process.env.BLOTSTUDIO_EXAMPLE_DIR||path.join(__dirname,'../examples'),'workflow-fixture.json'),'utf8')).expected[0],row=rows[4];
   assert.equal(rows.length,40);assert.equal(row[4],reference.area);assert.equal(row[5],reference.mean);assert.equal(row[6],reference.mean*reference.area);assert.equal(row[8],reference.raw);assert.notEqual(row[6],row[8]);assert.equal(row[10],reference.corrected);assert.deepEqual(row.slice(11,15),[9,32,42,32]);
 });
 test('ImageJ exports preserve real profile values and Excel format with truthful browser status',async()=>{

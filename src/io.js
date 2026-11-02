@@ -12,10 +12,10 @@
     const mime=a[0]===73&&a[1]===73||a[0]===77&&a[1]===77?'image/tiff':a[0]===137&&a[1]===80?'image/png':a[0]===255&&a[1]===216?'image/jpeg':a[0]===82&&a[8]===87?'image/webp':null;
     if(!mime)throw Error('支持 PNG、JPEG、WebP 和 TIFF；SVG 请作为文本/形状重新编辑。');
     const original='data:'+mime+';base64,'+B.base64(a),extra={original,hash,originalSize:file.size,originalName:file.name};
-    if(mime==='image/tiff'){const pages=await B.decodeTIFF(buf);return pages.map((p,i)=>B.sourceFromPixels(file.name+(pages.length>1?' · 第'+(i+1)+'页':''),p.width,p.height,p.bitDepth,p.samples,{...extra,info:p.info}));}
+    if(mime==='image/tiff'){const pages=await B.decodeTIFF(buf);return pages.map((p,i)=>B.sourceFromPixels(file.name+(pages.length>1?' · 第'+(i+1)+'页':''),p.width,p.height,p.bitDepth,p.samples,{...extra,info:p.info,...(p.rgbSamples?{rgbPixels:B.base64(p.rgbSamples)}:{})}));}
     if(mime==='image/png'&&a[24]>8)throw Error('PNG 是高位深图像。请将高位深原图无损导出为 16-bit 灰度 TIFF，避免定量降位深。');
     const im=await B.loadImage(original);if(im.width*im.height>32000000)throw Error('单图最多 3200 万像素。');const c=document.createElement('canvas');c.width=im.width;c.height=im.height;const ctx=c.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(im,0,0);const data=ctx.getImageData(0,0,c.width,c.height).data,p=new Uint8Array(c.width*c.height);for(let i=0;i<p.length;i++)p[i]=Math.round(.299*data[i*4]+.587*data[i*4+1]+.114*data[i*4+2]);
-    const s=B.sourceFromPixels(file.name,c.width,c.height,8,p,{...extra,info:'8-bit RGB luminance'});s.url=c.toDataURL('image/png');return[s];
+    const s=B.sourceFromPixels(file.name,c.width,c.height,8,p,{...extra,info:'8-bit RGB luminance'});s.url=c.toDataURL('image/png');const rgb=new Uint8Array(p.length*3);for(let i=0;i<p.length;i++)rgb.set(data.subarray(i*4,i*4+3),i*3);s.rgbPixels=B.base64(rgb);return[s];
   };
   B.loadImage=url=>new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>reject(Error('图像解码失败。'));im.src=url;});
   const nativeSaves=new Map();

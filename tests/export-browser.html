@@ -1,7 +1,7 @@
 <!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>BlotStudio export pixel regression</title>
 <style>body{font:16px system-ui;padding:24px;background:#f7faf9}pre{white-space:pre-wrap}canvas{image-rendering:pixelated;width:512px;height:128px;border:1px solid #bbb} .pass{color:#096d43}.fail{color:#be2222}</style>
 <h1>BlotStudio · 实际浏览器导出像素回归</h1><p>以下为程序生成的已知像素测试图，不是实验结果。</p><div id="preview"></div><pre id="results">运行中…</pre>
-<script src="../src/core.js"></script><script src="../src/scene.js"></script><script src="../src/pptx.js"></script><script src="../src/tiff.js"></script>
+<script src="../src/core.js"></script><script src="../src/display.js"></script><script src="../src/scene.js"></script><script src="../src/pptx.js"></script><script src="../src/tiff.js"></script>
 <script>
 (async()=>{
 const B=BS,logs=[],results=document.querySelector('#results'),assert=(ok,msg)=>{if(!ok)throw Error(msg);},near=(a,b)=>{assert(a.length===b.length,'像素数量不一致');a.forEach((v,i)=>assert(Math.abs(v-b[i])<=1,'像素 '+i+': '+v+' ≠ '+b[i]));};
@@ -25,6 +25,7 @@ await check('实际栅格化的 PPTX 保留完整源预览及原生透明度',as
   while(d.getUint32(at,true)===0x04034b50){const size=d.getUint32(at+18,true),n=d.getUint16(at+26,true),extra=d.getUint16(at+28,true),name=new TextDecoder().decode(bytes.subarray(at+30,at+30+n)),start=at+30+n+extra;files[name]=bytes.subarray(start,start+size);at=start+size;}
   const media=files[Object.keys(files).find(k=>k.startsWith('ppt/media/'))],im=await B.loadImage('data:image/png;base64,'+B.base64(media)),c=document.createElement('canvas');assert(im.width===8&&im.height===4,'PPTX 源图丢失裁剪外像素');c.width=8;c.height=4;c.getContext('2d').drawImage(im,0,0);near(gray(c),Array(4).fill(values).flat());assert(c.getContext('2d').getImageData(0,0,1,1).data[3]===255,'PPTX 提前烘焙图层透明度');const xml=new TextDecoder().decode(files['ppt/slides/slide1.xml']);assert(xml.includes('alphaModFix amt="25000"'),'PPTX 图层原生透明度缺失');
 });
+await check('256 级灰度恒等显示无颜色空间量化偏移',async()=>{const input=Uint8ClampedArray.from(Array.from({length:256},(_,v)=>[v,v,v,255]).flat());near(Array.from(B.displayPixels(input,{grayscale:true})),Array.from(input));});
 window.exportTestResults={passed:logs.filter(v=>v.pass).length,total:logs.length,tests:logs};results.className=logs.every(v=>v.pass)?'pass':'fail';results.textContent+='\n\n'+window.exportTestResults.passed+' / '+logs.length+' passed';document.title='Export '+window.exportTestResults.passed+'/'+logs.length;
 })();
 </script></html>

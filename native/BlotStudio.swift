@@ -83,6 +83,7 @@ import WebKit
               NativeProtocol.allowsDocument(frameURL, expected:documentURL),
               let body = message.body as? [String:Any], let id = body["id"] as? String,
               !id.isEmpty, id.utf8.count <= 200 else { return }
+        if body["workspace"] is String { handleWorkspace(body, id: id); return }
         guard let name = body["name"] as? String, !name.isEmpty,
               let encoded = body["data"] as? String, let data = Data(base64Encoded:encoded) else {
             replyToSave(id, status:"error", message:"导出数据不完整或无法解码。"); return
@@ -106,6 +107,30 @@ import WebKit
                 self.replyToSave(id, status:"error", message:error.localizedDescription)
             }
         }
+    }
+
+    private var workspaceURL: URL?
+    private func workspaceReply(_ id: String, status: String, message: String = "") {
+        guard let data = try? JSONSerialization.data(withJSONObject: [id, status, message]), let json = String(data: data, encoding: .utf8) else { return }
+        webView.evaluateJavaScript("globalThis.BS?.workspaceResult?.(..." + json + ");", completionHandler: nil)
+    }
+    private func handleWorkspace(_ body: [String:Any], id: String) {
+        guard activeSaveID == nil, window.attachedSheet == nil, shutdownRequest == nil || body["workspace"] as? String == "write" else { workspaceReply(id, status: "error", message: "请先完成当前对话框。"); return }
+        if body["workspace"] as? String == "choose" {
+            let panel = NSOpenPanel(); panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.allowsMultipleSelection = false; panel.canCreateDirectories = true
+            panel.beginSheetModal(for: window) { [weak self] result in
+                guard let self else { return }
+                guard result == .OK, let url = panel.url else { self.workspaceReply(id, status: "cancelled"); return }
+                self.workspaceURL = url; self.workspaceReply(id, status: "ok", message: url.path)
+            }
+            return
+        }
+        guard body["workspace"] as? String == "write", let root = workspaceURL, let name = body["name"] as? String,
+              name.hasPrefix("BlotStudio-"), name.hasSuffix(".wbproj"), name == URL(fileURLWithPath: name).lastPathComponent,
+              !name.contains("/"), !name.contains("\\"), let encoded = body["data"] as? String,
+              let data = Data(base64Encoded: encoded), data.count <= 220*1024*1024 else { workspaceReply(id, status: "error", message: "存储目录未选择或文件参数无效。"); return }
+        do { try data.write(to: root.appendingPathComponent(name), options: .atomic); workspaceReply(id, status: "ok", message: name) }
+        catch { workspaceReply(id, status: "error", message: error.localizedDescription) }
     }
 
     func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {

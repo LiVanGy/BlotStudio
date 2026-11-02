@@ -13,7 +13,7 @@
       const alpha=Math.round(B.clamp(opacity,0,1)*(h.length===8?parseInt(h.slice(6),16)/255:1)*100000);
       return '<a:solidFill><a:srgbClr val="'+h.slice(0,6).toUpperCase()+'">'+(alpha<100000?'<a:alpha val="'+alpha+'"/>':'')+'</a:srgbClr></a:solidFill>';
     };
-    const line=o=>{const width=B.clamp(B.num(o.strokeWidth,1),0,20);return '<a:ln w="'+emu(width)+'">'+(width?color(o.stroke,B.clamp(B.num(o.opacity,1),0,1)):'<a:noFill/>')+'</a:ln>';};
+    const line=o=>{const width=B.clamp(B.num(o.strokeWidth,1),0,20);return '<a:ln w="'+emu(width)+'">'+(width?color(o.stroke,B.clamp(B.num(o.opacity,1),0,1)):'<a:noFill/>')+(o.dash==='dash'?'<a:prstDash val="dash"/>':o.dash==='dot'?'<a:prstDash val="sysDot"/>':'')+'</a:ln>';};
     const geometry=o=>{
       if(o.type==='text'||o.type==='rect'||o.type==='image')return '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>';
       // Custom geometry remains an editable Office shape and matches the SVG path.
@@ -38,7 +38,7 @@
         shapes.push('<p:pic><p:nvPicPr><p:cNvPr id="'+id+'" name="'+e(o.name)+'" descr="'+e('来源：'+source.name+'；源文件标识：'+(source.hash||source.id))+'"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="'+rid+'">'+(opacity<1?'<a:alphaModFix amt="'+Math.round(opacity*100000)+'"/>':'')+'</a:blip>'+srcRect+'<a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr>'+xfrm+geometry(o)+line(o)+'</p:spPr></p:pic>');
       }else{
         const fs=B.clamp(B.num(o.fontSize,22),6,300),fontSize=Math.max(100,Math.round(fs*75*slideScale));
-        const text=o.type==='text'?'<p:txBody><a:bodyPr wrap="none" lIns="0" rIns="0" tIns="0" bIns="0" anchor="t"><a:noAutofit/></a:bodyPr><a:lstStyle/>'+String(o.text||'').split('\n').map(t=>'<a:p><a:pPr algn="'+({left:'l',center:'ctr',right:'r'}[o.align]||'l')+'"><a:lnSpc><a:spcPct val="125000"/></a:lnSpc><a:spcBef><a:spcPts val="0"/></a:spcBef><a:spcAft><a:spcPts val="0"/></a:spcAft></a:pPr><a:r><a:rPr lang="zh-CN" sz="'+fontSize+'" b="'+(o.fontWeight===700?1:0)+'" i="'+(o.italic?1:0)+'">'+color(o.fill,opacity)+'<a:latin typeface="'+e(o.fontFamily||'Arial')+'"/><a:ea typeface="'+e(o.fontFamily||'Arial')+'"/></a:rPr><a:t xml:space="preserve">'+e(t)+'</a:t></a:r><a:endParaRPr sz="'+fontSize+'"/></a:p>').join('')+'</p:txBody>':'';
+        const text=o.type==='text'?'<p:txBody><a:bodyPr wrap="none" lIns="0" rIns="0" tIns="0" bIns="0" anchor="t"><a:noAutofit/></a:bodyPr><a:lstStyle/>'+String(o.text||'').split('\n').map(t=>'<a:p><a:pPr algn="'+({left:'l',center:'ctr',right:'r'}[o.align]||'l')+'"><a:lnSpc><a:spcPct val="125000"/></a:lnSpc><a:spcBef><a:spcPts val="0"/></a:spcBef><a:spcAft><a:spcPts val="0"/></a:spcAft></a:pPr><a:r><a:rPr lang="zh-CN" sz="'+fontSize+'" b="'+(o.fontWeight===700?1:0)+'" i="'+(o.italic?1:0)+'"'+(o.script==='super'?' baseline="30000"':o.script==='sub'?' baseline="-25000"':'')+'>'+color(o.fill,opacity)+'<a:latin typeface="'+e(o.fontFamily||'Arial')+'"/><a:ea typeface="'+e(o.fontFamily||'Arial')+'"/></a:rPr><a:t xml:space="preserve">'+e(t)+'</a:t></a:r><a:endParaRPr sz="'+fontSize+'"/></a:p>').join('')+'</p:txBody>':'';
         shapes.push('<p:sp><p:nvSpPr><p:cNvPr id="'+id+'" name="'+e(o.name)+'"/><p:cNvSpPr txBox="'+(o.type==='text'?1:0)+'"/><p:nvPr/></p:nvSpPr><p:spPr>'+xfrm+geometry(o)+(o.type==='rect'?color(o.fill,opacity):'<a:noFill/>')+(o.type==='text'?'<a:ln><a:noFill/></a:ln>':line(o))+'</p:spPr>'+text+'</p:sp>');
       }
     }

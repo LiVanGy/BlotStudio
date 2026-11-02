@@ -1,0 +1,126 @@
+[
+  {
+    "name": "pixels",
+    "passed": 9,
+    "tests": [
+      {
+        "name": "裁剪按原图坐标，结果 4 × 2 像素",
+        "pass": true
+      },
+      {
+        "name": "水平和垂直翻转",
+        "pass": true
+      },
+      {
+        "name": "反相 + 亮度 + 对比度",
+        "pass": true
+      },
+      {
+        "name": "图层透明度和非白色背景",
+        "pass": true
+      },
+      {
+        "name": "绕对象中心旋转 90°",
+        "pass": true
+      },
+      {
+        "name": "PNG 写入 600 dpi 后解码像素不变",
+        "pass": true
+      },
+      {
+        "name": "TIFF 排版输出与浏览器像素一致",
+        "pass": true
+      },
+      {
+        "name": "实际栅格化的 PPTX 保留完整源预览及原生透明度",
+        "pass": true
+      },
+      {
+        "name": "256 级灰度恒等显示无颜色空间量化偏移",
+        "pass": true
+      }
+    ],
+    "total": 9
+  },
+  {
+    "name": "app",
+    "errors": [],
+    "exports": [
+      {
+        "bytes": 200190,
+        "mime": "image/jpeg",
+        "name": "细胞蛋白.jpg"
+      },
+      {
+        "bytes": 145606,
+        "mime": "application/zip",
+        "name": "细胞蛋白.zip"
+      },
+      {
+        "bytes": 53903,
+        "mime": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "name": "细胞蛋白.xlsx"
+      },
+      {
+        "bytes": 160860,
+        "mime": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "name": "细胞蛋白.pptx"
+      },
+      {
+        "bytes": 392433,
+        "mime": "application/json",
+        "name": "WB 实验项目.wbproj"
+      },
+      {
+        "bytes": 62627,
+        "mime": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "name": "BlotStudio-topic.xlsx"
+      }
+    ],
+    "passed": 10,
+    "suite": "real WebKit app components",
+    "tests": [
+      {
+        "name": "Page renders real controls and editable simulated images",
+        "pass": true
+      },
+      {
+        "name": "Matrix wizard previews and applies twelve distinct sample lanes",
+        "pass": true
+      },
+      {
+        "name": "Condition form calculates planned volume while keeping actual use blank",
+        "pass": true
+      },
+      {
+        "name": "Analysis controls change ellipse method and retain immutable source pixels",
+        "pass": true
+      },
+      {
+        "name": "Cloned graphs remap both denominators; duplicate IDs cannot inflate n",
+        "pass": true
+      },
+      {
+        "name": "Deleted graphs appear in recovery and restore with their source relationships",
+        "pass": true
+      },
+      {
+        "name": "Statistical name editing preserves original sample annotations",
+        "pass": true
+      },
+      {
+        "name": "Real JPG, linked SVG, XLSX, PPTX and project exports complete",
+        "pass": true
+      },
+      {
+        "name": "Topic-scoped Excel supports more than thirty graphs",
+        "pass": true
+      },
+      {
+        "name": "Save/open round trip preserves conditions, analysis and group labels",
+        "pass": true
+      }
+    ],
+    "total": 10
+  }
+]

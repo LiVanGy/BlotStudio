@@ -9,10 +9,12 @@
 @media print{body{overflow:visible;background:white}.app-header,.toolbar,.sidebar,.inspector,.statusbar,.document-bar,.ruler-h,.ruler-v,.zoom-control,.selection,.toast,.modal-shade{display:none!important}.app-main,.editor-center,.canvas-viewport,#canvas-content{display:block;height:auto;overflow:visible;padding:0;background:white}.artboard-wrap{box-shadow:none;width:100%!important;height:auto!important}.artboard{width:100%;height:auto}.app-main:not(.editing)>section{overflow:visible}.content-page,.analysis-page{overflow:visible}}
 
 .imagej-panel{border:1px solid var(--line);border-radius:6px;padding:0 18px 18px;margin:20px 0;background:#fff}.imagej-panel .section-title{margin-top:18px}.imagej-panel .hint{margin-top:7px}.imagej-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.imagej-metrics>div{background:#f1f7f5;padding:12px;border-radius:4px;min-width:0}.imagej-metrics span{display:block;font-size:11px;color:#647c79}.imagej-metrics strong{display:block;margin-top:6px;font-size:17px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}.imagej-profile-controls{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-top:18px}.imagej-profile-controls .field{margin-bottom:12px;min-width:210px}.imagej-profile{display:block;width:100%;max-width:850px;height:auto;margin-top:6px}@media(max-width:700px){.imagej-panel{padding:0 12px 14px}.imagej-panel .section-title{flex-direction:column}.imagej-metrics{grid-template-columns:1fr 1fr}.imagej-profile-controls{gap:10px}}
+
+.condition-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;padding:16px 0}.condition-fields details{grid-column:1/-1;border:1px solid #d7e2df;padding:12px}.profile-panel{background:white;padding:20px}.profile-panel svg{width:100%;max-height:240px}
 </style></head>
 <body><div id="app"><div class="boot">正在打开 BlotStudio…</div></div><input id="images-input" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.tif,.tiff" hidden><input id="project-input" type="file" accept=".wbproj,.json" hidden><noscript>需要启用 JavaScript 才能运行本地编辑器。</noscript><script>(function(B) {
   'use strict';
-  B.VERSION = '0.4.0';
+  B.VERSION = '0.5.0';
   B.uid = () => 'b' + (globalThis.crypto?.randomUUID?.() || (Date.now().toString(36) + Math.random().toString(36).slice(2))).replaceAll('-', '');
   B.clamp = (n,a,b) => Math.max(a,Math.min(b,n));
   B.num = (v,f=0) => Number.isFinite(Number(v)) ? Number(v) : f;
@@ -85,20 +87,25 @@
       if(!text(s.pixels)||s.pixels.length!==Math.ceil(expected/3)*4||!/^[A-Za-z0-9+/]*={0,2}$/.test(s.pixels))throw Error('原始像素长度不匹配，不能打开损坏的项目。');
       try{if(atob(s.pixels).length!==expected)throw Error();}catch{throw Error('原始像素长度不匹配，不能打开损坏的项目。');}
       if(s.original!==undefined&&(!text(s.original)||!/^data:image\/(png|jpeg|webp|tiff);base64,[A-Za-z0-9+/]*={0,2}$/.test(s.original)))throw Error('原始文件数据格式无效。');
+      if(s.rgbPixels!==undefined&&(!text(s.rgbPixels)||!/^([A-Za-z0-9+/]*={0,2})$/.test(s.rgbPixels)||atob(s.rgbPixels).length!==s.width*s.height*3))throw Error('原始 RGB 像素长度无效。');
       Object.freeze(s);sources.set(s.id,s);validatedSources.add(s);
     }
+    if(p.topics!==undefined&&(!Array.isArray(p.topics)||p.topics.length>200||p.topics.some(v=>!text(v)||!v.trim())))throw Error('课题目录无效。');
+    if(p.experiments!==undefined&&(!Array.isArray(p.experiments)||p.experiments.length>500||p.experiments.some(v=>!v||!text(v.topic)||!text(v.name))))throw Error('实验目录无效。');
+    if(p.conditionRecords!==undefined&&(!Array.isArray(p.conditionRecords)||p.conditionRecords.length>500||!B.validateConditions))throw Error('实验条件记录无效或缺少条件模块。');if(p.conditionRecords)for(const record of p.conditionRecords)B.validateConditions(record);
+    if(p.statisticsSettings!==undefined){if(!p.statisticsSettings||typeof p.statisticsSettings!=='object')throw Error('统计名称映射无效。');for(const map of Object.values(p.statisticsSettings))if(!map||typeof map!=='object'||Array.isArray(map)||Object.keys(map).length>500||Object.values(map).some(v=>!text(v)||!v.trim()))throw Error('统计名称映射无效。');}
     const groupIds=new Set();
     for(const g of p.groups){
-      if(!g||!id(g.id)||groupIds.has(g.id)||!text(g.name)||!text(g.experiment))throw Error('图组信息无效或 ID 重复。');groupIds.add(g.id);
+      if(!g||!id(g.id)||groupIds.has(g.id)||!text(g.name)||!text(g.experiment))throw Error('图组信息无效或 ID 重复。');groupIds.add(g.id);if(g.topic!==undefined&&!text(g.topic))throw Error('课题名称无效。');
       if(!g.canvas||![g.canvas.width,g.canvas.height].every(n=>Number.isFinite(n)&&n>=100&&n<=10000)||!color(g.canvas.background)||![150,300,600].includes(Number(g.canvas.dpi))||!Array.isArray(g.objects)||g.objects.length>3000||!Array.isArray(g.samples)||!g.samples.length||g.samples.length>200)throw Error('画布参数无效。');
       const sampleIds=new Set();for(const s of g.samples){if(!s||!text(s.id)||!s.id.trim()||sampleIds.has(s.id)||!text(s.group)||!s.group.trim()||!Number.isInteger(s.replicate)||s.replicate<1)throw Error('样本 ID、分组或重复编号无效。');sampleIds.add(s.id);}
       const objectIds=new Set(),imageIds=new Set(g.objects.filter(o=>o?.type==='image').map(o=>o.id));
       for(const o of g.objects){
         if(!o||!['image','text','rect','line','arrow','bracket'].includes(o.type)||!id(o.id)||objectIds.has(o.id)||![o.x,o.y,o.w,o.h,o.rotation,o.opacity].every(Number.isFinite)||o.w<=0||o.h<=0||o.w>10000||o.h>10000||o.opacity<0||o.opacity>1)throw Error('对象参数无效。');objectIds.add(o.id);
         if(o.type==='image'){
-          const s=sources.get(o.sourceId);if(!s)throw Error('图像来源缺失。');B.assertRect(s,o.crop,'裁剪范围');
+          const s=sources.get(o.sourceId);if(!s)throw Error('图像来源缺失。');if(o.analysis){if(!B.validateAnalysis)throw Error('缺少灰度方法模块。');B.validateAnalysis(o.analysis);}for(const field of ['controlId','totalId'])if(o[field]&&(o[field]===o.id||!imageIds.has(o[field])))throw Error('内参或总蛋白对应关系无效。');B.assertRect(s,o.crop,'裁剪范围');
           if(!Array.isArray(o.rois)||o.rois.length>g.samples.length||new Set(o.rois.map(r=>r?.id)).size!==o.rois.length||new Set(o.rois.map(r=>r?.sampleIndex)).size!==o.rois.length)throw Error('ROI 参数无效或同一泳道有重复 ROI。');
-          for(const r of o.rois){if(!r||!id(r.id)||!Number.isInteger(r.sampleIndex)||r.sampleIndex<0||r.sampleIndex>=g.samples.length)throw Error('ROI 样本对应关系无效。');B.assertRect(s,r,'条带 ROI');}
+          for(const r of o.rois){if(!r||!id(r.id)||!Number.isInteger(r.sampleIndex)||r.sampleIndex<0||r.sampleIndex>=g.samples.length)throw Error('ROI 样本对应关系无效。');B.assertRect(s,r,'条带 ROI');if(r.shape&&!['rect','ellipse','profile'].includes(r.shape))throw Error('ROI 形状无效。');for(const f of ['baselineStart','baselineEnd'])if(r[f]!==undefined&&(!Number.isFinite(r[f])||r[f]<0))throw Error('峰图基线无效。');}
           if(o.background)B.assertRect(s,o.background,'背景 ROI');
           if(o.referenceId&&(o.referenceId===o.id||!imageIds.has(o.referenceId)))throw Error('参照蛋白缺失或不能引用自身。');
           for(const key of ['brightness','contrast'])if(!Number.isFinite(o[key])||o[key]<0||o[key]>200)throw Error('图像显示参数无效。');
@@ -106,7 +113,8 @@
         }
         for(const k of ['fill','stroke'])if(o[k]!==undefined&&!color(o[k]))throw Error('颜色格式无效。');
         if(o.strokeWidth!==undefined&&(!Number.isFinite(o.strokeWidth)||o.strokeWidth<0||o.strokeWidth>20))throw Error('线宽无效。');
-        if(o.fontFamily&&!['Arial','Times New Roman','Helvetica','Georgia','Courier New','PingFang SC'].includes(o.fontFamily))throw Error('字体格式无效。');
+        if(o.script&&!['normal','super','sub'].includes(o.script)||o.dash&&!['solid','dash','dot'].includes(o.dash))throw Error('文字基线或线型无效。');
+        if(o.fontFamily&&!['Arial','Times New Roman','Helvetica','Georgia','Courier New','PingFang SC','Microsoft YaHei','SimSun'].includes(o.fontFamily))throw Error('字体格式无效。');
         if(o.type==='text'&&(!text(o.text)||!Number.isFinite(o.fontSize)||o.fontSize<6||o.fontSize>300))throw Error('文字参数无效。');
       }
     }
@@ -118,6 +126,86 @@
   };
   B.bounds = objects => {if(!objects.length)return {x:0,y:0,w:0,h:0};let x=Math.min(...objects.map(o=>o.x)),y=Math.min(...objects.map(o=>o.y));return{x,y,w:Math.max(...objects.map(o=>o.x+o.w))-x,h:Math.max(...objects.map(o=>o.y+o.h))-y};};
   B.alignObjects=(objects,mode)=>{const b=B.bounds(objects),axis=mode==='distributeY'?'y':'x',dim=axis==='x'?'w':'h';if(mode.startsWith('distribute')){if(objects.length<3)return;const a=objects.slice().sort((a,b)=>a[axis]-b[axis]),gap=(b[dim]-a.reduce((s,o)=>s+o[dim],0))/(a.length-1);let n=b[axis];for(const o of a){o[axis]=n;n+=o[dim]+gap;}return;}for(const o of objects){if(mode==='left')o.x=b.x;if(mode==='center')o.x=b.x+(b.w-o.w)/2;if(mode==='right')o.x=b.x+b.w-o.w;if(mode==='top')o.y=b.y;if(mode==='middle')o.y=b.y+(b.h-o.h)/2;if(mode==='bottom')o.y=b.y+b.h-o.h;if(mode==='width')o.w=objects[0].w;if(mode==='height')o.h=objects[0].h;}};
+})(globalThis.BS ||= {});
+
+(function(B){
+  'use strict';
+  // Rolling-ball geometry, shrink rules and interpolation follow the public-domain
+  // ImageJ1 BackgroundSubtracter (Wayne Rasband / Michael Schmid), not WBsolverunion.
+  // https://github.com/imagej/ImageJ/blob/master/ij/plugin/filter/BackgroundSubtracter.java
+  const f=Math.fround,cache=new WeakMap();
+  B.analysisDefaults=()=>({convert8:true,rgb:'mean',background:'rolling',radius:50,presmooth:true,method:'rect',rotation:0});
+  B.validateAnalysis=a=>{
+    if(!a||typeof a!=='object'||Array.isArray(a)||typeof a.convert8!=='boolean'||!['mean','luminance'].includes(a.rgb)||!['none','roi','rolling'].includes(a.background)||!Number.isInteger(a.radius)||a.radius<0||a.radius>100||typeof a.presmooth!=='boolean'||!['rect','ellipse','profile'].includes(a.method))throw Error('灰度方法参数无效。');
+    if(a.profileAxis!==undefined&&!['x','y'].includes(a.profileAxis))throw Error('峰图方向无效。');
+    if(a.rotation!==undefined&&(!Number.isFinite(a.rotation)||Math.abs(a.rotation)>180))throw Error('分析旋转角度无效。');
+    return a;
+  };
+  function smooth(p,w,h){
+    const line=(start,step,length)=>{let b=p[start],c=b;for(let i=0,k=start;i<length;i++,k+=step){const a=b;b=c;if(i<length-1)c=p[k+step];p[k]=f(f(f(a+b)+c)*f(1/3));}};
+    for(let y=0;y<h;y++)line(y*w,1,w);for(let x=0;x<w;x++)line(x,w,h);
+  }
+  B.rollingBackground=(input,w,h,radius,presmooth=true,light=true)=>{
+    if(input.length!==w*h||!Number.isInteger(w)||!Number.isInteger(h)||w<1||h<1||!Number.isFinite(radius)||radius<=0||radius>100)throw Error('滚球背景参数无效。');
+    const p=Float32Array.from(input,v=>light?-v:v);if(presmooth)smooth(p,w,h);
+    let shrink=radius<=10?1:radius<=30?2:4;
+    // ImageJ's interpolation requires two shrunken points in each dimension.
+    // Thin images are evaluated at full resolution instead of indexing outside.
+    if(Math.ceil(w/shrink)<2||Math.ceil(h/shrink)<2)shrink=1;
+    const r=Math.max(1,radius/shrink),trim=radius<=30?24:32,half=Math.round(r-Math.floor(trim*r/100)),bw=half*2+1,ball=new Float32Array(bw*bw);
+    for(let y=0;y<bw;y++)for(let x=0;x<bw;x++)ball[y*bw+x]=Math.sqrt(Math.max(0,r*r-(x-half)**2-(y-half)**2));
+    const sw=Math.ceil(w/shrink),sh=Math.ceil(h/shrink),s=new Float32Array(sw*sh);
+    for(let y=0;y<sh;y++)for(let x=0;x<sw;x++){let min=Infinity;for(let yy=y*shrink;yy<Math.min(h,(y+1)*shrink);yy++)for(let xx=x*shrink;xx<Math.min(w,(x+1)*shrink);xx++)min=Math.min(min,p[yy*w+xx]);s[y*sw+x]=min;}
+    const original=s.slice();s.fill(-Infinity);
+    for(let cy=-half;cy<sh+half;cy++)for(let cx=-half;cx<sw+half;cx++){
+      const x0=Math.max(0,cx-half),x1=Math.min(sw-1,cx+half),y0=Math.max(0,cy-half),y1=Math.min(sh-1,cy+half);let z=Infinity;
+      for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)z=Math.min(z,f(original[y*sw+x]-ball[(y-cy+half)*bw+x-cx+half]));
+      for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)s[y*sw+x]=Math.max(s[y*sw+x],f(z+ball[(y-cy+half)*bw+x-cx+half]));
+    }
+    const out=new Float32Array(w*h);
+    if(shrink===1){for(let i=0;i<out.length;i++)out[i]=light?-s[i]:s[i];return out;}
+    const interp=(i,length)=>{const n=Math.min(Math.trunc((i-Math.floor(shrink/2))/shrink),length-2),weight=f(1-f(f((i+.5)/shrink)-f(n+.5)));return[n,weight];};
+    for(let y=0;y<h;y++){const [iy,wy]=interp(y,sh);for(let x=0;x<w;x++){const [ix,wx]=interp(x,sw),v0=f(f(s[iy*sw+ix]*wx)+f(s[iy*sw+ix+1]*f(1-wx))),v1=f(f(s[(iy+1)*sw+ix]*wx)+f(s[(iy+1)*sw+ix+1]*f(1-wx))),v=f(f(v0*wy)+f(v1*f(1-wy)));out[y*w+x]=light?-v:v;}}
+    return out;
+  };
+  B.analysisPixels=(source,settings)=>{
+    const a=B.validateAnalysis(settings),key=JSON.stringify(a),existing=cache.get(source);if(existing?.key===key)return existing;
+    const native=B.pixels(source);let values=Float64Array.from(native),depth=source.bitDepth;
+    if(a.rgb==='mean'&&!source.rgbPixels&&/RGB/i.test(source.info||''))throw Error('旧彩色图像未保存原始 RGB 通道；请重新上传原图后使用 ImageJ 等权平均。');
+    if(a.rgb==='mean'&&source.rgbPixels){const rgb=B.unbase64(source.rgbPixels);if(rgb.length!==native.length*3)throw Error('原始 RGB 像素损坏。');values=Float64Array.from(native,(_,i)=>Math.floor((rgb[i*3]+rgb[i*3+1]+rgb[i*3+2])/3+.5));}
+    if(a.convert8&&depth===16){let lo=Infinity,hi=-Infinity;for(const v of values){lo=Math.min(lo,v);hi=Math.max(hi,v);}const scale=hi>lo?256/(hi-lo+1):0;values=Float64Array.from(values,v=>B.clamp(Math.floor((v-lo)*scale+.5),0,255));depth=8;}
+    if(a.rotation){const radians=a.rotation*Math.PI/180,cos=Math.cos(radians),sin=Math.sin(radians),cx=(source.width-1)/2,cy=(source.height-1)/2,original=values,fill=a.polarity==='light'?0:2**depth-1;values=new Float64Array(original.length);for(let y=0;y<source.height;y++)for(let x=0;x<source.width;x++){const sx=cos*(x-cx)+sin*(y-cy)+cx,sy=-sin*(x-cx)+cos*(y-cy)+cy;if(sx<0||sy<0||sx>source.width-1||sy>source.height-1){values[y*source.width+x]=fill;continue;}const xx=Math.floor(sx),yy=Math.floor(sy),x1=Math.min(source.width-1,xx+1),y1=Math.min(source.height-1,yy+1),fx=sx-xx,fy=sy-yy;values[y*source.width+x]=Math.round((1-fy)*((1-fx)*original[yy*source.width+xx]+fx*original[yy*source.width+x1])+fy*((1-fx)*original[y1*source.width+xx]+fx*original[y1*source.width+x1]));}}
+    const result={key,values,depth,max:2**depth-1};cache.set(source,result);return result;
+  };
+  B.preparedSignal=(source,settings,polarity)=>{
+    const prepared=B.analysisPixels(source,{...settings,polarity}),key=polarity+'Signal';if(prepared[key])return prepared[key];
+    const {values,max}=prepared;let background=null;
+    if(settings.background==='rolling'&&settings.radius>0)background=B.rollingBackground(values,source.width,source.height,settings.radius,settings.presmooth,polarity==='dark');
+    // ImageJ integer processors round and clip after subtraction. The source is immutable.
+    const corrected=Float64Array.from(values,(v,i)=>{if(!background)return polarity==='dark'?max-v:v;const result=Math.floor(B.clamp(f(f(v-background[i])+(polarity==='dark'?max+.5:.5)),0,max));return polarity==='dark'?max-result:result;});
+    return prepared[key]={...prepared,corrected,background};
+  };
+  B.profileArea=(values,baselineStart=0,baselineEnd=0)=>{
+    if(!values.length||!values.every(Number.isFinite)||![baselineStart,baselineEnd].every(Number.isFinite))throw Error('峰图或基线无效。');
+    const baseline=values.map((_,i)=>baselineStart+(baselineEnd-baselineStart)*i/Math.max(1,values.length-1)),signal=values.map((v,i)=>Math.max(0,v-baseline[i]));
+    let area=0;for(let i=1;i<signal.length;i++)area+=(signal[i-1]+signal[i])/2;
+    return{values,baseline,signal,area};
+  };
+  B.quantify=(source,roi,background,polarity,settings)=>{
+    const {values,corrected,max,depth}=B.preparedSignal(source,settings,polarity),r=B.rectPixels(source,roi),method=roi.shape||settings.method;
+    const indices=[];for(let y=r.y;y<r.y+r.h;y++)for(let x=r.x;x<r.x+r.w;x++)if(method!=='ellipse'||((x+.5-(roi.x+roi.w/2))/(roi.w/2))**2+((y+.5-(roi.y+roi.h/2))/(roi.h/2))**2<=1)indices.push(y*source.width+x);
+    if(!indices.length)throw Error('选区不包含像素。');
+    let sum=0,raw=0,total=0,sat=0,lo=Infinity,hi=-Infinity;for(const i of indices){const v=values[i];sum+=v;raw+=polarity==='dark'?max-v:v;total+=corrected[i];sat+=Number(v===0||v===max);lo=Math.min(lo,v);hi=Math.max(hi,v);}
+    let bg=null,bgRect=null;if(settings.background==='roi'&&background){bgRect=B.rectPixels(source,background);let n=0,v=0;for(let y=bgRect.y;y<bgRect.y+bgRect.h;y++)for(let x=bgRect.x;x<bgRect.x+bgRect.w;x++){v+=values[y*source.width+x];n++;}bg=v/n;total=polarity==='dark'?bg*indices.length-sum:sum-bg*indices.length;}
+    let profile=null;if(method==='profile'){const axis=settings.profileAxis||'y',length=axis==='x'?r.w:r.h,rows=Array(length).fill(0),divisor=axis==='x'?r.h:r.w;for(let y=0;y<r.h;y++)for(let x=0;x<r.w;x++)rows[axis==='x'?x:y]+=corrected[(r.y+y)*source.width+r.x+x];for(let i=0;i<rows.length;i++)rows[i]/=divisor;
+      profile={...B.profileArea(rows,roi.baselineStart??Math.min(...rows),roi.baselineEnd??Math.min(...rows)),axis};total=profile.area;
+    }
+    return{area:indices.length,mean:sum/indices.length,min:lo,max:hi,raw,rawIntDen:sum,corrected:total,backgroundMean:bg,saturation:sat/indices.length,rect:r,backgroundRect:bgRect,clipped:roi.x<0||roi.y<0||roi.x+roi.w>source.width||roi.y+roi.h>source.height,backgroundClipped:!!background&&(background.x<0||background.y<0||background.x+background.w>source.width||background.y+background.h>source.height),analysisBitDepth:depth,method,profile,coordinateFrame:settings.rotation?'校正旋转 '+settings.rotation+'° 副本':'原图',analysisSettings:{...settings},units:method==='profile'?'mean intensity × profile pixel':'gray level × pixel'};
+  };
+  B.detectBandROIs=(source,crop,count,settings=B.analysisDefaults(),polarity='dark')=>{
+    const signal=B.preparedSignal(source,settings,polarity).corrected,rois=B.autoROIs(crop,count);
+    return rois.map(r=>{const box=B.rectPixels(source,{x:r.x,y:crop.y,w:r.w,h:crop.h}),rows=Array(box.h).fill(0);for(let y=0;y<box.h;y++)for(let x=box.x;x<box.x+box.w;x++)rows[y]+=signal[(box.y+y)*source.width+x];let peak=0;for(let i=1;i<rows.length;i++)if(rows[i]>rows[peak])peak=i;const hh=Math.min(crop.h,Math.max(4,crop.h*.45));return{...r,y:B.clamp(box.y+peak-hh/2,crop.y,crop.y+crop.h-hh),h:hh};});
+  };
 })(globalThis.BS ||= {});
 
 (function(B){
@@ -152,12 +240,12 @@
       const roiCounts=new Map();for(let i=0;i<o.rois.length;i++){const idx=o.rois[i].sampleIndex??i;roiCounts.set(idx,(roiCounts.get(idx)||0)+1);}
       for(let i=0;i<o.rois.length;i++){
         const roi=o.rois[i],idx=roi.sampleIndex??i,sample=group.samples[idx];if(!sample||!Number.isInteger(idx)||idx<0)throw Error('ROI 对应的样本不存在，请重新分配泳道。');
-        const m=B.measure(s,roi,o.background,o.polarity),issues=[];let valid=true;
+        const m=o.analysis?B.quantify(s,roi,o.background,o.polarity,o.analysis):B.measure(s,roi,o.background,o.polarity),issues=[];let valid=true;
         if(sampleCounts.get(sample.id)!==1||!String(sample.id??'').trim()){issues.push('样本 ID 缺失或重复');valid=false;}
         if(roiCounts.get(idx)!==1){issues.push('同一样本重复分配 ROI');valid=false;}
         if(m.corrected<=0)issues.push('背景校正后信号 ≤ 0');if(m.saturation>.01)issues.push('饱和像素 > 1%');if(m.clipped)issues.push('ROI 超出原图，按图内像素计算');if(m.backgroundClipped)issues.push('背景框超出原图，按图内像素计算');
         if(m.backgroundRect){const b=m.backgroundRect,r=m.rect;if(r.x<b.x+b.w&&r.x+r.w>b.x&&r.y<b.y+b.h&&r.y+r.h>b.y)issues.push('背景框与条带 ROI 重叠');}
-        all.push({objectId:o.id,protein:o.protein||o.name,sourceName:s.name,sourceId:s.id,hash:s.hash||'',bitDepth:s.bitDepth,sampleId:sample.id,group:sample.group,replicate:sample.replicate,lane:idx+1,include:sample.include!==false&&valid,valid,...m,roi,referenceId:o.referenceId,ratio:null,fold:null,issue:issues.join('；')});
+        all.push({objectId:o.id,protein:o.protein||o.name,sourceName:s.name,sourceId:s.id,hash:s.hash||'',bitDepth:s.bitDepth,sampleId:sample.id,group:sample.group,replicate:sample.replicate,lane:idx+1,include:sample.include!==false&&valid,valid,...m,roi,referenceId:o.referenceId,ratio:null,controlRatio:null,totalRatio:null,fold:null,issue:issues.join('；')});
       }
     }
     for(const r of all){
@@ -169,6 +257,8 @@
       if(r.referenceId!==r.objectId&&matches.length===1&&matches[0].valid&&r.valid&&matches[0].corrected>0&&r.corrected>0){r.ratio=r.corrected/matches[0].corrected;if(ownIssues.get(matches[0]))r.issue=[r.issue,'参照：'+ownIssues.get(matches[0])].filter(Boolean).join('；');}
       else r.issue=[r.issue,r.referenceId===r.objectId?'不能将蛋白自身设为参照':'参照蛋白缺失、重复或信号 ≤ 0'].filter(Boolean).join('；');
     }}
+    for(const r of all){const object=images.find(o=>o.id===r.objectId);for(const [field,target] of [['controlRatio',object.controlId],['totalRatio',object.totalId]]){if(!target)continue;const matches=all.filter(v=>v.objectId===target&&v.sampleId===r.sampleId);if(matches.length===1&&matches[0].valid&&r.valid&&matches[0].corrected>0&&r.corrected>0)r[field]=r.corrected/matches[0].corrected;else r.issue=[r.issue,field==='totalRatio'?'总蛋白缺失或信号无效':'内参缺失或信号无效'].filter(Boolean).join('；');}}
+    for(const r of all)if(!r.referenceId)r.ratio=r.controlRatio??r.totalRatio;
     return all;
   };
   // Continued fraction for regularized incomplete beta, used for Student t probabilities.
@@ -187,8 +277,9 @@
     return tests.map((t,i)=>({...t,adjusted:adjusted.get(i)??NaN}));
   };
   B.statData=(records,protein,metric='corrected',control='Control',normalize=false)=>{
-    if(!['corrected','raw','ratio'].includes(metric))return {rows:[],groups:[],tests:[],error:'统计指标无效。'};
+    if(!['corrected','raw','ratio','controlRatio','totalRatio'].includes(metric))return {rows:[],groups:[],tests:[],error:'统计指标无效。'};
     const a=records.filter(r=>r.protein===protein&&r.include&&r.valid!==false&&Number.isFinite(r[metric])&&r[metric]>0).map(r=>({...r,value:r[metric]}));
+    if(new Set(a.map(r=>JSON.stringify([r.method||'rect',r.analysisBitDepth||r.bitDepth,r.analysisSettings?[r.analysisSettings.convert8,r.analysisSettings.rgb,r.analysisSettings.background,r.analysisSettings.radius,r.analysisSettings.presmooth,r.analysisSettings.method,r.analysisSettings.rotation||0,r.analysisSettings.profileAxis||'y']:null]))).size>1)return {rows:[],groups:[],tests:[],error:'分析方法、位深或预处理设置不一致，请统一方法后再合并统计。'};
     const seen=new Set(),duplicates=new Set();for(const r of a){if(typeof r.sampleId!=='string'||!r.sampleId)continue;if(seen.has(r.sampleId))duplicates.add(r.sampleId);seen.add(r.sampleId);}
     if(duplicates.size)return {rows:[],groups:[],tests:[],error:'同一蛋白存在重复样本 ID（'+[...duplicates].slice(0,8).join('、')+'）。请区分独立样本；重复曝光或技术重复不能重复计入 n。'};
     const base=B.mean(a.filter(r=>r.group===control).map(r=>r.value));if(normalize){if(!(base>0))return {rows:[],groups:[],tests:[],error:'对照组没有有效正值，不能归一化。'};for(const r of a)r.value/=base;}
@@ -196,7 +287,7 @@
     const tests=B.holm(groups.filter(g=>g.name!==control).map(g=>({group:g.name,...B.welch(g.values,a.filter(r=>r.group===control).map(r=>r.value))})));
     return {rows:a,groups,tests,base};
   };
-  B.resultRows=records=>[['蛋白','样本','分组','重复编号','泳道','位深','面积 px²','均值','原始积分信号','背景均值','校正积分信号','目的/参照','饱和比例','ROI x','ROI y','ROI w','ROI h','来源','原图哈希','提示'],...records.map(r=>[r.protein,r.sampleId,r.group,r.replicate,r.lane,r.bitDepth,r.area,r.mean,r.raw,r.backgroundMean??'',r.corrected,r.ratio??'',r.saturation,r.rect.x,r.rect.y,r.rect.w,r.rect.h,r.sourceName,r.hash,r.issue])];
+  B.resultRows=records=>[['蛋白','样本','分组','重复编号','泳道','位深','面积 px²','均值','原始积分信号','背景均值','校正积分信号','目的/参照','饱和比例','ROI x','ROI y','ROI w','ROI h','来源','原图哈希','提示','目的/内参','部分/总蛋白','计算位深','ROI方法','积分单位','预处理设置','ROI 坐标系'],...records.map(r=>[r.protein,r.sampleId,r.group,r.replicate,r.lane,r.bitDepth,r.area,r.mean,r.raw,r.backgroundMean??'',r.corrected,r.ratio??'',r.saturation,r.rect.x,r.rect.y,r.rect.w,r.rect.h,r.sourceName,r.hash,r.issue,r.controlRatio??'',r.totalRatio??'',r.analysisBitDepth||r.bitDepth,r.method||'rect',r.units||'gray level × pixel',JSON.stringify(r.analysisSettings||{background:'roi/native legacy'}),r.coordinateFrame||'原图'])];
 })(globalThis.BS ||= {});
 
 (function(B){
@@ -298,7 +389,7 @@
       const samples=depth===16?new Uint16Array(w*h):new Uint8Array(w*h),dv=new DataView(data.buffer),max=2**depth-1;
       if(predictor===2){for(let y=0;y<h;y++)for(let x=channels;x<w*channels;x++){const p=(y*w*channels+x)*(depth/8),q=p-channels*(depth/8);if(depth===16)dv.setUint16(p,(dv.getUint16(p,le)+dv.getUint16(q,le))&65535,le);else data[p]=(data[p]+data[q])&255;}}
       for(let i=0;i<w*h;i++){let z=channels===3?Math.round(.299*data[i*3]+.587*data[i*3+1]+.114*data[i*3+2]):depth===16?dv.getUint16(i*2,le):data[i];samples[i]=photo===0?max-z:z;}
-      pages.push({width:w,height:h,bitDepth:depth,samples,info:'TIFF '+depth+'-bit'+(channels===3?' RGB luminance':' native grayscale')});off=d.getUint32(off+2+12*n,le);
+      pages.push({width:w,height:h,bitDepth:depth,samples,...(channels===3?{rgbSamples:data.slice()}:{}),info:'TIFF '+depth+'-bit'+(channels===3?' RGB luminance':' native grayscale')});off=d.getUint32(off+2+12*n,le);
     }
     if(!pages.length)throw Error('TIFF 不含可解码的图像页。');return pages;
   };
@@ -313,18 +404,49 @@
 
 (function(B){
   'use strict';
+  // SVG filters in WebKit can quantize through a linear-light intermediate even
+  // for an identity transfer (e.g. sRGB 32 becomes 34). Compute the display copy
+  // once in sRGB, then let SVG handle geometry. Original/analytical pixels remain
+  // untouched. Alpha is retained independently of the object's opacity.
+  const cache=new Map();
+  B.displayKey=(url,params)=>JSON.stringify([url,params]);
+  B.displayPixels=(rgba,{grayscale=false,brightness=100,contrast=100,invert=false}={})=>{
+    const out=new Uint8ClampedArray(rgba),slope=contrast/100*brightness/100,offset=(.5-.5*contrast/100)*brightness/100;
+    for(let i=0;i<out.length;i+=4){const gray=.213*rgba[i]+.715*rgba[i+1]+.072*rgba[i+2];for(let k=0;k<3;k++){let v=(grayscale?gray:rgba[i+k])/255*slope+offset;if(invert)v=1-v;out[i+k]=Math.round(B.clamp(v,0,1)*255);}}
+    return out;
+  };
+  B.cachedDisplay=(url,params)=>cache.get(B.displayKey(url,params))?.url;
+  B.displayURL=(url,params)=>{
+    const key=B.displayKey(url,params),entry=cache.get(key);if(entry)return entry.promise;
+    const item={url:null,promise:null};cache.set(key,item);
+    item.promise=(async()=>{const image=await B.loadImage(url),canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0);const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);pixels.data.set(B.displayPixels(pixels.data,params));ctx.putImageData(pixels,0,0);item.url=canvas.toDataURL('image/png');let size=0;for(const [k,v] of cache)size+=k.length*2+(v.url?.length||0)*2;if(cache.size>512||size>128*1024*1024){for(const [k,v] of cache){if(k!==key&&v.url){cache.delete(k);size-=k.length*2+v.url.length*2;if(cache.size<=512&&size<=128*1024*1024)break;}}}return item.url;})().catch(error=>{cache.delete(key);throw error;});return item.promise;
+  };
+  B.prepareSVG=async svg=>{
+    if(typeof DOMParser==='undefined')return svg;
+    const doc=new DOMParser().parseFromString(svg,'image/svg+xml');
+    if(doc.querySelector('parsererror'))throw Error('导出 SVG 数据异常。');
+    for(const image of doc.querySelectorAll('image[data-bs-display]')){
+      const params=JSON.parse(image.getAttribute('data-bs-display')),url=image.getAttribute('href');
+      image.setAttribute('href',await B.displayURL(url,params));image.removeAttribute('filter');image.removeAttribute('data-bs-display');
+    }
+    return new XMLSerializer().serializeToString(doc);
+  };
+})(globalThis.BS ||= {});
+
+(function(B){
+  'use strict';
   B.icons={select:'M4 3l7 17 2-7 7-2L4 3z',hand:'M8 12V6a2 2 0 014 0v5-7a2 2 0 014 0v7-4a2 2 0 014 0v7c0 5-3 7-7 7-3 0-5-3-7-6l-2-3a2 2 0 013-2l2 2z',crop:'M7 3v14h14M3 7h14v14',image:'M4 3h16v18H4z M4 16l5-5 4 4 3-3 4 4 M9 7h.01',text:'M4 4h16M12 4v16M8 20h8',rect:'M4 4h16v16H4z',line:'M4 19L20 5',arrow:'M4 19L20 5M10 5h10v10',bracket:'M4 17V7h16v10',plus:'M12 4v16M4 12h16',minus:'M4 12h16',undo:'M8 4L3 9l5 5M3 9h11a7 7 0 010 14',redo:'M16 4l5 5-5 5M21 9H10a7 7 0 000 14',save:'M4 3h13l4 4v14H3V3zM7 3v7h10V3M7 21v-7h10v7',export:'M12 3v12M7 8l5-5 5 5M4 14v7h16v-7',folder:'M3 6h7l2 3h9v12H3z',chevron:'M8 5l7 7-7 7',down:'M5 8l7 7 7-7',eye:'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z M12 9a3 3 0 100 6 3 3 0 000-6',hide:'M3 3l18 18M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z',lock:'M6 10h12v11H6zM8 10V6a4 4 0 018 0v4',unlock:'M6 10h12v11H6zM8 10V6a4 4 0 018 0',trash:'M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7',copy:'M8 8h13v13H8zM16 8V3H3v13h5',left:'M4 3v18M8 6h12v4H8zM8 14h8v4H8z',center:'M12 2v20M4 6h16v4H4zM7 14h10v4H7z',right:'M20 3v18M4 6h12v4H4zM8 14h8v4H8z',top:'M3 4h18M6 8h4v12H6zM14 8h4v8h-4z',middle:'M2 12h20M6 4h4v16H6zM14 7h4v10h-4z',bottom:'M3 20h18M6 4h4v12H6zM14 8h4v8h-4z',layers:'M12 3l10 6-10 6L2 9zM2 13l10 6 10-6M2 17l10 6 10-6',up:'M5 15l7-7 7 7',fit:'M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5M8 8h8v8H8z',help:'M9 8a3 3 0 116 0c0 3-3 2-3 6M12 18h.01M12 2a10 10 0 100 20 10 10 0 000-20',check:'M4 12l5 5L20 6',close:'M5 5l14 14M19 5L5 19',chart:'M4 3v18h17M8 17v-6M13 17V7M18 17V4',rotate:'M4 7V2M4 7h5M4 7a9 9 0 11-1 7',flip:'M12 3v18M3 18l6-12v12zM21 18L15 6v12z',grid:'M3 3h18v18H3zM9 3v18M15 3v18M3 9h18M3 15h18',bolt:'M13 2L4 14h7l-1 8L21 9h-8z'};
   B.icon=(name,size=18)=>'<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+(B.icons[name]||B.icons.rect)+'"/></svg>';
   B.objectMarkup=(o,sources)=>{
     const n=B.num,e=B.esc,w=n(o.w),h=n(o.h),sw=B.clamp(n(o.strokeWidth,1),0,20),col=e(o.fill||'#20252c'),stroke=e(o.stroke||'#20252c');let body='';
     if(o.type==='image'){
-      const s=sources.find(s=>s.id===o.sourceId);if(!s)return'';const c=o.crop,id='f'+o.id,clip='c'+o.id,contrast=B.clamp(n(o.contrast,100)/100,0,3),brightness=B.clamp(n(o.brightness,100)/100,0,3),slope=contrast*brightness*(o.invert?-1:1),intercept=o.invert?1-(.5-.5*contrast)*brightness:(.5-.5*contrast)*brightness;
-      body='<defs><clipPath id="'+clip+'"><rect width="'+w+'" height="'+h+'"/></clipPath><filter id="'+id+'" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">'+(o.grayscale?'<feColorMatrix type="saturate" values="0"/>':'')+'<feComponentTransfer>'+['R','G','B'].map(k=>'<feFunc'+k+' type="linear" slope="'+slope+'" intercept="'+intercept+'"/>').join('')+'</feComponentTransfer></filter></defs><g clip-path="url(#'+clip+')"><g transform="translate('+(o.flipX?w:0)+' '+(o.flipY?h:0)+') scale('+(o.flipX?-1:1)+' '+(o.flipY?-1:1)+')"><image href="'+e(s.url)+'" x="'+(-c.x*w/c.w)+'" y="'+(-c.y*h/c.h)+'" width="'+(s.width*w/c.w)+'" height="'+(s.height*h/c.h)+'" preserveAspectRatio="none" filter="url(#'+id+')"/></g></g>'+(sw>0?'<rect width="'+w+'" height="'+h+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'"/>':'');
+      const s=sources.find(s=>s.id===o.sourceId);if(!s)return'';const params={grayscale:!!o.grayscale,brightness:B.num(o.brightness,100),contrast:B.num(o.contrast,100),invert:!!o.invert},preview=B.cachedDisplay?.(s.url,params);const c=o.crop,id='f'+o.id,clip='c'+o.id,contrast=B.clamp(n(o.contrast,100)/100,0,3),brightness=B.clamp(n(o.brightness,100)/100,0,3),slope=contrast*brightness*(o.invert?-1:1),intercept=o.invert?1-(.5-.5*contrast)*brightness:(.5-.5*contrast)*brightness;
+      body='<defs><clipPath id="'+clip+'"><rect width="'+w+'" height="'+h+'"/></clipPath><filter id="'+id+'" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">'+(o.grayscale?'<feColorMatrix type="saturate" values="0"/>':'')+'<feComponentTransfer>'+['R','G','B'].map(k=>'<feFunc'+k+' type="linear" slope="'+slope+'" intercept="'+intercept+'"/>').join('')+'</feComponentTransfer></filter></defs><g clip-path="url(#'+clip+')"><g transform="translate('+(o.flipX?w:0)+' '+(o.flipY?h:0)+') scale('+(o.flipX?-1:1)+' '+(o.flipY?-1:1)+')"><image href="'+e(preview||s.url)+'" x="'+(-c.x*w/c.w)+'" y="'+(-c.y*h/c.h)+'" width="'+(s.width*w/c.w)+'" height="'+(s.height*h/c.h)+'" preserveAspectRatio="none"'+(preview?'':' filter="url(#'+id+')" data-bs-display="'+e(JSON.stringify(params))+'"')+'/></g></g>'+(sw>0?'<rect width="'+w+'" height="'+h+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'"/>':'');
     }else if(o.type==='text'){
       const fs=B.clamp(n(o.fontSize,22),6,300),anchor=o.align==='center'?'middle':o.align==='right'?'end':'start',tx=o.align==='center'?w/2:o.align==='right'?w:0;
-      body='<text xml:space="preserve" x="'+tx+'" y="'+(fs*.90)+'" font-size="'+fs+'" font-family="'+e(o.fontFamily||'Arial')+'" font-weight="'+(o.fontWeight===700?700:400)+'" font-style="'+(o.italic?'italic':'normal')+'" text-anchor="'+anchor+'" fill="'+col+'">'+String(o.text||'').split('\n').map((t,i)=>'<tspan x="'+tx+'" dy="'+(i?fs*1.25:0)+'">'+e(t)+'</tspan>').join('')+'</text>';
-    }else if(o.type==='rect')body='<rect width="'+w+'" height="'+h+'" fill="'+col+'" stroke="'+stroke+'" stroke-width="'+sw+'"/>';
-    else body='<path d="'+B.shapeLines(o).map(points=>points.map(([x,y],i)=>(i?'L':'M')+x+' '+y).join('')).join(' ')+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'"/>';
+      body='<text xml:space="preserve" x="'+tx+'" y="'+(fs*.90)+'" font-size="'+fs+'" font-family="'+e(o.fontFamily||'Arial')+'" font-weight="'+(o.fontWeight===700?700:400)+'" font-style="'+(o.italic?'italic':'normal')+'" text-anchor="'+anchor+'" fill="'+col+'">'+String(o.text||'').split('\n').map((t,i)=>'<tspan x="'+tx+'" dy="'+(i?fs*1.25:0)+'"'+(o.script==='super'?' baseline-shift="super" font-size="70%"':o.script==='sub'?' baseline-shift="sub" font-size="70%"':'')+'>'+e(t)+'</tspan>').join('')+'</text>';
+    }else if(o.type==='rect')body='<rect width="'+w+'" height="'+h+'" fill="'+col+'" stroke="'+stroke+'" stroke-width="'+sw+'"'+(o.dash==='dash'?' stroke-dasharray="8 5"':o.dash==='dot'?' stroke-dasharray="2 4"':'')+'/>';
+    else body='<path d="'+B.shapeLines(o).map(points=>points.map(([x,y],i)=>(i?'L':'M')+x+' '+y).join('')).join(' ')+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'"'+(o.dash==='dash'?' stroke-dasharray="8 5"':o.dash==='dot'?' stroke-dasharray="2 4"':'')+'/>';
     return'<g transform="translate('+n(o.x)+' '+n(o.y)+') rotate('+n(o.rotation)+' '+w/2+' '+h/2+')" opacity="'+B.clamp(n(o.opacity,1),0,1)+'">'+body+'</g>';
   };
   B.svg=(project,group,objects=null)=>{const c=group.canvas;return'<svg xmlns="http://www.w3.org/2000/svg" width="'+c.width+'" height="'+c.height+'" viewBox="0 0 '+c.width+' '+c.height+'"><rect width="100%" height="100%" fill="'+B.esc(c.background||'#ffffff')+'"/>'+((objects||group.objects).filter(o=>o.visible!==false).map(o=>B.objectMarkup(o,project.sources)).join(''))+'</svg>';};
@@ -371,6 +493,7 @@
     if(![w,h].every(v=>Number.isFinite(v)&&v>0))throw Error('导出尺寸必须为正数。');
     w=Math.max(1,Math.round(w));h=Math.max(1,Math.round(h));
     if(w*h>64000000||w>16000||h>16000)throw Error('导出尺寸过大，请减小像素倍率。');
+    if(B.prepareSVG)svg=await B.prepareSVG(svg);
     const c=document.createElement('canvas');c.width=w;c.height=h;const im=await B.loadImage('data:image/svg+xml;base64,'+B.base64(B.utf8(svg))),ctx=c.getContext('2d');
     if(!ctx)throw Error('当前环境无法创建导出画布。');ctx.drawImage(im,0,0,w,h);return c;
   };
@@ -402,10 +525,10 @@
     const mime=a[0]===73&&a[1]===73||a[0]===77&&a[1]===77?'image/tiff':a[0]===137&&a[1]===80?'image/png':a[0]===255&&a[1]===216?'image/jpeg':a[0]===82&&a[8]===87?'image/webp':null;
     if(!mime)throw Error('支持 PNG、JPEG、WebP 和 TIFF；SVG 请作为文本/形状重新编辑。');
     const original='data:'+mime+';base64,'+B.base64(a),extra={original,hash,originalSize:file.size,originalName:file.name};
-    if(mime==='image/tiff'){const pages=await B.decodeTIFF(buf);return pages.map((p,i)=>B.sourceFromPixels(file.name+(pages.length>1?' · 第'+(i+1)+'页':''),p.width,p.height,p.bitDepth,p.samples,{...extra,info:p.info}));}
+    if(mime==='image/tiff'){const pages=await B.decodeTIFF(buf);return pages.map((p,i)=>B.sourceFromPixels(file.name+(pages.length>1?' · 第'+(i+1)+'页':''),p.width,p.height,p.bitDepth,p.samples,{...extra,info:p.info,...(p.rgbSamples?{rgbPixels:B.base64(p.rgbSamples)}:{})}));}
     if(mime==='image/png'&&a[24]>8)throw Error('PNG 是高位深图像。请将高位深原图无损导出为 16-bit 灰度 TIFF，避免定量降位深。');
     const im=await B.loadImage(original);if(im.width*im.height>32000000)throw Error('单图最多 3200 万像素。');const c=document.createElement('canvas');c.width=im.width;c.height=im.height;const ctx=c.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(im,0,0);const data=ctx.getImageData(0,0,c.width,c.height).data,p=new Uint8Array(c.width*c.height);for(let i=0;i<p.length;i++)p[i]=Math.round(.299*data[i*4]+.587*data[i*4+1]+.114*data[i*4+2]);
-    const s=B.sourceFromPixels(file.name,c.width,c.height,8,p,{...extra,info:'8-bit RGB luminance'});s.url=c.toDataURL('image/png');return[s];
+    const s=B.sourceFromPixels(file.name,c.width,c.height,8,p,{...extra,info:'8-bit RGB luminance'});s.url=c.toDataURL('image/png');const rgb=new Uint8Array(p.length*3);for(let i=0;i<p.length;i++)rgb.set(data.subarray(i*4,i*4+3),i*3);s.rgbPixels=B.base64(rgb);return[s];
   };
   B.loadImage=url=>new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>reject(Error('图像解码失败。'));im.src=url;});
   const nativeSaves=new Map();
@@ -449,7 +572,7 @@
       const alpha=Math.round(B.clamp(opacity,0,1)*(h.length===8?parseInt(h.slice(6),16)/255:1)*100000);
       return '<a:solidFill><a:srgbClr val="'+h.slice(0,6).toUpperCase()+'">'+(alpha<100000?'<a:alpha val="'+alpha+'"/>':'')+'</a:srgbClr></a:solidFill>';
     };
-    const line=o=>{const width=B.clamp(B.num(o.strokeWidth,1),0,20);return '<a:ln w="'+emu(width)+'">'+(width?color(o.stroke,B.clamp(B.num(o.opacity,1),0,1)):'<a:noFill/>')+'</a:ln>';};
+    const line=o=>{const width=B.clamp(B.num(o.strokeWidth,1),0,20);return '<a:ln w="'+emu(width)+'">'+(width?color(o.stroke,B.clamp(B.num(o.opacity,1),0,1)):'<a:noFill/>')+(o.dash==='dash'?'<a:prstDash val="dash"/>':o.dash==='dot'?'<a:prstDash val="sysDot"/>':'')+'</a:ln>';};
     const geometry=o=>{
       if(o.type==='text'||o.type==='rect'||o.type==='image')return '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>';
       // Custom geometry remains an editable Office shape and matches the SVG path.
@@ -474,7 +597,7 @@
         shapes.push('<p:pic><p:nvPicPr><p:cNvPr id="'+id+'" name="'+e(o.name)+'" descr="'+e('来源：'+source.name+'；源文件标识：'+(source.hash||source.id))+'"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="'+rid+'">'+(opacity<1?'<a:alphaModFix amt="'+Math.round(opacity*100000)+'"/>':'')+'</a:blip>'+srcRect+'<a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr>'+xfrm+geometry(o)+line(o)+'</p:spPr></p:pic>');
       }else{
         const fs=B.clamp(B.num(o.fontSize,22),6,300),fontSize=Math.max(100,Math.round(fs*75*slideScale));
-        const text=o.type==='text'?'<p:txBody><a:bodyPr wrap="none" lIns="0" rIns="0" tIns="0" bIns="0" anchor="t"><a:noAutofit/></a:bodyPr><a:lstStyle/>'+String(o.text||'').split('\n').map(t=>'<a:p><a:pPr algn="'+({left:'l',center:'ctr',right:'r'}[o.align]||'l')+'"><a:lnSpc><a:spcPct val="125000"/></a:lnSpc><a:spcBef><a:spcPts val="0"/></a:spcBef><a:spcAft><a:spcPts val="0"/></a:spcAft></a:pPr><a:r><a:rPr lang="zh-CN" sz="'+fontSize+'" b="'+(o.fontWeight===700?1:0)+'" i="'+(o.italic?1:0)+'">'+color(o.fill,opacity)+'<a:latin typeface="'+e(o.fontFamily||'Arial')+'"/><a:ea typeface="'+e(o.fontFamily||'Arial')+'"/></a:rPr><a:t xml:space="preserve">'+e(t)+'</a:t></a:r><a:endParaRPr sz="'+fontSize+'"/></a:p>').join('')+'</p:txBody>':'';
+        const text=o.type==='text'?'<p:txBody><a:bodyPr wrap="none" lIns="0" rIns="0" tIns="0" bIns="0" anchor="t"><a:noAutofit/></a:bodyPr><a:lstStyle/>'+String(o.text||'').split('\n').map(t=>'<a:p><a:pPr algn="'+({left:'l',center:'ctr',right:'r'}[o.align]||'l')+'"><a:lnSpc><a:spcPct val="125000"/></a:lnSpc><a:spcBef><a:spcPts val="0"/></a:spcBef><a:spcAft><a:spcPts val="0"/></a:spcAft></a:pPr><a:r><a:rPr lang="zh-CN" sz="'+fontSize+'" b="'+(o.fontWeight===700?1:0)+'" i="'+(o.italic?1:0)+'"'+(o.script==='super'?' baseline="30000"':o.script==='sub'?' baseline="-25000"':'')+'>'+color(o.fill,opacity)+'<a:latin typeface="'+e(o.fontFamily||'Arial')+'"/><a:ea typeface="'+e(o.fontFamily||'Arial')+'"/></a:rPr><a:t xml:space="preserve">'+e(t)+'</a:t></a:r><a:endParaRPr sz="'+fontSize+'"/></a:p>').join('')+'</p:txBody>':'';
         shapes.push('<p:sp><p:nvSpPr><p:cNvPr id="'+id+'" name="'+e(o.name)+'"/><p:cNvSpPr txBox="'+(o.type==='text'?1:0)+'"/><p:nvPr/></p:nvSpPr><p:spPr>'+xfrm+geometry(o)+(o.type==='rect'?color(o.fill,opacity):'<a:noFill/>')+(o.type==='text'?'<a:ln><a:noFill/></a:ln>':line(o))+'</p:spPr>'+text+'</p:sp>');
       }
     }
@@ -690,11 +813,11 @@
   B.editor=()=>'<section class="editor-center"><div class="document-bar"><span>'+e(B.getGroup().experiment)+' <b>/</b> '+e(B.getGroup().name)+'</span>'+B.check('ui','snap',B.state.ui.snap,'对象吸附')+'<span class="muted">拖动对象 · ⌘/Shift 多选 · 方向键微调</span></div><div class="canvas-viewport '+(B.state.ui.tool==='hand'?'hand-tool':'')+'" id="viewport"><div id="canvas-content">'+B.canvasMarkup()+'</div></div><div class="zoom-control">'+B.btn('fit','适应画布','fit')+'<span class="divider"></span>'+B.ib('zoom-out','缩小','minus')+'<span class="zoom-number">'+Math.round(B.state.ui.zoom*100)+'%</span>'+B.ib('zoom-in','放大','plus')+'</div></section>';
   B.inspector=()=>{
     const {ui}=B.state,g=B.getGroup(),objects=g.objects.filter(o=>ui.selected.includes(o.id)),o=objects[0],scope='object';
-    return'<aside class="inspector"><div class="panel-heading"><h2>属性</h2>'+ic('layers',17)+'</div><div class="inspector-tabs"><button data-action="inspector-tab" data-id="object" class="'+(ui.inspector==='object'?'active':'')+'">对象</button><button data-action="inspector-tab" data-id="canvas" class="'+(ui.inspector==='canvas'?'active':'')+'">画布</button></div>'+(ui.inspector==='canvas'?'<div class="inspector-section"><h3>画布设置</h3><div class="field-grid">'+B.input('canvas','width',g.canvas.width,'宽 px','type="number" min="100" max="10000"')+B.input('canvas','height',g.canvas.height,'高 px','type="number" min="100" max="10000"')+'</div>'+B.select('canvas','preset','', [['','自定义'],['1000,590','WB 横版 1000 × 590'],['1200,1200','正方形 1200 × 1200'],['2480,3508','A4 · 300 dpi']],'尺寸预设')+B.input('canvas','background',g.canvas.background,'背景','type="color"')+B.select('canvas','dpi',g.canvas.dpi,[[150,'150 dpi'],[300,'300 dpi'],[600,'600 dpi']],'导出分辨率')+'<p class="hint">DPI 决定印刷尺寸；像素倍率在导出时设置。</p></div>':!o?'<div class="empty-inspector">'+ic('select',34)+'<h3>选择一个对象</h3><p>编辑位置、尺寸、文字和图像显示。按住 ⌘ 或 Shift 可选择多个对象。</p>'+B.btn('import','导入第一张条带','image')+'</div>':'<div class="inspector-section"><div class="section-title"><h3>'+(objects.length>1?'已选 '+objects.length+' 个对象':'位置与大小')+'</h3><span class="muted">px</span></div>'+B.input(scope,'name',o.name,'名称')+'<div class="field-grid">'+[['x','X'],['y','Y'],['w','宽'],['h','高']].map(([f,t])=>B.input(scope,f,Math.round(o[f]*10)/10,t,'type="number" step="0.1" '+(['w','h'].includes(f)?'min="1"':''))).join('')+'</div><div class="field-grid">'+B.input(scope,'rotation',o.rotation,'角度 °','type="number" step="1"')+B.check(scope,'lockRatio',o.lockRatio,'锁定比例')+'</div>'+B.range(scope,'opacity',Math.round(o.opacity*100),0,100,'不透明度','%')+'</div>'+(o.type==='image'?'<div class="inspector-section"><h3>图像显示</h3>'+B.range(scope,'brightness',o.brightness,0,200,'亮度','%')+B.range(scope,'contrast',o.contrast,0,200,'对比度','%')+'<div class="check-grid">'+B.check(scope,'grayscale',o.grayscale,'灰度显示')+B.check(scope,'invert',o.invert,'反相显示')+'</div><div class="button-row">'+B.btn('flip','水平翻转','flip','data-id="flipX"')+B.btn('flip','垂直翻转','flip','data-id="flipY"')+'</div><div class="preserved">'+ic('check',14)+'原图已保留 · 定量不受显示调整影响</div>'+B.btn('crop','编辑裁剪与 ROI','crop','class="full"')+B.btn('reset-image','还原显示','rotate','class="full"')+'</div>':o.type==='text'?'<div class="inspector-section"><h3>文字</h3><label class="field"><textarea data-scope="object" data-field="text" aria-label="文字内容" rows="3">'+e(o.text)+'</textarea></label>'+B.select(scope,'fontFamily',o.fontFamily,['Arial','Times New Roman','Helvetica','Georgia','Courier New','PingFang SC'].map(x=>[x,x]),'字体')+'<div class="field-grid">'+B.input(scope,'fontSize',o.fontSize,'字号 px','type="number" min="6" max="300"')+B.input(scope,'fill',o.fill,'颜色','type="color"')+'</div><div class="check-grid">'+B.check(scope,'fontWeight',o.fontWeight===700,'加粗')+B.check(scope,'italic',o.italic,'斜体')+'</div>'+B.select(scope,'align',o.align,[['left','左对齐'],['center','居中'],['right','右对齐']],'文字对齐')+'</div>':'<div class="inspector-section"><h3>形状</h3>'+B.input(scope,'fill',o.fill==='none'?'#ffffff':o.fill,'填充色','type="color"')+B.check(scope,'noFill',o.fill==='none','无填充')+'</div>')+'<div class="inspector-section"><h3>边框</h3><div class="field-grid">'+B.input(scope,'strokeWidth',o.strokeWidth,'线宽 px','type="number" min="0" max="20" step="0.2"')+B.input(scope,'stroke',o.stroke,'线色','type="color"')+'</div></div><div class="inspector-section"><h3>对齐</h3><div class="alignment-grid">'+['left','center','right','top','middle','bottom'].map(a=>B.ib('align',a,a,'data-id="'+a+'" '+(objects.length<2?'disabled':''))).join('')+'</div><div class="button-row">'+B.btn('align','水平等距','grid','data-id="distributeX" '+(objects.length<3?'disabled':''))+B.btn('align','垂直等距','grid','data-id="distributeY" '+(objects.length<3?'disabled':''))+'</div><div class="button-row">'+B.btn('group-objects','组合','layers',objects.length<2?'disabled':'')+B.btn('ungroup-objects','取消组合','layers')+'</div></div><div class="inspector-section"><h3>图层顺序</h3><div class="alignment-grid four">'+[['front','置顶','layers'],['up','上移一层','up'],['down','下移一层','down'],['back','置底','layers']].map(([id,t,i])=>B.ib('order',t,i,'data-id="'+id+'"')).join('')+'</div></div>')+'</aside>';
+    return'<aside class="inspector"><div class="panel-heading"><h2>属性</h2>'+ic('layers',17)+'</div><div class="inspector-tabs"><button data-action="inspector-tab" data-id="object" class="'+(ui.inspector==='object'?'active':'')+'">对象</button><button data-action="inspector-tab" data-id="canvas" class="'+(ui.inspector==='canvas'?'active':'')+'">画布</button></div>'+(ui.inspector==='canvas'?'<div class="inspector-section"><h3>画布设置</h3><div class="field-grid">'+B.input('canvas','width',g.canvas.width,'宽 px','type="number" min="100" max="10000"')+B.input('canvas','height',g.canvas.height,'高 px','type="number" min="100" max="10000"')+'</div>'+B.select('canvas','preset','', [['','自定义'],['1000,590','WB 横版 1000 × 590'],['1200,1200','正方形 1200 × 1200'],['2480,3508','A4 · 300 dpi']],'尺寸预设')+B.input('canvas','background',g.canvas.background,'背景','type="color"')+B.select('canvas','dpi',g.canvas.dpi,[[150,'150 dpi'],[300,'300 dpi'],[600,'600 dpi']],'导出分辨率')+'<p class="hint">DPI 决定印刷尺寸；像素倍率在导出时设置。</p></div>':!o?'<div class="empty-inspector">'+ic('select',34)+'<h3>选择一个对象</h3><p>编辑位置、尺寸、文字和图像显示。按住 ⌘ 或 Shift 可选择多个对象。</p>'+B.btn('import','导入第一张条带','image')+'</div>':'<div class="inspector-section"><div class="section-title"><h3>'+(objects.length>1?'已选 '+objects.length+' 个对象':'位置与大小')+'</h3><span class="muted">px</span></div>'+B.input(scope,'name',o.name,'名称')+'<div class="field-grid">'+[['x','X'],['y','Y'],['w','宽'],['h','高']].map(([f,t])=>B.input(scope,f,Math.round(o[f]*10)/10,t,'type="number" step="0.1" '+(['w','h'].includes(f)?'min="1"':''))).join('')+'</div><div class="field-grid">'+B.input(scope,'rotation',o.rotation,'角度 °','type="number" step="0.5"')+B.check(scope,'lockRatio',o.lockRatio,'锁定比例')+'</div>'+B.range(scope,'opacity',Math.round(o.opacity*100),0,100,'不透明度','%')+'</div>'+(o.type==='image'?'<div class="inspector-section"><h3>图像显示</h3>'+B.range(scope,'brightness',o.brightness,0,200,'亮度','%')+B.range(scope,'contrast',o.contrast,0,200,'对比度','%')+'<div class="check-grid">'+B.check(scope,'grayscale',o.grayscale,'灰度显示')+B.check(scope,'invert',o.invert,'反相显示')+'</div><div class="button-row">'+B.btn('flip','水平翻转','flip','data-id="flipX"')+B.btn('flip','垂直翻转','flip','data-id="flipY"')+'</div><div class="preserved">'+ic('check',14)+'原图已保留 · 定量不受显示调整影响</div>'+B.btn('crop','编辑裁剪与 ROI','crop','class="full"')+B.btn('reset-image','还原显示','rotate','class="full"')+'</div>':o.type==='text'?'<div class="inspector-section"><h3>文字</h3><label class="field"><textarea data-scope="object" data-field="text" aria-label="文字内容" rows="3">'+e(o.text)+'</textarea></label>'+B.select(scope,'fontFamily',o.fontFamily,['Arial','Times New Roman','Helvetica','Georgia','Courier New','PingFang SC','Microsoft YaHei','SimSun'].map(x=>[x,x]),'字体')+'<div class="field-grid">'+B.input(scope,'fontSize',o.fontSize,'字号 px','type="number" min="6" max="300"')+B.input(scope,'fill',o.fill,'颜色','type="color"')+'</div><div class="check-grid">'+B.check(scope,'fontWeight',o.fontWeight===700,'加粗')+B.check(scope,'italic',o.italic,'斜体')+'</div>'+B.select(scope,'align',o.align,[['left','左对齐'],['center','居中'],['right','右对齐']],'文字对齐')+'</div>':'<div class="inspector-section"><h3>形状</h3>'+B.input(scope,'fill',o.fill==='none'?'#ffffff':o.fill,'填充色','type="color"')+B.check(scope,'noFill',o.fill==='none','无填充')+'</div>')+'<div class="inspector-section"><h3>边框</h3><div class="field-grid">'+B.input(scope,'strokeWidth',o.strokeWidth,'线宽 px','type="number" min="0" max="20" step="0.2"')+B.input(scope,'stroke',o.stroke,'线色','type="color"')+'</div></div><div class="inspector-section"><h3>对齐</h3><div class="alignment-grid">'+['left','center','right','top','middle','bottom'].map(a=>B.ib('align',a,a,'data-id="'+a+'" '+(objects.length<2?'disabled':''))).join('')+'</div><div class="button-row">'+B.btn('align','水平等距','grid','data-id="distributeX" '+(objects.length<3?'disabled':''))+B.btn('align','垂直等距','grid','data-id="distributeY" '+(objects.length<3?'disabled':''))+'</div><div class="button-row">'+B.btn('group-objects','组合','layers',objects.length<2?'disabled':'')+B.btn('ungroup-objects','取消组合','layers')+'</div></div><div class="inspector-section"><h3>图层顺序</h3><div class="alignment-grid four">'+[['front','置顶','layers'],['up','上移一层','up'],['down','下移一层','down'],['back','置底','layers']].map(([id,t,i])=>B.ib('order',t,i,'data-id="'+id+'"')).join('')+'</div></div>')+'</aside>';
   };
   B.analysis=()=>{
     const {p,ui}=B.state,g=B.getGroup(),o=B.getAnalysis(),s=o&&p.sources.find(s=>s.id===o.sourceId);if(!o||!s)return'<section class="content-page empty-page">'+ic('image',48)+'<h1>从一张原始 WB 图像开始</h1><p>导入 PNG、JPEG 或 8/16-bit TIFF，再框选条带和背景。</p>'+B.btn('import','导入原始图像','image','class="primary"')+'</section>';
-    const src={...o,x:0,y:0,w:s.width,h:s.height,rotation:0,crop:{x:0,y:0,w:s.width,h:s.height},flipX:false,flipY:false,strokeWidth:0},rois=o.rois,records=B.records(p,g).filter(r=>r.objectId===o.id),z=Math.min(1.2,Math.max(.15,ui.analysisZoom||Math.min(900/s.width,420/s.height)));
+    const src={...o,x:0,y:0,w:s.width,h:s.height,rotation:o.analysis?.rotation||0,crop:{x:0,y:0,w:s.width,h:s.height},flipX:false,flipY:false,strokeWidth:0},rois=o.rois,records=B.records(p,g).filter(r=>r.objectId===o.id),z=Math.min(1.2,Math.max(.15,ui.analysisZoom||Math.min(900/s.width,420/s.height)));
     return'<section class="analysis-page"><div class="page-heading"><div><h1>原图与灰度分析</h1><p>'+e(s.name)+' <span class="tag">'+s.bitDepth+'-bit 原始像素</span> '+s.width+' × '+s.height+' px</p></div>'+B.btn('original','导出原始文件','save')+'</div><div class="analysis-settings">'+B.select('analysis-ui','analysisId',o.id,g.objects.filter(v=>v.type==='image').map(v=>[v.id,v.protein||v.name]),'图像')+B.input('analysis','protein',o.protein,'蛋白')+B.input('analysis','mw',o.mw,'分子量 kDa')+B.select('analysis','referenceId',o.referenceId,[['','不归一到参照'],...g.objects.filter(v=>v.type==='image'&&v.id!==o.id).map(v=>[v.id,v.protein||v.name])],'参照蛋白')+B.select('analysis','polarity',o.polarity,[['dark','深色条带 / 浅背景'],['light','浅色条带 / 深背景']],'信号方向')+'</div><div class="analysis-tools">'+[['roi','框选条带','rect'],['background','框选背景','rect'],['crop','框选裁剪','crop']].map(([id,t,icon])=>B.btn('analysis-tool',t,icon,'data-id="'+id+'" class="'+(ui.analysisTool===id?'chosen':'')+'"')).join('')+B.btn('auto-rois','按泳道生成 ROI','grid')+B.btn('copy-rois','同步到其他蛋白','copy')+B.btn('clear-rois','清空 ROI','trash')+B.btn('clear-bg','清除背景','close')+'<span class="toolbar-spacer"></span>'+B.ib('analysis-zoom-out','缩小原图','minus')+'<span>'+Math.round(z*100)+'%</span>'+B.ib('analysis-zoom-in','放大原图','plus')+'</div><div class="analysis-image-scroll"><svg id="analysis-image" width="'+s.width*z+'" height="'+s.height*z+'" viewBox="0 0 '+s.width+' '+s.height+'" role="img" aria-label="原图 ROI 框选区">'+B.objectMarkup(src,p.sources)+'<rect x="'+o.crop.x+'" y="'+o.crop.y+'" width="'+o.crop.w+'" height="'+o.crop.h+'" fill="none" stroke="#d6952d" stroke-width="'+1.5/z+'" stroke-dasharray="6 4" pointer-events="none"/>'+rois.map((r,i)=>'<g data-roi="'+r.id+'"><rect x="'+r.x+'" y="'+r.y+'" width="'+r.w+'" height="'+r.h+'" fill="'+(ui.roiId===r.id?'#13897d30':'#13897d15')+'" stroke="#13897d" stroke-width="'+1.5/z+'"/><text x="'+(r.x+2/z)+'" y="'+Math.max(12/z,r.y-3/z)+'" font-size="'+12/z+'" fill="#0b6f65">'+(i+1)+'</text></g>').join('')+(o.background?'<rect x="'+o.background.x+'" y="'+o.background.y+'" width="'+o.background.w+'" height="'+o.background.h+'" fill="#477bc020" stroke="#477bc0" stroke-width="'+1.5/z+'"/>':'')+(ui.analysisRect?'<rect x="'+ui.analysisRect.x+'" y="'+ui.analysisRect.y+'" width="'+ui.analysisRect.w+'" height="'+ui.analysisRect.h+'" fill="#d6952d30" stroke="#d6952d" stroke-width="'+1.5/z+'"/>':'')+'</svg></div><div class="analysis-caption"><span><i class="legend green"></i>条带 ROI</span><span><i class="legend blue"></i>背景 ROI</span><span><i class="legend amber"></i>显示裁剪范围</span><span>在原图拖框；选中条带框后可拖动。定量始终读取原始 '+s.bitDepth+'-bit 像素。</span></div><div class="split-row"><div class="analysis-readout"><h3>定量设置</h3>'+B.range('analysis','brightness',o.brightness,0,200,'显示亮度','%')+B.range('analysis','contrast',o.contrast,0,200,'显示对比度','%')+'<p class="hint">深色条带：校正积分 = 背景均值 × ROI 面积 − ROI 像素和。无背景框时使用反相积分。负值保留，并从比值/统计中排除。</p></div><div class="roi-editor"><h3>选中 ROI 的原图坐标</h3>'+(rois.find(r=>r.id===ui.roiId)?'<div class="field-grid four">'+['x','y','w','h'].map(f=>B.input('roi',f,Math.round(rois.find(r=>r.id===ui.roiId)[f]),f.toUpperCase(),'type="number" min="0"')).join('')+'</div>'+B.select('roi','sampleIndex',rois.find(r=>r.id===ui.roiId).sampleIndex,g.samples.map((s,i)=>[i,s.id+' · '+s.group]),'对应样本')+B.btn('delete-roi','删除此 ROI','trash'):'<p class="hint">点击原图中的绿色框，精确修改位置和尺寸。</p>')+'</div></div>'+(B.imagejPanel?B.imagejPanel(p,g,o,s):'')+'<div class="section-title"><h2>灰度结果 <small>'+records.length+' 个 ROI</small></h2><div class="button-row">'+B.btn('results-xlsx','导出 Excel','export')+B.btn('to-stats','查看统计','chart')+'</div></div><div class="table-scroll"><table><thead><tr><th>ROI</th><th>样本</th><th>分组</th><th>面积 px²</th><th>原始积分</th><th>校正积分</th><th>目的/参照</th><th>提示</th></tr></thead><tbody>'+records.map((r,i)=>'<tr class="'+(r.issue?'warning-row':'')+'" data-action="roi-select" data-id="'+r.roi.id+'"><td>'+(i+1)+'</td><td>'+e(r.sampleId)+'</td><td>'+e(r.group)+'</td><td>'+r.area+'</td><td>'+B.format(r.raw)+'</td><td>'+B.format(r.corrected)+'</td><td>'+B.format(r.ratio)+'</td><td>'+e(r.issue||'—')+'</td></tr>').join('')+'</tbody></table></div></section>';
   };
   B.format=v=>v===null||v===undefined||!Number.isFinite(v)?'—':Math.abs(v)>=1000000?Number(v).toExponential(3):Number(v).toLocaleString('en-US',{maximumFractionDigits:4});
@@ -751,7 +874,7 @@
   B.editSelected=(label,fn)=>B.commit(label,(p,g)=>g.objects.filter(o=>B.state.ui.selected.includes(o.id)&&!o.locked).forEach(o=>fn(o,p,g)));
   B.fit=()=>{const v=document.getElementById('viewport'),g=B.getGroup();if(v){B.state.ui.zoom=B.clamp(Math.min((v.clientWidth-86)/g.canvas.width,(v.clientHeight-108)/g.canvas.height),.1,1.5);B.state.ui.scrollX=0;B.state.ui.scrollY=0;B.render();}};
   B.performUndo=redo=>{const st=B.state,from=redo?st.future:st.past,to=redo?st.past:st.future;if(!from.length)return;to.push(st.p);st.p=from.pop();if(!st.p.groups.some(g=>g.id===st.ui.group))st.ui.group=st.p.groups[0].id;st.ui.selected=[];st.ui.checkedGroups=st.ui.checkedGroups.filter(id=>st.p.groups.some(g=>g.id===id));st.p.activeGroup=st.ui.group;B.validate(st.p);B.persist();B.render();};
-  B.cloneGroup=(g,name)=>{const out=JSON.parse(JSON.stringify(g)),ids=new Map(g.objects.map(o=>[o.id,B.uid()]));out.id=B.uid();out.name=name||g.name+' 副本';for(const o of out.objects){o.id=ids.get(o.id);o.referenceId=ids.get(o.referenceId)||'';if(o.groupId)o.groupId='clone'+out.id+o.groupId;for(const r of o.rois||[])r.id=B.uid();}return out;};
+  B.cloneGroup=(g,name)=>{const out=JSON.parse(JSON.stringify(g)),ids=new Map(g.objects.map(o=>[o.id,B.uid()]));out.id=B.uid();out.name=name||g.name+' 副本';for(const o of out.objects){o.id=ids.get(o.id);o.referenceId=ids.get(o.referenceId)||'';o.controlId=ids.get(o.controlId)||'';o.totalId=ids.get(o.totalId)||'';if(o.groupId)o.groupId='clone'+out.id+o.groupId;for(const r of o.rois||[])r.id=B.uid();}return out;};
   B.importFiles=async files=>{
     const targetProject=B.state.p.id,targetGroup=B.getGroup().id,epoch=projectEpoch,successes=[],errors=[];B.toast('正在解码图像，原图会保留在项目内…');
     for(const file of files){try{successes.push(...await B.importImage(file));}catch(err){errors.push(file.name+'：'+err.message);}}
@@ -775,7 +898,7 @@
     B.validate(p);ui.exporting=true;const fmt=m.format,scale=Number(m.scale||1),name=g.name.replace(/[\\/:*?"<>|]/g,'_');B.toast('正在生成导出文件…');let result;
     try{
       if(fmt==='project')result=await B.saveFile(p.name+'.wbproj',JSON.stringify(p),'application/json');
-      else if(fmt==='svg')result=await B.saveFile(name+'.svg',B.svg(p,g),'image/svg+xml');
+      else if(fmt==='svg')result=await B.saveFile(name+'.svg',B.prepareSVG?await B.prepareSVG(B.svg(p,g)):B.svg(p,g),'image/svg+xml');
       else if(fmt==='pptx')result=await B.saveFile(name+'.pptx',await B.pptx(p,g),'application/vnd.openxmlformats-officedocument.presentationml.presentation');
       else if(fmt==='csv'||fmt==='xlsx')result=await B.saveFile(name+'.'+fmt,B.dataExport(fmt),fmt==='csv'?'text/csv':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       else if(fmt==='audit')result=await B.saveFile(name+'-操作记录.csv',B.csv([['时间 UTC','操作','说明'],...p.audit.map(r=>[r.time,r.action,r.detail])]),'text/csv');
@@ -812,7 +935,7 @@
     'save-group':()=>{const m=B.state.ui.modal;B.commit('修改图组',p=>{const g=p.groups.find(g=>g.id===m.id);g.name=m.name.trim()||g.name;g.experiment=m.experiment.trim()||g.experiment;B.state.ui.modal=null;});},
     clonegroup:el=>B.commit('复制图组',p=>{const copy=B.cloneGroup(p.groups.find(g=>g.id===el.dataset.id));p.groups.push(copy);B.state.ui.group=copy.id;B.state.ui.modal=null;}),
     deletegroup:el=>{if(B.state.p.groups.length===1)return;B.commit('删除图组（可撤销）',p=>{p.groups=p.groups.filter(g=>g.id!==el.dataset.id);B.state.ui.checkedGroups=B.state.ui.checkedGroups.filter(v=>v!==el.dataset.id);B.state.ui.modal=null;});},
-    merge:()=>B.commit('合并图组到多面板画布',(p)=>{const selected=p.groups.filter(g=>B.state.ui.checkedGroups.includes(g.id));if(selected.length<2)return;const g=B.blankGroup('合并组图',selected[0].experiment);g.samples=JSON.parse(JSON.stringify(selected[0].samples));let offset=0;selected.forEach((v,i)=>{const clone=B.cloneGroup(v);for(const o of clone.objects){o.x+=offset;o.rois=[];o.referenceId='';if(o.autoLabel&&o.text==='A')o.text=String.fromCharCode(65+i);}g.objects.push(...clone.objects);g.canvas.height=Math.max(g.canvas.height,v.canvas.height);offset+=v.canvas.width+60;});g.canvas.width=offset-60;if(g.canvas.width>10000)throw Error('合并画布超过 10000 px，请减少图组。');g.notes='多面板排版副本。原组图和原分析保留；本副本不汇总 ROI。';p.groups.push(g);B.state.ui.group=g.id;B.state.ui.selected=[];B.state.ui.tab='edit';B.state.ui.checkedGroups=[];}),
+    merge:()=>B.commit('合并图组到多面板画布',(p)=>{const selected=p.groups.filter(g=>B.state.ui.checkedGroups.includes(g.id));if(selected.length<2)return;const g=B.blankGroup('合并组图',selected[0].experiment);g.samples=JSON.parse(JSON.stringify(selected[0].samples));let offset=0;selected.forEach((v,i)=>{const clone=B.cloneGroup(v);for(const o of clone.objects){o.x+=offset;o.rois=[];o.referenceId='';o.controlId='';o.totalId='';if(o.autoLabel&&o.text==='A')o.text=String.fromCharCode(65+i);}g.objects.push(...clone.objects);g.canvas.height=Math.max(g.canvas.height,v.canvas.height);offset+=v.canvas.width+60;});g.canvas.width=offset-60;if(g.canvas.width>10000)throw Error('合并画布超过 10000 px，请减少图组。');g.notes='多面板排版副本。原组图和原分析保留；本副本不汇总 ROI。';p.groups.push(g);B.state.ui.group=g.id;B.state.ui.selected=[];B.state.ui.tab='edit';B.state.ui.checkedGroups=[];}),
     add:el=>{const type=el.dataset.id;B.commit('添加'+type,(p,g)=>{const o=B.object(type,{name:type==='text'?'新文本':{rect:'矩形',line:'线段',arrow:'箭头',bracket:'分组括号'}[type],text:'双击编辑文本',x:80,y:70,w:type==='text'?240:160,h:type==='text'?32:type==='rect'?80:type==='bracket'?16:30,fill:type==='rect'?'none':'#20252c',strokeWidth:type==='text'?0:1.5});g.objects.push(o);B.state.ui.selected=[o.id];B.state.ui.shapeMenu=false;B.state.ui.inspector='object';});},
     delete:()=>B.commit('删除对象（可撤销）',(p,g)=>{const ids=B.state.ui.selected;g.objects=g.objects.filter(o=>!ids.includes(o.id)||o.locked);const remaining=new Set(g.objects.map(o=>o.id));for(const o of g.objects)if(o.referenceId&&!remaining.has(o.referenceId))o.referenceId='';B.state.ui.selected=[];}),
     duplicate:()=>B.commit('复制对象',(p,g)=>{const objects=g.objects.filter(o=>B.state.ui.selected.includes(o.id)),mapping=new Map(objects.map(o=>[o.id,B.uid()]));const added=objects.map(o=>{const c=JSON.parse(JSON.stringify(o));c.id=mapping.get(o.id);c.x+=20;c.y+=20;c.name+=' 副本';c.groupId=c.groupId?'copy'+Date.now()+c.groupId:'';if(c.referenceId)c.referenceId=mapping.get(c.referenceId)||c.referenceId;for(const r of c.rois||[])r.id=B.uid();return c;});g.objects.push(...added);B.state.ui.selected=added.map(o=>o.id);}),
@@ -862,6 +985,7 @@
     const el=ev.target;if(el.id==='images-input'){const files=Array.from(el.files);el.value='';try{await B.importFiles(files);}catch(err){B.toast(err.message);}return;}if(el.id==='project-input'){try{if(el.files[0])await B.openProject(el.files[0]);}catch(err){B.toast(err.message);}el.value='';return;}
     const scope=el.dataset.scope,field=el.dataset.field;if(!scope||!B.state.p)return;let value=el.type==='checkbox'?el.checked:el.type==='number'||el.type==='range'?Number(el.value):el.value;
     try{
+      if(scope==='baseline'||scope==='condition')return;
       if(scope==='modal'){const m=B.state.ui.modal;if(m.type==='library')m.record[field]=value;else m[field]=value;return;}
       if(scope==='checkgroup'){B.state.ui.checkedGroups=value?[...new Set([...B.state.ui.checkedGroups,field])]:B.state.ui.checkedGroups.filter(v=>v!==field);B.render();return;}
       if(scope==='ui'||scope==='analysis-ui'){B.state.ui[field]=value;if(field==='analysisId'){B.state.ui.roiId='';B.state.ui.analysisZoom=0;}B.render();return;}
@@ -926,5 +1050,237 @@
   document.addEventListener('dragover',ev=>{if(ev.dataTransfer?.types.includes('Files')){ev.preventDefault();document.body.classList.add('dragging');}});document.addEventListener('dragleave',ev=>{if(!ev.relatedTarget)document.body.classList.remove('dragging');});document.addEventListener('drop',async ev=>{ev.preventDefault();document.body.classList.remove('dragging');const files=Array.from(ev.dataTransfer?.files||[]);try{const project=files.find(f=>f.name.endsWith('.wbproj'));if(project)await B.openProject(project);else if(files.length)await B.importFiles(files);}catch(err){B.toast(err.message);}});
   window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(B.state.p&&B.state.ui.tab==='edit')B.fit();},200);});
   B.ready=(async()=>{try{const saved=await B.db.read();B.state.p=saved?B.validate(saved):B.demoProject();B.state.ui.saveStatus=saved?'已恢复本地项目':'演示项目已就绪';}catch(err){B.state.p=B.demoProject();B.state.ui.saveStatus='自动保存不可用 · 可导出项目备份';}B.state.ui.group=B.state.p.activeGroup||B.state.p.groups[0].id;B.state.ui.selected=B.getGroup().objects.filter(o=>o.type==='image').slice(0,1).map(o=>o.id);B.render();requestAnimationFrame(()=>B.fit());})();
+})(globalThis.BS ||= {});
+
+(function(B){
+  'use strict';
+  const split=s=>String(s||'').split(/[,，\n]/).map(s=>s.trim()).filter(Boolean);
+  B.designSamples=config=>{
+    const repeats=Number(config.repeats??1);if(!Number.isInteger(repeats)||repeats<1||repeats>200)throw Error('每组样本数必须为 1–200。');
+    let rows=[];
+    if(config.mode==='linear')rows=split(config.groups).map(group=>({group,factors:{分组:group}}));
+    else if(config.mode==='matrix'){
+      const factors=String(config.factors||'').split('\n').filter(s=>s.trim()).map(line=>{const at=line.search(/[:：]/);if(at<1)throw Error('因素请写成“因素名:水平1,水平2”。');return{name:line.slice(0,at).trim(),levels:split(line.slice(at+1))};});
+      if(!factors.length||factors.length>5||factors.some(f=>!f.levels.length)||new Set(factors.map(f=>f.name)).size!==factors.length)throw Error('请设置 1–5 个不重名且有水平的因素。');
+      rows=[{factors:{}}];for(const f of factors){if(rows.length*f.levels.length*repeats>200)throw Error('设计超过 200 条泳道。');rows=rows.flatMap(r=>f.levels.map(v=>({factors:{...r.factors,[f.name]:v}})));}rows=rows.map(r=>({...r,group:Object.values(r.factors).join(' / ')}));
+    }else if(config.mode==='conditions'){
+      const conditions=String(config.conditions||'').split('\n').filter(s=>s.trim()).map(line=>{const at=line.search(/[:：]/);if(at<1)throw Error('条件请写成“条件名:-,+,-,+”。');return{name:line.slice(0,at).trim(),values:split(line.slice(at+1)).map(v=>v==='−'?'-':v)};});
+      const count=conditions[0]?.values.length;if(!count||conditions.some(c=>c.values.length!==count||c.values.some(v=>!['+','-'].includes(v)))||new Set(conditions.map(c=>c.name)).size!==conditions.length)throw Error('各条件必须具有相同泳道数，且只使用 + 或 -。');
+      rows=Array.from({length:count},(_,i)=>{const factors=Object.fromEntries(conditions.map(c=>[c.name,c.values[i]]));return{factors,group:Object.entries(factors).map(([k,v])=>k+v).join(' / ')};});
+    }else throw Error('实验设计模式无效。');
+    if(!rows.length||rows.length*repeats>200)throw Error('请设置 1–200 条泳道。');
+    const counts=new Map();return rows.flatMap(r=>Array.from({length:repeats},()=>{const replicate=(counts.get(r.group)||0)+1;counts.set(r.group,replicate);return{...r,replicate,include:true};})).map((s,i)=>({...s,id:'S'+(i+1)}));
+  };
+  B.scopedGroups=(p,g,scope)=>scope==='topic'?p.groups.filter(v=>(v.topic||p.name)===(g.topic||p.name)):scope==='experiment'?p.groups.filter(v=>v.experiment===g.experiment&&(v.topic||p.name)===(g.topic||p.name)):[g];
+  B.replaceSource=(project,group,imageId,source)=>{
+    const image=group.objects.find(v=>v.id===imageId&&v.type==='image');if(!image)throw Error('待替换图像不存在。');if(image.locked)throw Error('请先解锁图像。');
+    const previous=project.sources.find(v=>v.id===image.sourceId);project.sources.push(source);image.sourceId=source.id;
+    if(previous.width!==source.width||previous.height!==source.height){image.crop={x:0,y:0,w:source.width,h:source.height};image.background=null;image.rois=B.autoROIs(image.crop,group.samples.length);if(image.lockRatio)image.h=image.w*source.height/source.width;}
+    return{from:previous.hash||previous.id,to:source.hash||source.id};
+  };
+  B.linkedSVG=async(p,g)=>{
+    let svg=B.svg(p,g);if(B.prepareSVG)svg=await B.prepareSVG(svg);
+    const files={},replacements=new Map();let index=0;
+    for(const match of svg.matchAll(/href="(data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+)"/g)){const url=match[1];if(replacements.has(url))continue;const mime=url.match(/^data:image\/(\w+)/)[1],filename='images/source-'+(++index)+'.'+(mime==='jpeg'?'jpg':mime);files[filename]=B.unbase64(url.split(',')[1]);replacements.set(url,filename);}
+    for(const [url,file] of replacements)svg=svg.replaceAll(url,file);
+    files['figure.svg']=svg;files['README.txt']='Keep figure.svg and the images folder together. Images are display previews; retain the .wbproj for original quantification.\n';return B.zip(files);
+  };
+  const oldLayout=B.quickLayout;
+  B.quickLayout=(g,opts={})=>{
+    if(!opts.extended&&!g.layoutOptions)return oldLayout(g,opts);
+    const a={width:640,height:70,gap:20,cropMode:'width',swap:false,groupPosition:'above',groupLine:true,groupGap:8,proteinGap:12,mwGap:8,lineWidth:1.5,showKda:true,showDash:false,syncGroups:false,syncProtein:false,syncMw:false,...g.layoutOptions,...opts};
+    if(!['width','height','both','free'].includes(a.cropMode)||!['above','below'].includes(a.groupPosition)||![a.width,a.height,a.gap,a.groupGap,a.proteinGap,a.mwGap,a.lineWidth].every(Number.isFinite))throw Error('快速排版参数无效。');
+    const before=JSON.parse(JSON.stringify(g)),images=g.objects.filter(o=>o.type==='image'&&o.visible!==false);if(!images.length)throw Error('请先导入条带。');if(images.some(o=>o.locked)||g.objects.some(o=>o.autoLabel&&o.locked))throw Error('请先解锁条带和自动标签。');
+    try{
+      const left=a.swap?165:180,right=a.width+left,add=[],fields=[...new Set(g.samples.flatMap(s=>Object.keys(s.factors||{})))],rows=fields.length?fields:['分组'];let y=65+(a.groupPosition==='above'?rows.length*32+20:0);
+      const text=(t,x,y,w,size=21,align='left',role='')=>add.push(B.object('text',{text:t,name:t,x,y,w,h:size*1.4,fontSize:size,align,autoLabel:true,labelRole:role}));
+      for(const o of images){const c={...o.crop};if(a.cropMode==='both'){const desiredRatio=a.width/a.height;if(c.w/c.h>desiredRatio){const nw=c.h*desiredRatio;c.x+=(c.w-nw)/2;c.w=nw;}else{const nh=c.w/desiredRatio;c.y+=(c.h-nh)/2;c.h=nh;}o.crop=c;}
+        const w=a.cropMode==='height'?a.height*c.w/c.h:a.cropMode==='free'?o.w:a.width,h=a.cropMode==='height'||a.cropMode==='both'?a.height:a.cropMode==='free'?o.h:w*c.h/c.w;
+        Object.assign(o,{x:left,y,w,h,rotation:o.rotation||0,strokeWidth:a.lineWidth});const protein=o.protein||o.name,mw=(a.showDash?'-':'')+(o.mw||'')+(a.showKda?' kDa':'');
+        text(a.swap?mw:protein,5,y+h/2-14,left-(a.swap?a.mwGap:a.proteinGap)-5,22,'right',a.swap?'mw':'protein');text(a.swap?protein:mw,left+w+(a.swap?a.proteinGap:a.mwGap),y+h/2-14,155,22,'left',a.swap?'protein':'mw');y+=h+a.gap;
+      }
+      rows.forEach((field,row)=>{const yy=a.groupPosition==='above'?24+row*32:y+row*32;for(let start=0;start<g.samples.length;){const value=g.samples[start].factors?.[field]??g.samples[start].group;let end=start+1;while(end<g.samples.length&&(g.samples[end].factors?.[field]??g.samples[end].group)===value)end++;const x=left+a.width*start/g.samples.length,w=a.width*(end-start)/g.samples.length;const pairId=a.syncGroups?'layout-pair-'+B.uid():null;text(value,x,yy,w,20,'center','group');if(pairId)add.at(-1).groupId=pairId;if(a.groupLine)add.push(B.object('line',{name:'分组框线',x:x+3,y:yy+25+a.groupGap,w:Math.max(1,w-6),h:.01,strokeWidth:a.lineWidth,autoLabel:true,labelRole:'group-line',...(pairId?{groupId:pairId}:{})}));start=end;}});
+      g.objects=g.objects.filter(o=>!o.autoLabel).concat(add);g.canvas.width=Math.max(400,right+190);g.canvas.height=Math.max(250,y+(a.groupPosition==='below'?rows.length*32:0)+45);if(g.canvas.width>10000||g.canvas.height>10000||g.objects.length>3000)throw Error('排版超过画布或对象上限。');g.layoutOptions=a;
+    }catch(error){Object.assign(g,before);throw error;}
+  };
+  if(!B.state||!B.actions)return;
+  const e=B.esc,ui=()=>B.state.ui,p=()=>B.state.p,g=()=>B.getGroup(),o=()=>B.getAnalysis(),actions=B.actions;
+  const dialog=(title,body,footer)=>'<div class="modal-shade"><section class="modal" role="dialog" aria-modal="true"><div class="modal-heading"><h2>'+e(title)+'</h2>'+B.ib('close-modal','关闭','close')+'</div><div class="modal-body">'+body+'</div><div class="modal-footer">'+B.btn('close-modal','取消')+footer+'</div></section></div>';
+  const input=(field,value,title,attrs='')=>B.input('modal',field,value,title,attrs),select=(field,value,choices,title)=>B.select('modal',field,value,choices,title),check=(field,value,title)=>B.check('modal',field,value,title);
+  const textarea=(field,value,title)=>'<label class="field"><span>'+e(title)+'</span><textarea data-scope="modal" data-field="'+field+'" aria-label="'+e(title)+'" rows="4">'+e(value)+'</textarea></label>';
+  const modal=B.modal;B.modal=()=>{
+    const m=ui().modal;if(!m)return '';
+    if(m.type==='methods')return dialog('灰度计算方式',check('applyAll',m.applyAll,'同时应用当前图组的全部蛋白')+check('convert8',m.convert8,'转为 8-bit 灰度图')+select('rgb',m.rgb,[['mean','ImageJ 等权 RGB 平均'],['luminance','加权亮度 0.299 / 0.587 / 0.114']],'彩色图转换')+select('background',m.background,[['none','不扣背景'],['rolling','ImageJ 滚球背景'],['roi','背景框均值']],'背景处理')+input('radius',m.radius,'Rolling Ball Radius px','type="number" min="0" max="100" step="1"')+check('presmooth',m.presmooth,'滚球前 3×3 平滑')+input('rotation',m.rotation||0,'分析校正旋转角度 °','type="number" min="-180" max="180" step="0.5"')+select('method',m.method,[['rect','自动矩形 ROI'],['ellipse','自动椭圆 ROI'],['profile','泳道峰面积']],'选区模式')+select('profileAxis',m.profileAxis||'y',[['y','沿泳道纵向 y'],['x','沿条带横向 x']],'峰图方向')+'<p class="hint">计算使用独立副本，原文件与排版预览均保留。16-bit 转 8-bit 按整张原图范围缩放；半径 0 关闭滚球。切换方法不会改变显示亮度和对比度。</p>',B.btn('apply-methods','应用设置','check','class="primary"'));
+    if(m.type==='wizard')return dialog('实验设计',select('mode',m.mode,[['linear','单因素分组'],['matrix','多因素矩阵'],['conditions','± 条件模式']],'设计模式')+input('repeats',m.repeats,'每个组合的样本数','type="number" min="1" max="200"')+textarea('groups',m.groups,'单因素分组（逗号或换行）')+textarea('factors',m.factors,'多因素：每行 因素名:水平1,水平2')+textarea('conditions',m.conditions,'±条件：每行 条件名:-,+,-,+')+'<p class="hint">点击预览核对泳道和分组，再应用。现有 ROI 保留泳道索引；超过新样本数的 ROI 会移除，可撤销。</p>'+(m.preview?'<pre>'+e(m.preview)+'</pre>':''),B.btn('preview-design','预览泳道','grid')+B.btn('apply-design','应用设计','check','class="primary"'));
+    if(m.type==='newgroup')return dialog('新建图组',input('name',m.name,'图组名称')+input('topic',m.topic||g().topic||p().name,'所属课题')+input('experiment',m.experiment,'所属实验'),B.btn('create-group','创建图组','plus','class="primary"'));
+    if(m.type==='node')return dialog(m.kind==='topic'?'新建课题':'新建实验',input('name',m.name,'名称')+(m.kind==='experiment'?input('topic',m.topic,'所属课题'):''),B.btn('save-node',m.old?'保存':'创建','plus','class="primary"'));
+    if(m.type==='delete-node')return dialog('删除目录', '<p>删除 '+e(m.name)+'。图组可从“找回图组”恢复；提升下级会保留全部图组。</p>',B.btn('promote-node','仅删除本项，下级提升一级','folder')+B.btn('cascade-node','删除本项及全部下级','trash'));
+    if(m.type==='recovery')return dialog('找回图组',((p().deletedGroups||[]).map(v=>'<div class="button-row"><span>'+e(v.group.name)+' · '+e(v.time)+'</span>'+B.btn('restore-group','恢复图组','','data-id="'+v.group.id+'"')+'</div>').join('')||'<p>没有已删除图组。</p>'),B.btn('close-modal','完成','check'));
+    if(m.type==='export-scope')return dialog('导出灰度数据',select('scope',m.scope,[['current','当前图组'],['experiment','当前实验'],['topic','当前课题']],'数据范围'),B.btn('export-scoped','导出 Excel','export','class="primary"'));
+    if(m.type==='layout')return dialog('快速排版',input('width',m.width,'统一宽度 px','type="number" min="100" max="5000"')+input('height',m.height,'统一高度 px','type="number" min="1" max="1000"')+select('cropMode',m.cropMode,[['width','仅统一宽度'],['height','仅统一高度'],['both','统一高度和宽度（中心裁剪）'],['free','自由裁剪 / 保留尺寸']],'图片裁剪方式')+input('gap',m.gap,'行间距 px','type="number" min="0" max="500"')+input('groupGap',m.groupGap,'分组名与框线 px','type="number" min="0" max="50"')+input('proteinGap',m.proteinGap,'蛋白名与条带 px','type="number" min="0" max="50"')+input('mwGap',m.mwGap,'分子量与条带 px','type="number" min="0" max="50"')+input('lineWidth',m.lineWidth,'框线粗细 px','type="number" min="0" max="20" step="0.5"')+select('groupPosition',m.groupPosition,[['above','条带上方'],['below','条带下方']],'分组名位置')+check('swap',m.swap,'交换蛋白和分子量位置')+check('groupLine',m.groupLine,'显示分组框线')+check('showKda',m.showKda,'显示 kDa')+check('showDash',m.showDash,'分子量前显示横线')+check('syncGroups',m.syncGroups,'同步分组文字与框线')+check('syncProtein',m.syncProtein,'同步蛋白名样式')+check('syncMw',m.syncMw,'同步分子量样式')+'<p class="hint">统一高宽使用中心裁剪，不拉伸条带。全部标签、框线和图片仍为独立可编辑对象。自动排版可撤销。</p>',B.btn('apply-layout','应用排版','bolt','class="primary"'));
+    if(m.type==='export'){
+      let html=modal();html=html.replace('<option value="svg"','<option value="jpg" '+(m.format==='jpg'?'selected':'')+'>JPG · 组图</option><option value="svg-linked" '+(m.format==='svg-linked'?'selected':'')+'>SVG · 链接图片 ZIP</option><option value="svg"');
+      return html.replace('<p class="hint">',select('quality',m.quality||.94,[[1,'100%'],[.94,'94% 推荐'],[.85,'85%']],'JPG 质量')+'<p class="hint">');
+    }
+    return modal();
+  };
+  const header=B.header;B.header=()=>header().replace('<div class="header-actions">','<div class="header-actions"><div class="menu-wrap project-menu">'+B.btn('project-menu','项目工具','grid')+(ui().projectTools?'<div class="dropdown">'+B.btn('wizard','实验设计向导','grid')+B.btn('export-scope','分范围导出','export')+B.btn('workspace','文件管理','folder')+'</div>':'')+'</div>');
+  const sidebar=B.sidebar;B.sidebar=()=>{
+    let html=sidebar();const project=p(),current=g(),topics=[...new Set([...(project.topics||[]),...project.groups.map(v=>v.topic||project.name)])];
+    let tree='<div class="tree"><button class="tree-root" data-action="project-name">'+e(project.name)+'</button>';
+    for(const topic of topics){const topicKey='topic:'+topic,topicClosed=(ui().collapsedFolders||[]).includes(topicKey);const groups=project.groups.filter(v=>(v.topic||project.name)===topic),experiments=[...new Set([...groups.map(v=>v.experiment),...(project.experiments||[]).filter(v=>v.topic===topic).map(v=>v.name)])];
+      tree+='<div class="experiment-row">'+B.ib('toggle-folder',topicClosed?'展开课题':'收起课题',topicClosed?'plus':'minus','data-id="'+e(topicKey)+'"')+'<b>课题 · '+e(topic)+'</b>'+B.ib('select-topic','选择课题 '+topic,'check','data-topic="'+e(topic)+'"')+B.ib('edit-topic','编辑课题 '+topic,'layers','data-topic="'+e(topic)+'"')+B.ib('delete-topic','删除课题 '+topic,'trash','data-topic="'+e(topic)+'"')+'</div>';
+      if(topicClosed)continue;for(const experiment of experiments){const experimentKey='experiment:'+topic+' / '+experiment,experimentClosed=(ui().collapsedFolders||[]).includes(experimentKey);tree+='<div class="experiment-row" style="padding-left:20px">'+B.ib('toggle-folder',experimentClosed?'展开实验':'收起实验',experimentClosed?'plus':'minus','data-id="'+e(experimentKey)+'"')+'实验 · '+e(experiment)+B.ib('select-experiment','选择实验 '+experiment,'check','data-topic="'+e(topic)+'" data-name="'+e(experiment)+'"')+B.ib('edit-experiment','编辑实验 '+experiment,'layers','data-topic="'+e(topic)+'" data-name="'+e(experiment)+'"')+B.ib('delete-experiment','删除实验 '+experiment,'trash','data-topic="'+e(topic)+'" data-name="'+e(experiment)+'"')+'</div>';
+        if(experimentClosed)continue;for(const gr of groups.filter(v=>v.experiment===experiment)){tree+='<div class="tree-group '+(gr.id===current.id?'active':'')+'"><input type="checkbox" aria-label="选择图组 '+e(gr.name)+'" data-scope="checkgroup" data-field="'+gr.id+'" '+(ui().checkedGroups.includes(gr.id)?'checked':'')+'><button data-action="group" data-id="'+gr.id+'">'+e(gr.name)+'</button>'+B.ib('group-menu','图组操作','layers','data-id="'+gr.id+'"')+'</div>';if(gr.id===current.id)tree+=gr.objects.filter(v=>v.type==='image').map(image=>'<button class="protein-row" data-action="protein" data-id="'+image.id+'">'+e(image.protein||image.name)+'<small>'+e({control:'内参',total:'总蛋白',target:'目的'}[image.kind]||'')+'</small></button>').join('');}
+      }
+    }
+    tree+='</div>';const start=html.indexOf('<div class="tree">'),end=html.indexOf('<div class="sidebar-tools">',start);if(start>=0&&end>start)html=html.slice(0,start)+tree+html.slice(end);
+    return html.replace('<div class="tree">','<div class="sidebar-tools">'+B.btn('select-all-groups','全选','check')+B.btn('clear-group-selection','取消选择','close')+B.btn('new-topic','新建课题','folder')+B.btn('new-experiment','新建实验','plus')+B.btn('recover-groups','找回图组','undo')+'</div><div class="tree">');
+  };
+  const design=B.design;B.design=()=>design().replace('<div class="design-detail">','<div class="design-detail">'+B.input('group','topic',g().topic||p().name,'所属课题'));
+  const analysis=B.analysis;B.analysis=()=>{
+    let html=analysis();if(!o())return html;
+    const opts=o().analysis,images=g().objects.filter(v=>v.type==='image'&&v.id!==o().id),choices=[['','未指定'],...images.map(v=>[v.id,v.protein||v.name])];
+    html=html.replace('<div class="analysis-tools">','<div class="analysis-settings">'+B.select('analysis','kind',o().kind||'target',[['target','目的蛋白'],['control','内参'],['total','总蛋白']],'蛋白类型')+B.select('analysis','controlId',o().controlId||'',choices,'内参蛋白')+B.select('analysis','totalId',o().totalId||'',choices,'总蛋白')+B.btn('methods','灰度计算方式','grid')+B.btn('detect-rois','自动定位条带','bolt')+B.btn('reupload-image','重新上传此蛋白','image')+'</div><div class="analysis-tools">');
+    if(opts?.rotation)html=html.replace('选中 ROI 的原图坐标','选中 ROI 的校正副本坐标').replace('<svg id="analysis-image"', '<svg data-analysis-rotation="'+opts.rotation+'" id="analysis-image"');
+    if(opts?.method==='ellipse')html=html.replace(/<rect x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)" fill="(#13897d[^"]+)"/g,(_,x,y,w,h,fill)=>'<ellipse cx="'+(+x+(+w)/2)+'" cy="'+(+y+(+h)/2)+'" rx="'+(+w)/2+'" ry="'+(+h)/2+'" fill="'+fill+'"');
+    if(opts)html=html.replace('定量始终读取原始 '+(p().sources.find(s=>s.id===o().sourceId)?.bitDepth)+'-bit 像素。','分析使用独立副本；计算位深 '+(opts.convert8?8:p().sources.find(s=>s.id===o().sourceId)?.bitDepth)+'-bit，方法 '+e(opts.method)+'，背景 '+e(opts.background)+'。');
+    if(opts?.method==='profile'){
+      const records=B.records(p(),g()).filter(r=>r.objectId===o().id),r=records.find(r=>r.roi.id===ui().roiId)||records[0];
+      if(r?.profile){const a=r.profile,high=Math.max(1,...a.values),points=a.values.map((v,i)=>(i*700/Math.max(1,a.values.length-1))+','+(150-v/high*140)).join(' '),base=a.baseline.map((v,i)=>(i*700/Math.max(1,a.values.length-1))+','+(150-v/high*140)).join(' ');html+='<div class="profile-panel"><h3>泳道峰图 · '+e(r.sampleId)+'</h3><svg viewBox="0 0 710 170" role="img" aria-label="泳道峰图"><polyline points="'+points+'" fill="none" stroke="#13897d" stroke-width="2"/><polyline points="'+base+'" fill="none" stroke="#d6952d"/></svg><p>正信号与线性基线之间的梯形积分面积：'+B.format(a.area)+'</p>'+B.input('baseline','baselineStart',r.roi.baselineStart??Math.min(...a.values),'基线起点','type="number" min="0" step="0.1"')+B.input('baseline','baselineEnd',r.roi.baselineEnd??Math.min(...a.values),'基线终点','type="number" min="0" step="0.1"')+'</div>';ui().profileRoiId=r.roi.id;}
+    }
+    return html;
+  };
+  const stats=B.stats;B.stats=()=>stats().replace('<option value="ratio"','<option value="controlRatio" '+(ui().metric==='controlRatio'?'selected':'')+'>目的 / 内参比值</option><option value="totalRatio" '+(ui().metric==='totalRatio'?'selected':'')+'>部分 / 总蛋白比值</option><option value="ratio"');
+  const inspector=B.inspector;B.inspector=()=>{const html=inspector(),sel=g().objects.filter(v=>ui().selected.includes(v.id));if(!sel.length)return html;return html.replace('<h3>边框</h3>','<h3>文字与线型</h3>'+B.select('object','script',sel[0].script||'normal',[['normal','普通'],['super','上标'],['sub','下标']],'文字基线')+B.select('object','dash',sel[0].dash||'solid',[['solid','实线'],['dash','虚线'],['dot','点线']],'线型')+'<h3>边框</h3>');};
+  Object.assign(actions,{
+    'select-all-groups':()=>{ui().checkedGroups=p().groups.map(v=>v.id);B.render();},
+    'clear-group-selection':()=>{ui().checkedGroups=[];B.render();},
+    'toggle-folder':el=>{const all=ui().collapsedFolders||[];ui().collapsedFolders=all.includes(el.dataset.id)?all.filter(v=>v!==el.dataset.id):[...all,el.dataset.id];B.render();},
+    'project-menu':()=>{ui().projectTools=!ui().projectTools;B.render();},
+    'reupload-image':()=>{const current=o();if(!current||current.locked)throw Error('请选择未锁定的蛋白。');const snapshot=p(),groupId=g().id,imageId=current.id,input=document.createElement('input');input.type='file';input.accept='image/png,image/jpeg,image/webp,image/tiff,.tif,.tiff';input.addEventListener('change',async()=>{try{if(!input.files[0])return;const sources=await B.importImage(input.files[0]);if(p()!==snapshot)throw Error('导入期间项目已改变，请重新选择替换图像。');if(sources.length!==1)throw Error('替换图像时请使用单页文件；多页 TIFF 可通过“添加图像”导入。');B.commit('替换蛋白原图（原来源保留）',project=>B.replaceSource(project,project.groups.find(v=>v.id===groupId),imageId,sources[0]));B.toast('已替换图像，旧原图仍保留在项目来源中。');}catch(error){B.toast(error.message);}});input.click();},
+    'create-group':()=>{const m=ui().modal;if(!m.name?.trim())throw Error('请填写图组名称。');B.commit('新建图组',project=>{const group=B.blankGroup(m.name.trim(),m.experiment||'实验 01');group.topic=m.topic||g().topic||project.name;project.groups.push(group);ui().group=group.id;ui().modal=null;});},
+    methods:()=>{ui().modal={type:'methods',...(o().analysis||{...B.analysisDefaults(),convert8:false,background:o().background?'roi':'none'})};B.render();},
+    'apply-methods':()=>{const m=ui().modal,a=B.validateAnalysis(Object.fromEntries(['convert8','rgb','background','radius','presmooth','method','rotation','profileAxis'].map(k=>[k,m[k]])));if(m.applyAll)B.commit('统一图组灰度分析方法',(_project,group)=>{const images=group.objects.filter(v=>v.type==='image');if(images.some(v=>v.locked))throw Error('请先解锁全部蛋白，再统一方法。');for(const image of images){image.analysis={...a};for(const roi of image.rois)delete roi.shape;}ui().modal=null;});else B.editAnalysis('设置灰度分析方法',v=>{v.analysis={...a};for(const r of v.rois)delete r.shape;ui().modal=null;});},
+    'detect-rois':()=>B.editAnalysis('自动定位条带',(v,project,group)=>{v.analysis ||= B.analysisDefaults();const s=project.sources.find(s=>s.id===v.sourceId);v.rois=B.detectBandROIs(s,v.crop,group.samples.length,v.analysis,v.polarity);ui().roiId=v.rois[0]?.id||'';}),
+    wizard:()=>{ui().projectTools=false;ui().modal={type:'wizard',mode:'linear',repeats:3,groups:'Control, Treatment',factors:'基因型:WT,cKO\n处理:Vehicle,Drug',conditions:'刺激:-,+,-,+\n药物:-,-,+,+'};B.render();},
+    'preview-design':()=>{const m=ui().modal;m.preview=B.designSamples(m).map((v,i)=>(i+1)+'\t'+v.id+'\t'+v.group+'\t重复 '+v.replicate).join('\n');B.render();},
+    'apply-design':()=>{const m=ui().modal,samples=B.designSamples(m);B.commit('应用实验设计',(project,group)=>{group.samples=samples;group.design={mode:m.mode};for(const image of group.objects.filter(v=>v.type==='image'))image.rois=image.rois.filter(r=>r.sampleIndex<samples.length);ui().modal=null;});},
+    'new-topic':()=>{ui().modal={type:'node',kind:'topic',name:'新课题'};B.render();},
+    'new-experiment':()=>{ui().modal={type:'node',kind:'experiment',name:'新实验',topic:g().topic||p().name};B.render();},
+    'save-node':()=>{const m=ui().modal;if(!m.name?.trim())throw Error('名称不能为空。');B.commit('新建'+(m.kind==='topic'?'课题':'实验'),project=>{project.topics ||= [];project.experiments ||= [];if(m.old){for(const group of project.groups){if(m.kind==='topic'&&(group.topic||project.name)===m.old)group.topic=m.name.trim();if(m.kind==='experiment'&&group.experiment===m.old&&(group.topic||project.name)===m.topic)group.experiment=m.name.trim();}if(m.kind==='topic'){project.topics=project.topics.map(t=>t===m.old?m.name.trim():t);project.experiments.forEach(v=>{if(v.topic===m.old)v.topic=m.name.trim();});}else project.experiments.forEach(v=>{if(v.topic===m.topic&&v.name===m.old)v.name=m.name.trim();});ui().modal=null;return;}if(m.kind==='topic'){if(project.topics.includes(m.name.trim()))throw Error('课题名称已存在。');project.topics.push(m.name.trim());}else{const topic=m.topic?.trim()||project.name;if(project.experiments.some(v=>v.topic===topic&&v.name===m.name.trim()))throw Error('实验名称已存在。');project.experiments.push({topic,name:m.name.trim()});}ui().modal=null;});},
+    'edit-topic':el=>{ui().modal={type:'node',kind:'topic',old:el.dataset.topic,name:el.dataset.topic};B.render();},
+    'edit-experiment':el=>{ui().modal={type:'node',kind:'experiment',old:el.dataset.name,name:el.dataset.name,topic:el.dataset.topic};B.render();},
+    'delete-topic':el=>{ui().modal={type:'delete-node',kind:'topic',name:el.dataset.topic};B.render();},
+    'delete-experiment':el=>{ui().modal={type:'delete-node',kind:'experiment',name:el.dataset.name,topic:el.dataset.topic};B.render();},
+    'promote-node':()=>B.removeDirectory(false),
+    'cascade-node':()=>B.removeDirectory(true),
+    'select-topic':el=>{ui().checkedGroups=p().groups.filter(v=>(v.topic||p().name)===el.dataset.topic).map(v=>v.id);B.render();},
+    'select-experiment':el=>{ui().checkedGroups=p().groups.filter(v=>(v.topic||p().name)===el.dataset.topic&&v.experiment===el.dataset.name).map(v=>v.id);B.render();},
+    'recover-groups':()=>{ui().modal={type:'recovery'};B.render();},
+    'restore-group':el=>B.commit('恢复已删除图组',project=>{const i=(project.deletedGroups||[]).findIndex(v=>v.group.id===el.dataset.id);if(i<0)throw Error('恢复记录不存在。');const restored=project.deletedGroups.splice(i,1)[0].group;if(project.groups.some(v=>v.id===restored.id))throw Error('图组已存在。');project.groups.push(restored);ui().group=restored.id;ui().modal=null;}),
+    'export-scope':()=>{ui().projectTools=false;ui().modal={type:'export-scope',scope:'current'};B.render();},
+    'export-scoped':async()=>{const scope=ui().modal.scope,groups=B.scopedGroups(p(),g(),scope),data=B.workbook([{name:'图组灰度汇总',rows:[['课题','实验','图组',...B.resultRows([])[0]],...groups.flatMap(group=>B.resultRows(B.records(p(),group)).slice(1).map(row=>[group.topic||p().name,group.experiment,group.name,...row]))]}]);await B.saveFile('BlotStudio-'+scope+'.xlsx',data,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');ui().modal=null;B.render();},
+    'quick-layout':()=>{ui().modal={type:'layout',extended:true,width:640,height:70,gap:20,cropMode:'width',swap:false,groupPosition:'above',groupLine:true,groupGap:8,proteinGap:12,mwGap:8,lineWidth:1.5,showKda:true,showDash:false,...g().layoutOptions};B.render();},
+    'apply-layout':()=>{const m=ui().modal;B.commit('快速排版',(project,group)=>{B.quickLayout(group,m);ui().modal=null;ui().selected=[];});B.fit();}
+  });
+  B.removeDirectory=cascade=>{const m=ui().modal;B.commit(cascade?'删除目录与下级至恢复区':'删除目录并提升下级',project=>{const match=gr=>m.kind==='topic'?(gr.topic||project.name)===m.name:gr.experiment===m.name&&(gr.topic||project.name)===m.topic;const affected=project.groups.filter(match);if(cascade){project.deletedGroups ||= [];for(const group of affected)project.deletedGroups.push({group:JSON.parse(JSON.stringify(group)),time:new Date().toISOString()});project.groups=project.groups.filter(gr=>!match(gr));}else for(const group of affected){if(m.kind==='topic')group.topic='未分类课题';else group.experiment='未分类实验';}project.topics=(project.topics||[]).filter(t=>m.kind!=='topic'||t!==m.name);project.experiments=(project.experiments||[]).filter(v=>m.kind==='topic'?v.topic!==m.name:!(v.topic===m.topic&&v.name===m.name));if(!project.groups.length)project.groups=[B.blankGroup()];ui().group=project.groups[0].id;ui().modal=null;});};
+  const deleteGroup=actions.deletegroup;actions.deletegroup=el=>{const target=p().groups.find(v=>v.id===el.dataset.id);if(!target)return;B.commit('删除图组至恢复区',project=>{project.deletedGroups ||= [];project.deletedGroups.push({group:JSON.parse(JSON.stringify(target)),time:new Date().toISOString()});project.groups=project.groups.filter(v=>v.id!==target.id);if(!project.groups.length)project.groups=[B.blankGroup()];ui().group=project.groups[0].id;ui().modal=null;});};
+  const doExport=B.doExport;B.doExport=async()=>{const m=ui().modal;if(!m||!['jpg','svg-linked'].includes(m.format))return doExport();if(ui().exporting)throw Error('正在导出。');ui().exporting=true;try{const name=g().name.replace(/[\\/:*?"<>|]/g,'_');let data,mime,ext;if(m.format==='svg-linked'){data=await B.linkedSVG(p(),g());mime='application/zip';ext='zip';}else{const scale=Number(m.scale),quality=Number(m.quality||.94);if(![1,2,3,4].includes(scale)||![1,.94,.85].includes(quality))throw Error('JPG 导出参数无效。');const canvas=await B.rasterize(B.svg(p(),g()),g().canvas.width*scale,g().canvas.height*scale);data=B.unbase64(canvas.toDataURL('image/jpeg',quality).split(',')[1]);mime='image/jpeg';ext='jpg';}const result=await B.saveFile(name+'.'+ext,data,mime);ui().modal=null;B.render();B.toast(result.status==='saved'?'文件已保存。':'已请求浏览器下载，请核对下载记录。');}finally{ui().exporting=false;}};
+  const imported=B.importFiles;B.importFiles=async files=>{const old=new Set(p().sources.map(s=>s.id));await imported(files);if(!p().sources.some(s=>!old.has(s.id)))return;B.commit('为新图像创建分析选区',(project)=>{for(const group of project.groups)for(const image of group.objects.filter(v=>v.type==='image'&&!old.has(v.sourceId)&&!v.rois.length)){image.analysis=B.analysisDefaults();image.kind='target';image.rois=B.detectBandROIs(project.sources.find(s=>s.id===image.sourceId),image.crop,group.samples.length,image.analysis,image.polarity);}});};
+  document.addEventListener('change',ev=>{const el=ev.target;if(el.dataset.scope!=='baseline')return;try{const value=Number(el.value);if(!Number.isFinite(value)||value<0)throw Error('基线必须为非负有限数值。');B.editAnalysis('调整峰图基线',image=>{const r=image.rois.find(r=>r.id===ui().profileRoiId);if(!r)throw Error('请先选择泳道。');r[el.dataset.field]=value;});}catch(error){B.toast(error.message);}});
+  const commitStyle=B.commit;B.commit=(label,job,detail='')=>commitStyle(label,(project,group)=>{const before=new Map(group.objects.map(v=>[v.id,{...v}]));job(project,group);const opts=group.layoutOptions||{},styles=['fontFamily','fontSize','fontWeight','italic','fill','script','stroke','strokeWidth','dash','opacity'];for(const [role,enabled] of [['group',opts.syncGroups],['group-line',opts.syncGroups],['protein',opts.syncProtein],['mw',opts.syncMw]]){if(!enabled)continue;const changed=group.objects.find(v=>v.labelRole===role&&before.has(v.id)&&styles.some(key=>v[key]!==before.get(v.id)[key]));if(!changed)continue;for(const target of group.objects.filter(v=>v.labelRole===role&&!v.locked))for(const key of styles)if(changed[key]!==before.get(changed.id)[key])target[key]=changed[key];}},detail);
+  const renderDisplay=B.render;let displayGeneration=0;B.render=()=>{renderDisplay();const generation=++displayGeneration,images=g().objects.filter(v=>v.type==='image'&&v.visible!==false),jobs=images.map(image=>{const source=p().sources.find(s=>s.id===image.sourceId);if(!source)return null;const params={grayscale:!!image.grayscale,brightness:B.num(image.brightness,100),contrast:B.num(image.contrast,100),invert:!!image.invert};return B.cachedDisplay(source.url,params)?null:B.displayURL(source.url,params);}).filter(Boolean);if(jobs.length)Promise.all(jobs).then(()=>{if(generation===displayGeneration)renderDisplay();}).catch(error=>B.toast(error.message));};
+  let clipboard=[];
+  document.addEventListener('keydown',ev=>{if(!(ev.metaKey||ev.ctrlKey)||!['c','x','v'].includes(ev.key.toLowerCase())||ev.target.matches('input,textarea,select,[contenteditable="true"]')||ui().tab!=='edit'||ui().modal)return;ev.preventDefault();const key=ev.key.toLowerCase();if(key==='c'||key==='x'){clipboard=JSON.parse(JSON.stringify(g().objects.filter(v=>ui().selected.includes(v.id))));if(key==='x')actions.delete();else B.toast('已复制 '+clipboard.length+' 个对象。');}else if(clipboard.length)B.commit('粘贴对象',(project,group)=>{const ids=new Map(clipboard.map(v=>[v.id,B.uid()])),items=clipboard.map(v=>{const copy=JSON.parse(JSON.stringify(v));copy.id=ids.get(v.id);copy.x+=20;copy.y+=20;if(copy.type==='image'){copy.rois=[];copy.referenceId='';copy.controlId='';copy.totalId='';}if(copy.groupId)copy.groupId='paste'+ids.get(clipboard[0].id)+copy.groupId;return copy;});group.objects.push(...items);ui().selected=items.map(v=>v.id);});});
+})(globalThis.BS ||= {});
+
+(function(B){
+  'use strict';
+  const pending=new Map();let directory=null,syncTimer=null;
+  B.workspaceResult=(id,status,message='')=>{const request=pending.get(id);if(!request)return;pending.delete(id);clearTimeout(request.timer);status==='ok'?request.resolve(message):request.reject(Error(status==='cancelled'?'已取消选择目录。':message||'目录操作失败。'));};
+  const native=body=>{if(globalThis.chrome?.webview?.postMessage){chrome.webview.postMessage({type:'workspace',...body});return true;}if(globalThis.webkit?.messageHandlers?.saveFile){webkit.messageHandlers.saveFile.postMessage(body);return true;}return false;};
+  const request=body=>new Promise((resolve,reject)=>{const id=B.uid(),timer=setTimeout(()=>{pending.delete(id);reject(Error('目录操作未完成，请检查窗口。'));},120000);pending.set(id,{resolve,reject,timer});try{if(!native({...body,id})){clearTimeout(timer);pending.delete(id);reject(Error('当前环境不支持原生目录操作。'));}}catch(error){clearTimeout(timer);pending.delete(id);reject(error);}});
+  B.workspaceState={path:'未选择',sync:false,status:'尚未写入'};
+  B.chooseWorkspace=async()=>{let path;if(globalThis.showDirectoryPicker&&!globalThis.chrome?.webview&&!globalThis.webkit?.messageHandlers?.saveFile){directory=await showDirectoryPicker({mode:'readwrite'});path=directory.name;}else path=await request({workspace:'choose'});B.workspaceState.path=path;B.workspaceState.status='目录已选择，尚未写入';B.render();};
+  B.syncWorkspace=async()=>{
+    const project=B.state.p;B.validate(project);if(B.workspaceState.path==='未选择')throw Error('请先选择存储路径。');const name='BlotStudio-'+project.id+'.wbproj',text=JSON.stringify(project);
+    B.workspaceState.status='正在写入…';try{if(directory){const file=await directory.getFileHandle(name,{create:true}),writer=await file.createWritable();await writer.write(text);await writer.close();}else await request({workspace:'write',name,data:B.base64(B.utf8(text))});B.workspaceState.status='已写入 '+new Date().toLocaleTimeString();return true;}catch(error){B.workspaceState.status='写入失败：'+error.message;throw error;}
+  };
+  let writeQueue=Promise.resolve();const syncNow=B.syncWorkspace;B.syncWorkspace=()=>{const job=writeQueue.catch(()=>{}).then(syncNow);writeQueue=job;return job;};
+  const schedule=()=>{if(!B.workspaceState.sync)return;clearTimeout(syncTimer);syncTimer=setTimeout(async()=>{try{await B.syncWorkspace();}catch(error){B.toast(error.message);}B.render();},1500);};
+  const persist=B.persist;B.persist=()=>{persist();schedule();};
+  const flush=B.flushSave;B.flushSave=async()=>{const local=await flush();if(!local)return false;clearTimeout(syncTimer);if(B.workspaceState.sync){try{return await B.syncWorkspace();}catch{return false;}}return true;};
+  const modal=B.modal;B.modal=()=>{if(B.state.ui.modal?.type!=='workspace')return modal();return'<div class="modal-shade"><section class="modal" role="dialog" aria-modal="true"><div class="modal-heading"><h2>文件管理</h2>'+B.ib('close-modal','关闭','close')+'</div><div class="modal-body"><p>已选择的存储路径：'+B.esc(B.workspaceState.path)+'</p><p>'+B.esc(B.workspaceState.status)+'</p><p class="hint">目录备份包含完整项目、原图、ROI、图层和操作记录。每个项目使用唯一文件名，写入成功后才报告完成。重新启动后请重新选择目录。</p></div><div class="modal-footer">'+B.btn('choose-workspace','选择存储路径','folder')+B.btn('sync-workspace','立即备份 / 重试','save')+B.btn('toggle-workspace-sync',B.workspaceState.sync?'关闭同步':'开启同步','check')+'</div></section></div>';};
+  Object.assign(B.actions,{
+    workspace:()=>{B.state.ui.projectTools=false;B.state.ui.modal={type:'workspace'};B.render();},
+    'choose-workspace':()=>B.chooseWorkspace(),
+    'sync-workspace':async()=>{await B.syncWorkspace();B.render();B.toast('目录备份已写入。');},
+    'toggle-workspace-sync':()=>{if(B.workspaceState.path==='未选择')throw Error('请先选择存储路径。');B.workspaceState.sync=!B.workspaceState.sync;schedule();B.render();}
+  });
+})(globalThis.BS ||= {});
+
+(function(B){
+  'use strict';
+  B.plannedVolume=(concentration,target)=>{if(concentration===''||target==='')return '';const c=Number(concentration),t=Number(target);if(!Number.isFinite(c)||!Number.isFinite(t)||c<=0||t<0)throw Error('浓度必须大于 0，目标上样量必须为非负数。');return t/c;};
+  B.newGel=(group,index=0)=>({name:'凝胶 '+(index+1),percent:'',type:'',marker:'',runningBuffer:'',stackMode:'恒压',stackValue:'',stackMinutes:'',stackTemperature:'',resolveMode:'恒压',resolveValue:'',resolveMinutes:'',resolveTemperature:'',membrane:'',transferMethod:'',transferInstrument:'',transferBuffer:'',transferMode:'恒压',transferValue:'',transferMinutes:'',transferTemperature:'',activation:'',gelNotes:'',washBuffer:'',washTimes:'',washMinutes:'',washNotes:'',lanes:group.samples.map(s=>({sample:s.id,group:s.group,concentration:'',target:'',planned:'',actual:'',storage:'',collected:'',prepared:'',notes:''})),rounds:[]});
+  B.newConditionRecord=group=>({id:B.uid(),name:'新条件记录',date:new Date().toLocaleDateString('sv-SE'),source:'',groupId:group.id,notes:'',gels:[B.newGel(group)]});
+  B.validateConditions=record=>{if(!record||typeof record.name!=='string'||!record.name.trim()||!Array.isArray(record.gels)||!record.gels.length||record.gels.length>50)throw Error('条件记录名称或凝胶数量无效。');for(const gel of record.gels){if(!Array.isArray(gel.lanes)||gel.lanes.length>200||!Array.isArray(gel.rounds)||gel.rounds.length>100)throw Error('泳道或孵育轮次数量无效。');for(const lane of gel.lanes)for(const field of ['concentration','target','planned','actual'])if(lane[field]!==''&&(!Number.isFinite(Number(lane[field]))||Number(lane[field])<0||field==='concentration'&&Number(lane[field])===0))throw Error('上样量或浓度无效。');}return record;};
+  if(!B.state||!B.actions)return;
+  const e=B.esc,ui=()=>B.state.ui,draft=()=>ui().conditionDraft,gel=()=>draft().gels[ui().conditionGel||0];
+  const sections=[['info','实验信息'],['gel','凝胶与实验参数'],['lanes','样本与上样量'],['antibodies','抗体与洗膜']];
+  const field=(path,value,title,opts='')=>B.input('condition',path,value,title,opts),number=(path,value,title)=>field(path,value,title,'type="number" min="0" step="any"'),select=(path,value,options,title)=>B.select('condition',path,value,options,title);
+  const formFields=(prefix,obj,schema)=>schema.map(([key,title,type])=>type==='number'?number(prefix+key,obj[key],title):field(prefix+key,obj[key],title)).join('');
+  const previous=B.design;B.design=()=>{
+    if(ui().designTab!=='conditions')return previous().replace('<div class="subnav">','<div class="subnav">'+B.btn('open-conditions-editor','开始实验','grid'));
+    const record=draft(),index=ui().conditionGel||0,a=gel(),prefix='gels.'+index+'.',section=ui().conditionSection||'info';let body='';
+    if(section==='info')body=formFields('',record,[['name','实验名称'],['date','实验日期'],['source','样品来源'],['notes','实验备注']]);
+    else if(section==='gel')body=formFields(prefix,a,[['name','凝胶名称'],['percent','凝胶浓度'],['type','凝胶类型'],['marker','Marker / ladder'],['runningBuffer','电泳液'],['stackMode','浓缩胶模式'],['stackValue','浓缩胶电压 V / 电流 mA','number'],['stackMinutes','浓缩胶时间 min','number'],['stackTemperature','浓缩胶温度'],['resolveMode','分离胶模式'],['resolveValue','分离胶电压 V / 电流 mA','number'],['resolveMinutes','分离胶时间 min','number'],['resolveTemperature','分离胶温度'],['membrane','膜类型'],['transferMethod','转膜方式'],['transferInstrument','转膜仪器'],['transferBuffer','转膜液'],['transferMode','转膜模式'],['transferValue','转膜电压 V / 电流 mA','number'],['transferMinutes','转膜时间 min','number'],['transferTemperature','转膜温度'],['activation','膜激活方式'],['gelNotes','凝胶与转膜备注']]);
+    else if(section==='lanes')body=a.lanes.map((lane,i)=>'<details '+(i===0?'open':'')+'><summary>泳道 '+(i+1)+' · '+e(lane.sample)+'</summary><div class="condition-fields">'+select(prefix+'lanes.'+i+'.sample',lane.sample,[[lane.sample,lane.sample],...B.state.p.sampleLibrary.filter(v=>v.name!==lane.sample).map(v=>[v.name,v.name])],'引用样品库')+formFields(prefix+'lanes.'+i+'.',lane,[['group','分组'],['concentration','浓度 µg/µL','number'],['target','目标上样量 µg','number'],['planned','计划上样量 µL','number'],['actual','实际用量 µL','number'],['storage','存放条件'],['collected','取样时间'],['prepared','制样时间'],['notes','样品处理 / 冻融备注']])+B.btn('copy-condition-lane','复制上一泳道','','data-index="'+i+'"')+'</div></details>').join('')+B.btn('add-condition-lane','新增泳道','plus');
+    else body=a.rounds.map((round,i)=>'<details open><summary>孵育轮次 '+(i+1)+' · '+e(round.protein||'未填写')+'</summary><div class="condition-fields">'+select(prefix+'rounds.'+i+'.primary',round.primary||'',[['','未选择'],...B.state.p.antibodies.map((v,j)=>[v.id||String(j),[v.protein,v.brand,v.catalog,v.lot].filter(Boolean).join(' / ')])],'引用抗体库（查看货号 / 批号）')+formFields(prefix+'rounds.'+i+'.',round,[['protein','靶蛋白'],['primaryDilution','一抗稀释比例'],['primaryBatch','一抗工作液 / 批次'],['primaryDuration','一抗孵育时间'],['primaryTemperature','一抗孵育温度'],['secondary','二抗名称 / 货号'],['secondaryDilution','二抗稀释比例'],['secondaryBatch','二抗工作液 / 批次'],['secondaryDuration','二抗孵育时间'],['secondaryTemperature','二抗孵育温度'],['blocking','封闭液 / 时间 / 温度'],['notes','本轮备注']])+'</div></details>').join('')+B.btn('add-condition-round','添加孵育轮次','plus')+formFields(prefix,a,[['washBuffer','洗膜液'],['washTimes','洗膜次数','number'],['washMinutes','每次洗膜时间 min','number'],['washNotes','洗膜备注']]);
+    const saved=B.state.p.conditionRecords||[];
+    return'<section class="content-page"><div class="subnav">'+B.btn('design-tab','返回实验设计','','data-id="groups"')+sections.map(([id,title])=>B.btn('condition-section',title,'','data-id="'+id+'" class="'+(section===id?'chosen':'')+'"')).join('')+'</div><div class="page-heading"><h1>开始实验 · 条件记录</h1><div class="button-row">'+B.btn('conditions','新建条件记录','plus')+B.btn('save-conditions','保存条件','save')+'</div></div><p class="hint">可保存草稿；未填写字段保持空白，不代表已执行或审核。浓度和目标量齐全后计算计划体积，实际用量单独记录。</p><div class="button-row">'+draft().gels.map((v,i)=>B.btn('condition-gel',v.name,'','data-id="'+i+'"')).join('')+B.btn('add-condition-gel','新增凝胶','plus')+'</div><div class="condition-fields">'+body+'</div><h3>已保存的条件记录</h3>'+saved.map(v=>B.btn('open-conditions',v.name+' · '+v.date,'folder','data-id="'+v.id+'"')).join('')+'</section>';
+  };
+  Object.assign(B.actions,{
+    'open-conditions-editor':()=>{if(!ui().conditionDraft)return B.actions.conditions();ui().designTab='conditions';B.render();},
+    conditions:()=>{if(B.state.p.antibodies.some(v=>!v.id))B.commit('为抗体资料创建稳定编号',project=>project.antibodies.forEach(v=>v.id ||= B.uid()));ui().designTab='conditions';ui().conditionDraft=B.newConditionRecord(B.getGroup());ui().conditionSection='info';ui().conditionGel=0;B.render();},
+    'condition-section':el=>{ui().conditionSection=el.dataset.id;B.render();},
+    'condition-gel':el=>{ui().conditionGel=Number(el.dataset.id);B.render();},
+    'add-condition-gel':()=>{if(draft().gels.length>=50)throw Error('最多记录 50 块凝胶。');draft().gels.push(B.newGel(B.getGroup(),draft().gels.length));ui().conditionGel=draft().gels.length-1;B.render();},
+    'add-condition-round':()=>{if(gel().rounds.length>=100)throw Error('最多记录 100 轮孵育。');gel().rounds.push({protein:'',primary:'',primaryProduct:'',primaryDilution:'',primaryBatch:'',primaryDuration:'',primaryTemperature:'',secondary:'',secondaryDilution:'',secondaryBatch:'',secondaryDuration:'',secondaryTemperature:'',blocking:'',notes:''});B.render();},
+    'add-condition-lane':()=>{if(gel().lanes.length>=200)throw Error('最多记录 200 条泳道。');gel().lanes.push({sample:'',group:'',concentration:'',target:'',planned:'',actual:'',storage:'',collected:'',prepared:'',notes:''});B.render();},
+    'copy-condition-lane':el=>{const i=Number(el.dataset.index);if(i<1)throw Error('第一条泳道没有上一条。');gel().lanes[i]={...gel().lanes[i-1]};B.render();},
+    'save-conditions':()=>{const record=B.validateConditions(JSON.parse(JSON.stringify(draft())));B.commit('保存实验条件记录',project=>{project.conditionRecords ||= [];const i=project.conditionRecords.findIndex(v=>v.id===record.id);if(i<0)project.conditionRecords.push(record);else project.conditionRecords[i]=record;});B.toast('实验条件草稿已保存。');},
+    'open-conditions':el=>{const record=(B.state.p.conditionRecords||[]).find(v=>v.id===el.dataset.id);if(!record)throw Error('条件记录不存在。');ui().conditionDraft=JSON.parse(JSON.stringify(record));ui().conditionGel=0;B.render();}
+  });
+  B.schemas.samples.fields.push(['storage','存放条件'],['collected','取样时间'],['prepared','制样时间']);B.schemas.antibodies.fields.push(['kind','一抗 / 二抗'],['storage','存放条件'],['workBatch','工作液批次']);
+  document.addEventListener('change',ev=>{const el=ev.target;if(el.dataset.scope!=='condition')return;try{const keys=el.dataset.field.split('.');if(keys.some(k=>!/^([A-Za-z][A-Za-z0-9]*|\d+)$/.test(k)||['__proto__','constructor','prototype'].includes(k)))throw Error('条件字段无效。');let target=draft();for(const k of keys.slice(0,-1)){if(!Object.hasOwn(target,k))throw Error('条件字段不存在。');target=target[k];}const key=keys.at(-1);if(!Object.hasOwn(target,key))throw Error('条件字段不存在。');target[key]=String(el.value);if(key==='primary'){const product=B.state.p.antibodies.find(v=>v.id===target.primary);if(product){target.primaryProduct=JSON.stringify(product);target.protein=product.protein||target.protein;}}if(['concentration','target'].includes(key)&&target.concentration!==''&&target.target!=='')target.planned=String(B.plannedVolume(target.concentration,target.target));if(key==='sample'){const sample=B.state.p.sampleLibrary.find(v=>v.name===target.sample);if(sample){target.group=sample.group||target.group;target.storage=sample.storage||target.storage;}}B.render();}catch(error){B.toast(error.message);}});
+})(globalThis.BS ||= {});
+
+(function(B){
+  'use strict';
+  const mapped=(map,key)=>map&&Object.hasOwn(map,key)&&typeof map[key]==='string'?map[key]:key;
+  B.aliasMap=text=>{
+    const pairs=String(text||'').split('\n').map(v=>v.trim()).filter(Boolean).map(line=>{const at=line.indexOf('=');if(at<1||!line.slice(at+1).trim())throw Error('映射请逐行写成 原名称=统计名称。');return[line.slice(0,at).trim(),line.slice(at+1).trim()];});
+    if(pairs.length>500||new Set(pairs.map(v=>v[0])).size!==pairs.length)throw Error('映射重复或超过上限。');return Object.fromEntries(pairs);
+  };
+  B.statisticsRecords=(records,settings={})=>records.map(record=>({...record,originalGroup:record.group,originalProtein:record.protein,group:mapped(settings.groups,record.group),protein:mapped(settings.proteins,record.protein)}));
+  if(!B.state||!B.actions)return;
+  const previous=B.currentStats;
+  B.currentStats=()=>{
+    const settings=B.state.p.statisticsSettings;if(!settings)return previous();
+    const {p,ui}=B.state,g=B.getGroup(),selected=ui.checkedGroups.length?p.groups.filter(v=>ui.checkedGroups.includes(v.id)):[g],records=B.statisticsRecords(selected.flatMap(group=>B.records(p,group).map(r=>({...r,imageGroup:group.name}))),settings),proteins=[...new Set(records.map(v=>v.protein))],protein=proteins.includes(ui.statsProtein)?ui.statsProtein:proteins[0]||'',control=ui.control||mapped(settings.groups,g.samples[0]?.group)||'Control',data=B.statData(records,protein,ui.metric,control,ui.normalize);
+    return{...data,records,proteins,protein,control};
+  };
+  const stats=B.stats;B.stats=()=>stats().replace('<div class="stats-controls">','<div class="button-row">'+B.btn('statistics-settings','编辑统计分组 / 蛋白名称','grid')+B.btn('clear-statistics-settings','撤销统计映射','undo')+'</div><div class="stats-controls">');
+  const modal=B.modal;B.modal=()=>{
+    if(B.state.ui.modal?.type!=='statistics-settings')return modal();const m=B.state.ui.modal;
+    return'<div class="modal-shade"><section class="modal" role="dialog" aria-modal="true"><div class="modal-heading"><h2>编辑统计分组与蛋白名称</h2>'+B.ib('close-modal','关闭','close')+'</div><div class="modal-body"><p class="hint">每行填写“原名称=统计名称”。仅改变统计视图；原始图组、样本、ROI 和蛋白名称保留。合并后重复的样本 ID 仍会阻止虚增 n。</p><label class="field"><span>统计分组映射</span><textarea data-scope="modal" data-field="groups" aria-label="统计分组映射" rows="6">'+B.esc(m.groups)+'</textarea></label><label class="field"><span>蛋白名称映射</span><textarea data-scope="modal" data-field="proteins" aria-label="蛋白名称映射" rows="6">'+B.esc(m.proteins)+'</textarea></label></div><div class="modal-footer">'+B.btn('apply-statistics-settings','应用统计映射','check')+'</div></section></div>';
+  };
+  Object.assign(B.actions,{
+    'statistics-settings':()=>{const settings=B.state.p.statisticsSettings||{},text=map=>Object.entries(map||{}).map(([a,b])=>a+'='+b).join('\n');B.state.ui.modal={type:'statistics-settings',groups:text(settings.groups),proteins:text(settings.proteins)};B.render();},
+    'apply-statistics-settings':()=>{const m=B.state.ui.modal,settings={groups:B.aliasMap(m.groups),proteins:B.aliasMap(m.proteins)};B.commit('修改统计名称映射',project=>project.statisticsSettings=settings);B.state.ui.modal=null;B.render();},
+    'clear-statistics-settings':()=>B.commit('撤销统计名称映射',project=>delete project.statisticsSettings)
+  });
 })(globalThis.BS ||= {});
 </script></body></html>

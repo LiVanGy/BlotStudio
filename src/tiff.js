@@ -55,7 +55,7 @@
       const samples=depth===16?new Uint16Array(w*h):new Uint8Array(w*h),dv=new DataView(data.buffer),max=2**depth-1;
       if(predictor===2){for(let y=0;y<h;y++)for(let x=channels;x<w*channels;x++){const p=(y*w*channels+x)*(depth/8),q=p-channels*(depth/8);if(depth===16)dv.setUint16(p,(dv.getUint16(p,le)+dv.getUint16(q,le))&65535,le);else data[p]=(data[p]+data[q])&255;}}
       for(let i=0;i<w*h;i++){let z=channels===3?Math.round(.299*data[i*3]+.587*data[i*3+1]+.114*data[i*3+2]):depth===16?dv.getUint16(i*2,le):data[i];samples[i]=photo===0?max-z:z;}
-      pages.push({width:w,height:h,bitDepth:depth,samples,info:'TIFF '+depth+'-bit'+(channels===3?' RGB luminance':' native grayscale')});off=d.getUint32(off+2+12*n,le);
+      pages.push({width:w,height:h,bitDepth:depth,samples,...(channels===3?{rgbSamples:data.slice()}:{}),info:'TIFF '+depth+'-bit'+(channels===3?' RGB luminance':' native grayscale')});off=d.getUint32(off+2+12*n,le);
     }
     if(!pages.length)throw Error('TIFF 不含可解码的图像页。');return pages;
   };

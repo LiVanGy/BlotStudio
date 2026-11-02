@@ -1,9 +1,10 @@
 """Generate reproducible, explicitly synthetic Western blot workflow fixtures (not research results)."""
 from pathlib import Path
 import base64,hashlib,json,csv,io
+import os
 import numpy as np
 from PIL import Image
-root=Path(__file__).resolve().parents[1]/'examples'
+root=Path(os.environ['BLOTSTUDIO_EXAMPLE_DIR']) if os.environ.get('BLOTSTUDIO_EXAMPLE_DIR') else Path(__file__).resolve().parents[1]/'examples'
 root.mkdir(exist_ok=True)
 rng=np.random.default_rng(20261015)
 w,h=720,96

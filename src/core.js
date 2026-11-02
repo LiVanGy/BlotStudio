@@ -1,6 +1,6 @@
 (function(B) {
   'use strict';
-  B.VERSION = '0.4.0';
+  B.VERSION = '0.5.0';
   B.uid = () => 'b' + (globalThis.crypto?.randomUUID?.() || (Date.now().toString(36) + Math.random().toString(36).slice(2))).replaceAll('-', '');
   B.clamp = (n,a,b) => Math.max(a,Math.min(b,n));
   B.num = (v,f=0) => Number.isFinite(Number(v)) ? Number(v) : f;
@@ -73,20 +73,25 @@
       if(!text(s.pixels)||s.pixels.length!==Math.ceil(expected/3)*4||!/^[A-Za-z0-9+/]*={0,2}$/.test(s.pixels))throw Error('原始像素长度不匹配，不能打开损坏的项目。');
       try{if(atob(s.pixels).length!==expected)throw Error();}catch{throw Error('原始像素长度不匹配，不能打开损坏的项目。');}
       if(s.original!==undefined&&(!text(s.original)||!/^data:image\/(png|jpeg|webp|tiff);base64,[A-Za-z0-9+/]*={0,2}$/.test(s.original)))throw Error('原始文件数据格式无效。');
+      if(s.rgbPixels!==undefined&&(!text(s.rgbPixels)||!/^([A-Za-z0-9+/]*={0,2})$/.test(s.rgbPixels)||atob(s.rgbPixels).length!==s.width*s.height*3))throw Error('原始 RGB 像素长度无效。');
       Object.freeze(s);sources.set(s.id,s);validatedSources.add(s);
     }
+    if(p.topics!==undefined&&(!Array.isArray(p.topics)||p.topics.length>200||p.topics.some(v=>!text(v)||!v.trim())))throw Error('课题目录无效。');
+    if(p.experiments!==undefined&&(!Array.isArray(p.experiments)||p.experiments.length>500||p.experiments.some(v=>!v||!text(v.topic)||!text(v.name))))throw Error('实验目录无效。');
+    if(p.conditionRecords!==undefined&&(!Array.isArray(p.conditionRecords)||p.conditionRecords.length>500||!B.validateConditions))throw Error('实验条件记录无效或缺少条件模块。');if(p.conditionRecords)for(const record of p.conditionRecords)B.validateConditions(record);
+    if(p.statisticsSettings!==undefined){if(!p.statisticsSettings||typeof p.statisticsSettings!=='object')throw Error('统计名称映射无效。');for(const map of Object.values(p.statisticsSettings))if(!map||typeof map!=='object'||Array.isArray(map)||Object.keys(map).length>500||Object.values(map).some(v=>!text(v)||!v.trim()))throw Error('统计名称映射无效。');}
     const groupIds=new Set();
     for(const g of p.groups){
-      if(!g||!id(g.id)||groupIds.has(g.id)||!text(g.name)||!text(g.experiment))throw Error('图组信息无效或 ID 重复。');groupIds.add(g.id);
+      if(!g||!id(g.id)||groupIds.has(g.id)||!text(g.name)||!text(g.experiment))throw Error('图组信息无效或 ID 重复。');groupIds.add(g.id);if(g.topic!==undefined&&!text(g.topic))throw Error('课题名称无效。');
       if(!g.canvas||![g.canvas.width,g.canvas.height].every(n=>Number.isFinite(n)&&n>=100&&n<=10000)||!color(g.canvas.background)||![150,300,600].includes(Number(g.canvas.dpi))||!Array.isArray(g.objects)||g.objects.length>3000||!Array.isArray(g.samples)||!g.samples.length||g.samples.length>200)throw Error('画布参数无效。');
       const sampleIds=new Set();for(const s of g.samples){if(!s||!text(s.id)||!s.id.trim()||sampleIds.has(s.id)||!text(s.group)||!s.group.trim()||!Number.isInteger(s.replicate)||s.replicate<1)throw Error('样本 ID、分组或重复编号无效。');sampleIds.add(s.id);}
       const objectIds=new Set(),imageIds=new Set(g.objects.filter(o=>o?.type==='image').map(o=>o.id));
       for(const o of g.objects){
         if(!o||!['image','text','rect','line','arrow','bracket'].includes(o.type)||!id(o.id)||objectIds.has(o.id)||![o.x,o.y,o.w,o.h,o.rotation,o.opacity].every(Number.isFinite)||o.w<=0||o.h<=0||o.w>10000||o.h>10000||o.opacity<0||o.opacity>1)throw Error('对象参数无效。');objectIds.add(o.id);
         if(o.type==='image'){
-          const s=sources.get(o.sourceId);if(!s)throw Error('图像来源缺失。');B.assertRect(s,o.crop,'裁剪范围');
+          const s=sources.get(o.sourceId);if(!s)throw Error('图像来源缺失。');if(o.analysis){if(!B.validateAnalysis)throw Error('缺少灰度方法模块。');B.validateAnalysis(o.analysis);}for(const field of ['controlId','totalId'])if(o[field]&&(o[field]===o.id||!imageIds.has(o[field])))throw Error('内参或总蛋白对应关系无效。');B.assertRect(s,o.crop,'裁剪范围');
           if(!Array.isArray(o.rois)||o.rois.length>g.samples.length||new Set(o.rois.map(r=>r?.id)).size!==o.rois.length||new Set(o.rois.map(r=>r?.sampleIndex)).size!==o.rois.length)throw Error('ROI 参数无效或同一泳道有重复 ROI。');
-          for(const r of o.rois){if(!r||!id(r.id)||!Number.isInteger(r.sampleIndex)||r.sampleIndex<0||r.sampleIndex>=g.samples.length)throw Error('ROI 样本对应关系无效。');B.assertRect(s,r,'条带 ROI');}
+          for(const r of o.rois){if(!r||!id(r.id)||!Number.isInteger(r.sampleIndex)||r.sampleIndex<0||r.sampleIndex>=g.samples.length)throw Error('ROI 样本对应关系无效。');B.assertRect(s,r,'条带 ROI');if(r.shape&&!['rect','ellipse','profile'].includes(r.shape))throw Error('ROI 形状无效。');for(const f of ['baselineStart','baselineEnd'])if(r[f]!==undefined&&(!Number.isFinite(r[f])||r[f]<0))throw Error('峰图基线无效。');}
           if(o.background)B.assertRect(s,o.background,'背景 ROI');
           if(o.referenceId&&(o.referenceId===o.id||!imageIds.has(o.referenceId)))throw Error('参照蛋白缺失或不能引用自身。');
           for(const key of ['brightness','contrast'])if(!Number.isFinite(o[key])||o[key]<0||o[key]>200)throw Error('图像显示参数无效。');
@@ -94,7 +99,8 @@
         }
         for(const k of ['fill','stroke'])if(o[k]!==undefined&&!color(o[k]))throw Error('颜色格式无效。');
         if(o.strokeWidth!==undefined&&(!Number.isFinite(o.strokeWidth)||o.strokeWidth<0||o.strokeWidth>20))throw Error('线宽无效。');
-        if(o.fontFamily&&!['Arial','Times New Roman','Helvetica','Georgia','Courier New','PingFang SC'].includes(o.fontFamily))throw Error('字体格式无效。');
+        if(o.script&&!['normal','super','sub'].includes(o.script)||o.dash&&!['solid','dash','dot'].includes(o.dash))throw Error('文字基线或线型无效。');
+        if(o.fontFamily&&!['Arial','Times New Roman','Helvetica','Georgia','Courier New','PingFang SC','Microsoft YaHei','SimSun'].includes(o.fontFamily))throw Error('字体格式无效。');
         if(o.type==='text'&&(!text(o.text)||!Number.isFinite(o.fontSize)||o.fontSize<6||o.fontSize>300))throw Error('文字参数无效。');
       }
     }

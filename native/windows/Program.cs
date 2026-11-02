@@ -19,6 +19,7 @@ internal sealed class MainWindow : Form
     private const string DocumentUrl = "https://blotstudio.local/BlotStudio.html";
     private readonly WebView2 web = new() { Dock = DockStyle.Fill };
     private bool saving, closing, canClose, ready;
+    private string? workspacePath;
 
     public MainWindow()
     {
@@ -93,6 +94,7 @@ internal sealed class MainWindow : Form
         {
             using var document = JsonDocument.Parse(e.WebMessageAsJson);
             var body = document.RootElement;
+            if (body.GetProperty("type").GetString() == "workspace") { await HandleWorkspaceAsync(body); return; }
             if (body.GetProperty("type").GetString() != "saveFile") return;
             id = body.GetProperty("id").GetString();
             if (string.IsNullOrEmpty(id) || id.Length > 200) return;
@@ -120,6 +122,32 @@ internal sealed class MainWindow : Form
             if (tempFile is not null) { try { File.Delete(tempFile); } catch { } }
             if (ownsSave) saving = false;
         }
+    }
+
+    private Task WorkspaceReplyAsync(string id, string status, string message = "") =>
+        web.CoreWebView2.ExecuteScriptAsync("globalThis.BS?.workspaceResult?.(..." + JsonSerializer.Serialize(new[] { id, status, message }) + ");");
+    private async Task HandleWorkspaceAsync(JsonElement body)
+    {
+        var id = body.GetProperty("id").GetString();
+        if (string.IsNullOrEmpty(id) || id.Length > 200) return;
+        if (saving || (closing && body.GetProperty("workspace").GetString() != "write")) { await WorkspaceReplyAsync(id, "error", "请先完成当前对话框。"); return; }
+        saving = true;
+        try {
+            if (body.GetProperty("workspace").GetString() == "choose") {
+                using var dialog = new FolderBrowserDialog { Description = "选择 BlotStudio 项目备份目录", UseDescriptionForTitle = true };
+                if (dialog.ShowDialog(this) != DialogResult.OK) { await WorkspaceReplyAsync(id, "cancelled"); return; }
+                workspacePath = dialog.SelectedPath; await WorkspaceReplyAsync(id, "ok", workspacePath); return;
+            }
+            var name = body.GetProperty("name").GetString() ?? "";
+            if (workspacePath is null || !name.StartsWith("BlotStudio-") || !name.EndsWith(".wbproj") || name != Path.GetFileName(name) || name.Contains('/') || name.Contains('\\')) throw new IOException("存储目录未选择或文件名无效。");
+            var bytes = Convert.FromBase64String(body.GetProperty("data").GetString() ?? "");
+            if (bytes.Length > 220*1024*1024) throw new IOException("项目超过容量上限。");
+            var target = Path.Combine(workspacePath, name); var temporary = Path.Combine(workspacePath, ".blotstudio-" + Guid.NewGuid().ToString("N") + ".tmp");
+            try { await File.WriteAllBytesAsync(temporary, bytes); if (File.Exists(target)) File.Replace(temporary, target, null); else File.Move(temporary, target); }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
+            await WorkspaceReplyAsync(id, "ok", name);
+        } catch (Exception error) { await WorkspaceReplyAsync(id, "error", error.Message); }
+        finally { saving = false; }
     }
 
     private async void ClosingAsync(object? sender, FormClosingEventArgs e)

@@ -9,7 +9,7 @@ function source(values,depth=8,width=values.length){
   values.forEach((v,i)=>depth===16?view.setUint16(i*2,v,true):bytes[i]=v);
   return{id:'simulated-imagej-test',name:'SIMULATED TEST ONLY',width,height:values.length/width,bitDepth:depth,pixels:B.base64(bytes)};
 }
-const fixture=JSON.parse(fs.readFileSync(path.join(__dirname,'../examples/workflow-fixture.json'),'utf8'));
+const fixture=JSON.parse(fs.readFileSync(path.join(process.env.BLOTSTUDIO_EXAMPLE_DIR||path.join(__dirname,'../examples'),'workflow-fixture.json'),'utf8'));
 test('ImageJ compatible method scope is explicit and original Java oracle is not implied',()=>{
   assert.match(B.imagej.scope,/未校准/);assert.match(B.imagej.scope,/无阈值/);assert.match(B.imagej.scope,/不是完整/);
   assert.match(B.imagej.upstream.measurement,/Analyzer.java/);
