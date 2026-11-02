@@ -23,7 +23,7 @@
     if(doc.querySelector('parsererror'))throw Error('导出 SVG 数据异常。');
     for(const image of doc.querySelectorAll('image[data-bs-display]')){
       const params=JSON.parse(image.getAttribute('data-bs-display')),url=image.getAttribute('href');
-      image.setAttribute('href',await B.displayURL(url,params));image.removeAttribute('filter');image.removeAttribute('data-bs-display');
+      const preview=await B.displayURL(url,params),decoded=await B.loadImage(preview);if(decoded.decode)await decoded.decode();image.setAttribute('href',preview);image.removeAttribute('filter');image.removeAttribute('data-bs-display');
     }
     return new XMLSerializer().serializeToString(doc);
   };
