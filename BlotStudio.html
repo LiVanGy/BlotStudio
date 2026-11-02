@@ -431,6 +431,28 @@
     }
     return new XMLSerializer().serializeToString(doc);
   };
+  // Safari 15 may report an SVG image decoded before its nested PNG has painted.
+  // Draw our own SVG scene through Canvas2D, decoding each bitmap directly.
+  B.drawSVG=async(svg,canvas)=>{
+    const doc=new DOMParser().parseFromString(svg,'image/svg+xml'),root=doc.documentElement,ctx=canvas.getContext('2d'),width=Number(root.getAttribute('width')),height=Number(root.getAttribute('height'));
+    if(doc.querySelector('parsererror')||!(width>0&&height>0))throw Error('SVG 画布无效。');
+    ctx.scale(canvas.width/width,canvas.height/height);
+    const val=(node,key,fallback=0)=>{const text=node.getAttribute(key);return text===null?fallback:text.endsWith('%')?parseFloat(text)/100*(key==='width'?width:height):Number(text);};
+    const draw=async node=>{
+      if(['defs','clipPath','filter'].includes(node.localName))return;
+      ctx.save();ctx.globalAlpha*=val(node,'opacity',1);
+      for(const match of (node.getAttribute('transform')||'').matchAll(/(translate|scale|rotate)\(([^)]+)\)/g)){const a=match[2].trim().split(/[ ,]+/).map(Number);if(match[1]==='translate')ctx.translate(a[0],a[1]||0);else if(match[1]==='scale')ctx.scale(a[0],a[1]??a[0]);else{ctx.translate(a[1]||0,a[2]||0);ctx.rotate(a[0]*Math.PI/180);ctx.translate(-(a[1]||0),-(a[2]||0));}}
+      const clip=node.getAttribute('clip-path')?.match(/url\(#([^)]*)\)/);if(clip){const r=doc.getElementById(clip[1])?.querySelector('rect');if(r){ctx.beginPath();ctx.rect(val(r,'x'),val(r,'y'),val(r,'width'),val(r,'height'));ctx.clip();}}
+      ctx.strokeStyle=node.getAttribute('stroke')||'#000';ctx.fillStyle=node.getAttribute('fill')||'#000';ctx.lineWidth=val(node,'stroke-width',1);ctx.setLineDash((node.getAttribute('stroke-dasharray')||'').split(/[ ,]+/).filter(Boolean).map(Number));
+      if(node.localName==='image'){let url=node.getAttribute('href');if(node.hasAttribute('data-bs-display'))url=await B.displayURL(url,JSON.parse(node.getAttribute('data-bs-display')));const image=await B.loadImage(url);if(image.decode)await image.decode();ctx.drawImage(image,val(node,'x'),val(node,'y'),val(node,'width'),val(node,'height'));}
+      else if(node.localName==='rect'){if(node.getAttribute('fill')!=='none')ctx.fillRect(val(node,'x'),val(node,'y'),val(node,'width'),val(node,'height'));if(node.hasAttribute('stroke')&&node.getAttribute('stroke')!=='none'&&ctx.lineWidth>0)ctx.strokeRect(val(node,'x'),val(node,'y'),val(node,'width'),val(node,'height'));}
+      else if(node.localName==='path'){const path=new Path2D(node.getAttribute('d'));if(node.getAttribute('fill')!=='none')ctx.fill(path);if(node.getAttribute('stroke')!=='none')ctx.stroke(path);}
+      else if(node.localName==='text'){const size=val(node,'font-size',22),anchor=node.getAttribute('text-anchor');ctx.textAlign=anchor==='middle'?'center':anchor==='end'?'right':'left';let y=val(node,'y');for(const span of node.querySelectorAll('tspan')){y+=val(span,'dy');const shift=span.getAttribute('baseline-shift'),small=shift==='super'||shift==='sub';ctx.font=(node.getAttribute('font-style')||'normal')+' '+(node.getAttribute('font-weight')||'400')+' '+size*(small?.7:1)+'px '+(node.getAttribute('font-family')||'Arial');ctx.fillText(span.textContent,val(span,'x',val(node,'x')),y+(shift==='super'?-size*.35:shift==='sub'?size*.2:0));}}
+      else for(const child of node.children)await draw(child);
+      ctx.restore();
+    };
+    await draw(root);return canvas;
+  };
 })(globalThis.BS ||= {});
 
 (function(B){
@@ -493,6 +515,7 @@
     if(![w,h].every(v=>Number.isFinite(v)&&v>0))throw Error('导出尺寸必须为正数。');
     w=Math.max(1,Math.round(w));h=Math.max(1,Math.round(h));
     if(w*h>64000000||w>16000||h>16000)throw Error('导出尺寸过大，请减小像素倍率。');
+    if(B.drawSVG&&typeof DOMParser!=='undefined'){const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;return B.drawSVG(svg,canvas);}
     if(B.prepareSVG)svg=await B.prepareSVG(svg);
     const c=document.createElement('canvas');c.width=w;c.height=h;const im=await B.loadImage('data:image/svg+xml;base64,'+B.base64(B.utf8(svg))),ctx=c.getContext('2d');
     if(!ctx)throw Error('当前环境无法创建导出画布。');if(im.decode)await im.decode();ctx.drawImage(im,0,0,w,h);return c;

@@ -58,6 +58,7 @@
     if(![w,h].every(v=>Number.isFinite(v)&&v>0))throw Error('导出尺寸必须为正数。');
     w=Math.max(1,Math.round(w));h=Math.max(1,Math.round(h));
     if(w*h>64000000||w>16000||h>16000)throw Error('导出尺寸过大，请减小像素倍率。');
+    if(B.drawSVG&&typeof DOMParser!=='undefined'){const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;return B.drawSVG(svg,canvas);}
     if(B.prepareSVG)svg=await B.prepareSVG(svg);
     const c=document.createElement('canvas');c.width=w;c.height=h;const im=await B.loadImage('data:image/svg+xml;base64,'+B.base64(B.utf8(svg))),ctx=c.getContext('2d');
     if(!ctx)throw Error('当前环境无法创建导出画布。');if(im.decode)await im.decode();ctx.drawImage(im,0,0,w,h);return c;
