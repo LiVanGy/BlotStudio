@@ -14,5 +14,7 @@ The browser IIFE is reproducible with Node.js 22.18+:
 Ordinary builds use the committed IIFE and need no package download. The conversion removes TypeScript types, the CSS import and ESM export keywords.
 A documented BlotStudio performance adaptation adds a bounded geometry-map PNG
 cache; upstream optical mathematics are unchanged and fresh filter IDs are retained.
-The UI adapter uses createGlassController on decorative ambient-background
-copies; it never filters the scientific image/ROI/export layer.
+The UI adapter uses generateDisplacementMap and buildGlassFilter in separate,
+explicitly sized SVG viewports on decorative ambient-background copies. This
+avoids WebKit's HTML-filter coordinate ambiguity. It never filters the
+scientific image/ROI/export layer.

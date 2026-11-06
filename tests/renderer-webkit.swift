@@ -7,7 +7,29 @@ final class RendererTestHost: NSObject, WKScriptMessageHandler, WKNavigationDele
     var view: WKWebView!
     var window: NSWindow?
     var snapshotPath: String?
+    private var idleGeneration = 0
+    private var lastProgress = "loading document"
+    private let idleSeconds = Double(ProcessInfo.processInfo.environment["BLOTSTUDIO_WEBKIT_IDLE_SECONDS"] ?? "90") ?? 90
+    private let totalSeconds = Double(ProcessInfo.processInfo.environment["BLOTSTUDIO_WEBKIT_TOTAL_SECONDS"] ?? "300") ?? 300
+    private func refreshIdleDeadline() {
+        idleGeneration += 1
+        let generation = idleGeneration
+        DispatchQueue.main.asyncAfter(deadline:.now()+idleSeconds) { [weak self] in
+            guard let self, self.idleGeneration == generation else { return }
+            fputs("Renderer idle timeout after \(self.idleSeconds)s; last progress: \(self.lastProgress)\n",stderr)
+            exit(3)
+        }
+    }
     func start(_ path: String, width: Double = 1000, height: Double = 800, snapshotPath: String? = nil) throws {
+        guard idleSeconds.isFinite, totalSeconds.isFinite, idleSeconds > 0, totalSeconds > 0, idleSeconds <= totalSeconds, totalSeconds <= 600 else {
+            fputs("Invalid renderer deadline settings\n",stderr);exit(2)
+        }
+        refreshIdleDeadline()
+        DispatchQueue.main.asyncAfter(deadline:.now()+totalSeconds) { [weak self] in
+            guard let self else { return }
+            fputs("Renderer total timeout after \(self.totalSeconds)s; last progress: \(self.lastProgress)\n",stderr)
+            exit(3)
+        }
         self.snapshotPath = snapshotPath
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .nonPersistent()
@@ -27,6 +49,8 @@ final class RendererTestHost: NSObject, WKScriptMessageHandler, WKNavigationDele
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.name == "qaResult", message.frameInfo.isMainFrame else { return }
         if let body = message.body as? [String:Any], let progress = body["progress"] {
+            lastProgress = String(describing:progress)
+            refreshIdleDeadline()
             fputs("[webkit progress] \(String(describing:progress))\n",stderr)
             return
         }
@@ -54,6 +78,7 @@ final class RendererTestHost: NSObject, WKScriptMessageHandler, WKNavigationDele
         } else { finish(message.body) }
     }
     private func finish(_ body: Any) {
+        idleGeneration += 1
         do {
             let data = try JSONSerialization.data(withJSONObject:body,options:[.sortedKeys])
             FileHandle.standardOutput.write(data)
@@ -74,5 +99,4 @@ if CommandLine.arguments.count == 5 {
     guard width >= 320, width <= 3000, height >= 320, height <= 3000 else { exit(2) }
     try host.start(CommandLine.arguments[1],width:width,height:height,snapshotPath:CommandLine.arguments[4])
 } else { try host.start(CommandLine.arguments[1]) }
-DispatchQueue.main.asyncAfter(deadline:.now()+45) { fputs("Renderer test timeout\n",stderr);exit(3) }
 app.run()

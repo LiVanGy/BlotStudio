@@ -100,14 +100,12 @@ body{background-color:#caddE5;background-image:var(--lq-backdrop);background-siz
   isolation: isolate;
 }
 
-/* The layer that gets `filter: url(#glass)`. It holds the backdrop copy. */
+/* The decorative SVG applies the filter in its own local viewport. */
 .lq-refraction {
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  /* Promote to its own layer; keeps the filter cheap to recomposite on move. */
-  will-change: filter;
 }
 
 /* A copy of the page background, sized to the viewport and offset by the core
@@ -168,7 +166,7 @@ input[type=range],input[type=checkbox]{background:transparent;box-shadow:none}
 .workspace-empty>.empty-mark{display:grid;place-items:center;width:72px;height:72px;border-radius:24px;background:linear-gradient(145deg,#ffffffa3,#ffffff26);border:1px solid #ffffffe0;box-shadow:inset 0 2px 2px white,0 12px 30px #37647714;color:#487e98;margin-bottom:5px}
 .workspace-empty h1{font-size:24px;font-weight:600;letter-spacing:-.6px}.workspace-empty p{font-size:12px;line-height:1.9;color:#638497;max-width:310px}.workspace-empty .button-row{gap:10px;margin-top:6px}.workspace-empty button:not(.primary){background:#ffffff61;border:1px solid #ffffffb3}
 .editor-center.is-empty .canvas-viewport{visibility:hidden}.editor-center.is-empty .zoom-control{display:none}
-@media(prefers-reduced-transparency:reduce){body{background:#edf3f6}[data-liquid-surface],.analysis-identity,.reference-disclosure,.solid-panel,.chart-panel,.summary-panel,.table-scroll{background:#f6fafc!important;backdrop-filter:none!important}.lq-refraction,.lq-sheen{display:none!important}}
+@media(prefers-reduced-transparency:reduce){body{background:#edf3f6}[data-liquid-surface],.editor-center,.content-page,.analysis-page,.analysis-identity,.reference-disclosure,.solid-panel,.chart-panel,.summary-panel,.table-scroll{background:#f6fafc!important;backdrop-filter:none!important}.lq-refraction,.lq-sheen{display:none!important}}
 </style></head>
 <body><div id="app"><div class="boot">正在打开 BlotStudio…</div></div><input id="images-input" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.tif,.tiff" hidden><input id="project-input" type="file" accept=".wbproj,.json" hidden><noscript>需要启用 JavaScript 才能运行本地编辑器。</noscript><script>(function(B) {
   'use strict';
@@ -2420,36 +2418,99 @@ global.LiquidGlassOptics={applyGlass,createGlassController,generateDisplacementM
 
 (function(B){
   'use strict';
-  // MIT @tomagranate/liquid-glass, pinned in vendor/liquid-glass.
-  // Only an ambient backdrop copy is refracted. Text, original WB pixels,
-  // scientific SVGs and export canvases never enter a filter or texture.
-  const controllers=[];
+  // Optical chrome only. A real per-surface SVG viewport keeps WebKit filter
+  // primitives, the environment image and the displacement map in one space.
+  // MIT @tomagranate/liquid-glass: fixed upstream version in vendor notices.
+  const NS='http://www.w3.org/2000/svg',items=[];
   const reduced=matchMedia('(prefers-reduced-transparency: reduce)');
   const selectors='.app-header nav,.glass-toolbar,.sidebar,.inspector,.editor-center,.content-page,.analysis-page,.glass-popover,.modal,.zoom-control';
+  let serial=0,frame=0,lastRoot=null;
   B.liquidOptics={engine:'@tomagranate/liquid-glass',version:'efe48923a08c026b77158f3df0317f83571a038d',count:0};
-  const destroy=()=>{for(const item of controllers.splice(0)){item.mapResize.disconnect();item.ctrl.destroy();item.host.removeEventListener('scroll',item.scroll);item.refraction.remove();item.sheen.remove();Object.assign(item.host.style,item.original);item.host.removeAttribute('data-liquid-surface');}B.liquidOptics.count=0;};
-  const mount=()=>{
-    if(reduced.matches||!globalThis.LiquidGlassOptics?.createGlassController){B.liquidOptics.reason='reduced-transparency';return;}
-    const maps=[];
-    for(const host of document.querySelectorAll(selectors)){
-      if(host.hidden||host.getBoundingClientRect().width<2||host.closest('[hidden]'))continue;
-      const original={position:host.style.position,overflow:host.style.overflow,isolation:host.style.isolation,background:host.style.background,boxShadow:host.style.boxShadow,borderRadius:host.style.borderRadius};
-      const refraction=document.createElement('div'),backdrop=document.createElement('div'),sheen=document.createElement('div'),sourceClip=document.createElement('div');refraction.className='lq-refraction';refraction.style.transform='translateZ(0)';backdrop.className='lq-backdrop';sheen.className='lq-sheen';refraction.setAttribute('aria-hidden','true');sheen.setAttribute('aria-hidden','true');sourceClip.className='lq-source-clip';Object.assign(sourceClip.style,{position:'absolute',inset:'0',overflow:'hidden'});sourceClip.append(backdrop);refraction.append(sourceClip);
-      for(const child of host.children){if(getComputedStyle(child).position==='static')child.style.position='relative';child.style.zIndex='2';}
-      host.prepend(refraction,sheen);host.setAttribute('data-liquid-surface','');
-      const computed=getComputedStyle(host),overflow=computed.overflow,radius=parseFloat(computed.borderRadius)||18,large=host.clientHeight>160;
-      const ctrl=LiquidGlassOptics.createGlassController(host,{refraction,backdrop,sheen},{radius,depth:large?18:12,scale:large?38:26,blur:.35,chroma:.16,specular:.14,dpr:.75,rimLight:.9,tint:'rgba(255,255,255,.08)',shadow:'0 12px 36px rgba(35,72,96,.12),inset 0 1px 0 rgba(255,255,255,.85)'});
-      host.style.overflow=(overflow==='auto'||overflow==='scroll')?overflow:'hidden';refraction.style.clipPath='inset(0 round '+radius+'px)';
-      const alignMap=()=>{const id=refraction.style.filter.match(/#([^"')\s]+)/)?.[1],image=id&&document.getElementById(id)?.querySelector('feImage');if(image){image.setAttribute('x','0');image.setAttribute('y','0');image.setAttribute('width',String(refraction.clientWidth));image.setAttribute('height',String(refraction.clientHeight));host.dataset.liquidMapPixels=refraction.clientWidth+'x'+refraction.clientHeight;}};alignMap();const mapResize=new ResizeObserver(alignMap);mapResize.observe(host);
-      const scroll=()=>{const y=host.scrollTop;for(const layer of [refraction,sheen]){layer.style.top=y+'px';layer.style.height=host.clientHeight+'px';layer.style.bottom='auto';}};scroll();host.addEventListener('scroll',scroll,{passive:true});
-      controllers.push({host,ctrl,scroll,refraction,sheen,original,mapResize});
-    }
-    B.liquidOptics.count=controllers.length;B.liquidOptics.reason='svg-refraction';
-    for(const image of document.querySelectorAll('svg defs feImage')){const url=image.getAttribute('href')||image.getAttribute('xlink:href');if(url?.startsWith('data:image/'))maps.push(B.loadImage(url).then(image=>image.decode?.()).catch(()=>{}));}
-    B.opticsReady=Promise.all(maps);
+  B.opticsReady=Promise.resolve();
+  const svg=(name,attrs={})=>{const node=document.createElementNS(NS,name);for(const [key,value] of Object.entries(attrs))node.setAttribute(key,String(value));return node;};
+  const ambient=()=>{
+    const text=getComputedStyle(document.documentElement).getPropertyValue('--lq-backdrop').trim();
+    const match=text.match(/url\(\s*(?:"([^"]+)"|'([^']+)'|([^\s)]+))\s*\)/),url=match&&(match[1]||match[2]||match[3]);
+    return url&&/^data:image\/(?:svg\+xml|png|jpeg|webp)[;,]/.test(url)?url:null;
   };
-  const render=B.render;B.render=()=>{const before=document.getElementById('app')?.firstElementChild;render();if(document.getElementById('app')?.firstElementChild===before)return;destroy();mount();};
-  reduced.addEventListener?.('change',()=>{destroy();B.render();});
+  const decode=url=>B.loadImage?B.loadImage(url).then(image=>image.decode?.()).catch(()=>{}):Promise.resolve();
+  const destroy=()=>{
+    if(frame){cancelAnimationFrame(frame);frame=0;}
+    for(const item of items.splice(0)){
+      item.resize.disconnect();item.host.removeEventListener('scroll',item.scroll);
+      item.refraction.remove();item.sheen.remove();
+      for(const child of item.children)Object.assign(child.node.style,child.style);
+      Object.assign(item.host.style,item.original);item.host.removeAttribute('data-liquid-surface');item.host.removeAttribute('data-liquid-map-pixels');
+    }
+    B.liquidOptics.count=0;B.opticsReady=Promise.resolve();
+  };
+  const position=item=>{
+    const {host,refraction,sheen,image}=item;
+    // Counter-scroll only the two decorative layers; scientific content stays
+    // entirely in its original DOM and coordinate system.
+    for(const layer of [refraction,sheen])Object.assign(layer.style,{top:host.scrollTop+'px',height:host.clientHeight+'px',bottom:'auto'});
+    const box=refraction.getBoundingClientRect();
+    image.setAttribute('x',String(-box.left));image.setAttribute('y',String(-box.top));
+    image.setAttribute('width',String(innerWidth));image.setAttribute('height',String(innerHeight));
+  };
+  const rebuild=item=>{
+    if(!item.host.isConnected)return null;
+    position(item);
+    const w=item.refraction.clientWidth,h=item.refraction.clientHeight;if(w<2||h<2)return null;
+    const radius=Math.min(item.radius,w/2,h/2),large=h>160,scale=large?38:26,signature=[w,h,radius,scale].join('|');
+    if(signature===item.signature)return null;
+    const map=LiquidGlassOptics.generateDisplacementMap({width:w,height:h,radius,depth:large?18:12,dpr:.75,specular:.14,specularAngle:135});
+    if(!map)return null;
+    const id='bs-optical-svg-'+(++serial),pad=Math.ceil(scale*.6+4),filter=LiquidGlassOptics.buildGlassFilter({id,mapUrl:map,scale,blur:.35,chroma:.16,specular:.14,lens:{x:0,y:0,width:w,height:h}});
+    // Do not mix objectBoundingBox lengths with HTML/page coordinates. All
+    // filter regions are explicit user-space pixels in this SVG's own viewBox.
+    const region={x:-pad,y:-pad,width:w+2*pad,height:h+2*pad};
+    filter.setAttribute('filterUnits','userSpaceOnUse');filter.setAttribute('primitiveUnits','userSpaceOnUse');
+    for(const [key,value] of Object.entries(region))filter.setAttribute(key,String(value));
+    for(const primitive of filter.children)if(primitive.localName!=='feImage')for(const [key,value] of Object.entries(region))primitive.setAttribute(key,String(value));
+    // The upstream lens branch supplies a neutral full-area flood before the
+    // finite bump image. Its RGB=128 exterior prevents half-scale black seams.
+    const bump=filter.querySelector('feImage');bump.setAttribute('x','0');bump.setAttribute('y','0');bump.setAttribute('width',String(w));bump.setAttribute('height',String(h));
+    item.defs.replaceChildren(filter);item.scene.setAttribute('filter','url(#'+id+')');
+    item.canvas.setAttribute('width',String(w));item.canvas.setAttribute('height',String(h));item.canvas.setAttribute('viewBox','0 0 '+w+' '+h);
+    item.signature=signature;item.host.dataset.liquidMapPixels=w+'x'+h;
+    return decode(map);
+  };
+  const schedule=()=>{
+    if(frame)return;frame=requestAnimationFrame(()=>{frame=0;const pending=[];for(const item of items){const ready=rebuild(item);if(ready)pending.push(ready);}if(pending.length)B.opticsReady=Promise.all(pending);});
+  };
+  const mount=()=>{
+    lastRoot=document.getElementById('app')?.firstElementChild;
+    if(reduced.matches||!globalThis.LiquidGlassOptics?.buildGlassFilter){B.liquidOptics.reason='reduced-transparency';return;}
+    const url=ambient();if(!url){B.liquidOptics.reason='ambient-source-unavailable';return;}
+    const pending=[decode(url)];
+    for(const host of document.querySelectorAll(selectors)){
+      if(host.hidden||host.closest('[hidden]')||host.getBoundingClientRect().width<2)continue;
+      const computed=getComputedStyle(host),radius=parseFloat(computed.borderRadius)||18;
+      const original={position:host.style.position,overflow:host.style.overflow,isolation:host.style.isolation,background:host.style.background,boxShadow:host.style.boxShadow,borderRadius:host.style.borderRadius};
+      const children=Array.from(host.children).map(node=>({node,style:{position:node.style.position,zIndex:node.style.zIndex}}));
+      for(const {node} of children){if(getComputedStyle(node).position==='static')node.style.position='relative';node.style.zIndex='2';}
+      if(computed.position==='static')host.style.position='relative';host.style.isolation='isolate';host.style.overflow=['auto','scroll'].includes(computed.overflow)?computed.overflow:'hidden';
+      host.style.background='rgba(255,255,255,.08)';host.style.boxShadow='0 12px 36px rgba(35,72,96,.12),inset 0 1px 0 rgba(255,255,255,.85)';host.style.borderRadius=radius+'px';
+      const refraction=document.createElement('div'),sheen=document.createElement('div');refraction.className='lq-refraction';sheen.className='lq-sheen';refraction.setAttribute('aria-hidden','true');sheen.setAttribute('aria-hidden','true');
+      Object.assign(refraction.style,{overflow:'hidden',borderRadius:'inherit',clipPath:'inset(0 round '+radius+'px)'});
+      const canvas=svg('svg',{'aria-hidden':'true',preserveAspectRatio:'none'}),defs=svg('defs'),scene=svg('g'),image=svg('image',{href:url,preserveAspectRatio:'none'});
+      Object.assign(canvas.style,{display:'block',width:'100%',height:'100%',overflow:'visible',pointerEvents:'none'});scene.append(image);canvas.append(defs,scene);refraction.append(canvas);
+      Object.assign(sheen.style,{borderRadius:'inherit',boxShadow:'inset 0 1px 1.5px rgba(255,255,255,.81),inset 1px 0 1px rgba(255,255,255,.315),inset -1px 0 1px rgba(255,255,255,.315),inset 0 -1.5px 2px rgba(0,0,0,.225),inset 0 0 0 1px rgba(255,255,255,.225)',background:'linear-gradient(225deg,rgba(255,255,255,.162),transparent 38%,transparent 64%,rgba(255,255,255,.072))'});
+      host.prepend(refraction,sheen);host.setAttribute('data-liquid-surface','');
+      const item={host,refraction,sheen,canvas,defs,scene,image,original,children,radius,signature:null,resize:null,scroll:null};
+      item.scroll=()=>position(item);host.addEventListener('scroll',item.scroll,{passive:true});
+      item.resize=new ResizeObserver(schedule);item.resize.observe(host);items.push(item);const ready=rebuild(item);if(ready)pending.push(ready);
+    }
+    B.liquidOptics.count=items.length;B.liquidOptics.reason='svg-refraction';B.opticsReady=Promise.all(pending);
+  };
+  const refresh=()=>{destroy();mount();};
+  const render=B.render;B.render=()=>{const before=document.getElementById('app')?.firstElementChild;render();if(document.getElementById('app')?.firstElementChild!==before)refresh();};
+  // Captured async render sinks may bypass the public B.render wrapper. Observe
+  // only direct app children, not the optical subtrees we insert ourselves.
+  const app=document.getElementById('app');if(app)new MutationObserver(()=>{if(app.firstElementChild!==lastRoot)refresh();}).observe(app,{childList:true});
+  reduced.addEventListener?.('change',refresh);addEventListener('resize',schedule,{passive:true});
+  addEventListener('scroll',()=>{for(const item of items)position(item);},{passive:true,capture:true});
   addEventListener('pagehide',destroy);
 })(globalThis.BS ||= {});
 </script></body></html>
