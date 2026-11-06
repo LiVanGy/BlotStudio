@@ -1,11 +1,13 @@
-# BlotStudio v0.5.0 Preview
+# BlotStudio v0.6.0 Preview · Glass
 
-免费离线 MIT 开源 WB 工作台，按参考软件可见的 1.1.11 前端科研工作流补齐功能，采用独立实现。
+免费离线 MIT 开源 WB 工作台的视觉与操作布局更新。
 
-新增 ImageJ1 滚球、椭圆与峰面积、预处理记录、双参照比值、多因素与 ± 设计、凝胶 / 上样 / 孵育条件、课题目录恢复、统计映射、样式同步、重新上传、JPG、链接 SVG 和目录同步。修复 WebKit SVG 滤镜的灰度量化偏移；原始定量像素保留。完整测试改为临时生成模拟数据。
+- 雾白与低饱和蓝绿色，半透明分段导航、轻量玻璃工具组、统一圆角与阴影。
+- 编辑页分画布、内容、对象模块，插入和排列使用集中菜单。
+- 精简目录操作，收拢参照关系、ImageJ 测量、属性与图层设置。
+- 窄窗口自动收起项目栏，项目 / 属性面板可一键切换，扩大画布。
+- 系统减少透明度、减少动态效果偏好可生效。
 
-Windows x64 适合 Intel / AMD，ARM64 适合 ARM 设备；完整解压后打开 exe，需要 WebView2 Runtime，已带 .NET 运行时。Mac arm64 对应 Apple Silicon，x64 对应 Intel，需要 macOS 13+。Web offline 可直接打开 HTML。
+分析、原始图像与导出核心延续 0.5.0。项目格式保持兼容。验证包括 172 项回归、9 项系统 WebKit 像素检查和 13 项真实功能流程，新增菜单、面板切换和折叠保持检查。
 
-测试及四个原生目标成功后才发布。Mac 为 ad-hoc 签名，未 Apple 公证；Windows 未商业签名。Windows 原生交互和 ARM64 实机仍需人工验收；未声明兼容参考软件内部项目格式。功能对照和证据见 docs/FEATURE-PARITY.md。
-
-静态示例和真实实验文件不随包公开；临时生成的测试资料不进入发布包。
+Windows x64 / ARM64、Mac Apple Silicon / Intel、跨平台离线 HTML 同时提供。Windows 需 WebView2 Runtime；Mac 需 macOS 13+。Mac 未 Apple 公证，Windows 未商业代码签名。原生系统对话框及 ARM64 设备的人工验收边界见 README。

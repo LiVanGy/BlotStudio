@@ -1,6 +1,6 @@
 {
   "name": "blotstudio-free",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "description": "Free offline Western blot figure editor and native-depth densitometry",
   "license": "MIT",

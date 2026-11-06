@@ -5,21 +5,46 @@ import WebKit
 
 final class RendererTestHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
     var view: WKWebView!
-    func start(_ path: String) throws {
+    var window: NSWindow?
+    var snapshotPath: String?
+    func start(_ path: String, width: Double = 1000, height: Double = 800, snapshotPath: String? = nil) throws {
+        self.snapshotPath = snapshotPath
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .nonPersistent()
         config.userContentController.add(self, name: "qaResult")
-        view = WKWebView(frame: NSRect(x:0,y:0,width:1000,height:800), configuration:config)
+        let frame = NSRect(x:0,y:0,width:width,height:height)
+        view = WKWebView(frame: frame, configuration:config)
+        if snapshotPath != nil {
+            // An owned, non-interactive test window supplies a compositing surface.
+            // It never becomes key and does not attach to any existing app session.
+            window = NSWindow(contentRect:frame,styleMask:.borderless,backing:.buffered,defer:false)
+            window?.contentView = view
+            window?.orderBack(nil)
+        }
         view.navigationDelegate = self
         view.loadHTMLString(try String(contentsOfFile:path,encoding:.utf8), baseURL:nil)
     }
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.name == "qaResult", message.frameInfo.isMainFrame else { return }
+        if let path = snapshotPath {
+            let config = WKSnapshotConfiguration()
+            config.rect = view.bounds
+            config.afterScreenUpdates = true
+            view.takeSnapshot(with:config) { image, error in
+                guard error == nil, let image, let tiff = image.tiffRepresentation,
+                      let bitmap = NSBitmapImageRep(data:tiff), let png = bitmap.representation(using:.png,properties:[:]) else {
+                    fputs("Snapshot failed: \(String(describing:error))\n",stderr);exit(4)
+                }
+                do { try png.write(to:URL(fileURLWithPath:path)); self.finish(message.body) }
+                catch { fputs("Snapshot write failed: \(error)\n",stderr);exit(4) }
+            }
+        } else { finish(message.body) }
+    }
+    private func finish(_ body: Any) {
         do {
-            let data = try JSONSerialization.data(withJSONObject:message.body,options:[.sortedKeys])
+            let data = try JSONSerialization.data(withJSONObject:body,options:[.sortedKeys])
             FileHandle.standardOutput.write(data)
-            FileHandle.standardOutput.write(Data("\n".utf8))
-            exit(0)
+            FileHandle.standardOutput.write(Data("\n".utf8));exit(0)
         } catch { fputs("Result encoding failed\n",stderr);exit(2) }
     }
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
@@ -29,7 +54,12 @@ final class RendererTestHost: NSObject, WKScriptMessageHandler, WKNavigationDele
 let app = NSApplication.shared
 app.setActivationPolicy(.prohibited)
 let host = RendererTestHost()
-guard CommandLine.arguments.count == 2 else { exit(2) }
-try host.start(CommandLine.arguments[1])
+guard CommandLine.arguments.count == 2 || CommandLine.arguments.count == 5,
+      CommandLine.arguments.count == 2 || (Double(CommandLine.arguments[2]) != nil && Double(CommandLine.arguments[3]) != nil) else { exit(2) }
+if CommandLine.arguments.count == 5 {
+    let width = Double(CommandLine.arguments[2])!, height = Double(CommandLine.arguments[3])!
+    guard width >= 320, width <= 3000, height >= 320, height <= 3000 else { exit(2) }
+    try host.start(CommandLine.arguments[1],width:width,height:height,snapshotPath:CommandLine.arguments[4])
+} else { try host.start(CommandLine.arguments[1]) }
 DispatchQueue.main.asyncAfter(deadline:.now()+45) { fputs("Renderer test timeout\n",stderr);exit(3) }
 app.run()
