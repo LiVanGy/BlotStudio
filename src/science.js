@@ -66,7 +66,7 @@
     for(let i=0;i<a.length;i++){prev=Math.max(prev,Math.min(1,a[i].p*(a.length-i)));adjusted.set(a[i].index,prev);}
     return tests.map((t,i)=>({...t,adjusted:adjusted.get(i)??NaN}));
   };
-  B.statData=(records,protein,metric='corrected',control='Control',normalize=false)=>{
+  B.statData=(records,protein,metric='corrected',control='',normalize=false)=>{
     if(!['corrected','raw','ratio','controlRatio','totalRatio'].includes(metric))return {rows:[],groups:[],tests:[],error:'统计指标无效。'};
     const a=records.filter(r=>r.protein===protein&&r.include&&r.valid!==false&&Number.isFinite(r[metric])&&r[metric]>0).map(r=>({...r,value:r[metric]}));
     if(new Set(a.map(r=>JSON.stringify([r.method||'rect',r.analysisBitDepth||r.bitDepth,r.analysisSettings?[r.analysisSettings.convert8,r.analysisSettings.rgb,r.analysisSettings.background,r.analysisSettings.radius,r.analysisSettings.presmooth,r.analysisSettings.method,r.analysisSettings.rotation||0,r.analysisSettings.profileAxis||'y']:null]))).size>1)return {rows:[],groups:[],tests:[],error:'分析方法、位深或预处理设置不一致，请统一方法后再合并统计。'};

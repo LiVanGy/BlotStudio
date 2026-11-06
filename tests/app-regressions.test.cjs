@@ -21,6 +21,7 @@ async function harness(){
   };
   context.window=context;const sandbox=vm.createContext(context);
   for(const module of ['core','science','tiff','scene','io','pptx','ui'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../src',module+'.js'),'utf8'),sandbox,{filename:module+'.js'});
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'support/synthetic.js'),'utf8'),sandbox,{filename:'synthetic-fixture.js'});
   const B=sandbox.BS;let saved;
   B.db={read:async()=>saved,write:async p=>{saved=JSON.parse(JSON.stringify(p));writes.push(saved);}};
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/app.js'),'utf8'),sandbox,{filename:'app.js'});await B.ready;
@@ -35,7 +36,7 @@ async function harness(){
 const serial=v=>JSON.stringify(v);
 function makeImage(B,width=20,height=10){
   const p=B.blankProject(),g=p.groups[0],values=Uint8Array.from({length:width*height},(_,i)=>80+(i%120)),source=B.sourceFromPixels('synthetic-WB.png',width,height,8,values,{hash:'synthetic-fixture'}),o=B.imageObject(source);
-  p.sources=[source];g.objects=[o];o.rois=[{id:B.uid(),sampleIndex:0,x:2,y:2,w:4,h:3}];return{p,g,source,o};
+  g.samples=B.testSamples();p.sources=[source];g.objects=[o];o.rois=[{id:B.uid(),sampleIndex:0,x:2,y:2,w:4,h:3}];return{p,g,source,o};
 }
 async function change(h,scope,field,value,type='number'){
   await h.handlers.change({target:{id:'',dataset:{scope,field},type,value:String(value),checked:!!value}});
@@ -83,7 +84,7 @@ test('locked image blocks clear/auto/delete ROI and production ROI field editing
   await change(h,'roi','x',10);assert.equal(serial(B.state.p),before);assert.match(B.state.ui.toast,/锁定/);assert.equal(B.state.past.length,0);
 });
 test('cloned groups cannot double the biological n when both are checked for statistics',async t=>{
-  const h=await harness();t.after(()=>h.dispose());const {B}=h,p=B.demoProject();h.reset(p);const original=B.getGroup();B.actions.clonegroup({dataset:{id:original.id}});const copy=B.getGroup();
+  const h=await harness();t.after(()=>h.dispose());const {B}=h,p=B.syntheticProject();h.reset(p);const original=B.getGroup();B.actions.clonegroup({dataset:{id:original.id}});const copy=B.getGroup();
   Object.assign(B.state.ui,{tab:'stats',checkedGroups:[original.id,copy.id],statsProtein:'p-Akt',metric:'corrected',normalize:false});const stats=B.currentStats();assert.match(stats.error,/重复样本|重复.*n/);assert.equal(stats.groups.length,0);assert.equal(stats.rows.length,0);assert.ok(stats.records.length>0);
 });
 test('switching groups updates and immediately flushes activeGroup, and reopening restores it',async t=>{

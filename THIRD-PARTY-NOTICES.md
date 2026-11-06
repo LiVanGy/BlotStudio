@@ -11,3 +11,14 @@ Rolling-ball geometry, shrinking, interpolation, integer subtraction and ellipse
 Unmodified ImageJ 1.54g generated the synthetic independent references. The ImageJ JAR and temporary Java runtime are not distributed. Microsoft .NET and WebView2 retain their respective licenses; application MIT does not replace them.
 
 No WBsolverunion code, proprietary assets, license keys or user research files are included.
+
+## Liquid glass optical core
+
+@tomagranate/liquid-glass 0.0.2, copyright (c) 2026 Tom, MIT.
+https://github.com/tomagranate/liquid-glass
+Pinned commit: efe48923a08c026b77158f3df0317f83571a038d.
+The full upstream license is in vendor/liquid-glass/LICENSE and in the HTML
+bundle header. The original core source is retained. The browser adaptation
+adds a bounded geometry-map cache without changing the optical equations.
+Only decorative ambient-background copies are filtered; no scientific pixel
+buffers or export content are captured or refracted.

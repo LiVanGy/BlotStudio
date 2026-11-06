@@ -10,7 +10,7 @@
   const previous=B.currentStats;
   B.currentStats=()=>{
     const settings=B.state.p.statisticsSettings;if(!settings)return previous();
-    const {p,ui}=B.state,g=B.getGroup(),selected=ui.checkedGroups.length?p.groups.filter(v=>ui.checkedGroups.includes(v.id)):[g],records=B.statisticsRecords(selected.flatMap(group=>B.records(p,group).map(r=>({...r,imageGroup:group.name}))),settings),proteins=[...new Set(records.map(v=>v.protein))],protein=proteins.includes(ui.statsProtein)?ui.statsProtein:proteins[0]||'',control=ui.control||mapped(settings.groups,g.samples[0]?.group)||'Control',data=B.statData(records,protein,ui.metric,control,ui.normalize);
+    const {p,ui}=B.state,g=B.getGroup(),selected=ui.checkedGroups.length?p.groups.filter(v=>ui.checkedGroups.includes(v.id)):[g],records=B.statisticsRecords(selected.flatMap(group=>B.records(p,group).map(r=>({...r,imageGroup:group.name}))),settings),proteins=[...new Set(records.map(v=>v.protein))],protein=proteins.includes(ui.statsProtein)?ui.statsProtein:proteins[0]||'',control=ui.control||mapped(settings.groups,g.samples[0]?.group)||'',data=B.statData(records,protein,ui.metric,control,ui.normalize);
     return{...data,records,proteins,protein,control};
   };
   const stats=B.stats;B.stats=()=>stats().replace('<div class="stats-controls">','<div class="button-row">'+B.btn('statistics-settings','编辑统计分组 / 蛋白名称','grid')+B.btn('clear-statistics-settings','撤销统计映射','undo')+'</div><div class="stats-controls">');

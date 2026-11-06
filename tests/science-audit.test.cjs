@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 for (const file of ['core', 'science', 'tiff']) require('../src/' + file + '.js');
 const B = globalThis.BS;
+require('./support/synthetic.js');
 const fixtures = path.join(__dirname, 'fixtures', 'audit');
 const read = name => fs.readFileSync(path.join(fixtures, name));
 function source(values, depth = 8, width = values.length) {
@@ -13,7 +14,7 @@ function source(values, depth = 8, width = values.length) {
 }
 function setup() {
   const s = source([80, 100, 150, 170, 220, 220]);
-  const g = B.blankGroup();g.samples = g.samples.slice(0, 2);
+  const g = B.testGroup();g.samples = g.samples.slice(0, 2);
   const target = B.imageObject(s), reference = B.imageObject(s);
   target.protein = 'target';reference.protein = 'reference';target.referenceId = reference.id;
   target.rois = [0, 1].map(i => ({ id: B.uid(), x: i, y: 0, w: 1, h: 1, sampleIndex: i }));

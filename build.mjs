@@ -3,7 +3,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
 const root=path.dirname(fileURLToPath(import.meta.url));
-const order=['core','analysis-engine','science','imagej','tiff','display','scene','io','pptx','imagej-interop','imagej-ui','ui','app','workflow','workspace','conditions','statistics-settings','glass'];
+const order=['core','analysis-engine','science','imagej','tiff','display','scene','io','pptx','imagej-interop','imagej-ui','ui','app','workflow','workspace','conditions','statistics-settings','liquid-glass-vendor','glass','liquid-optics'];
 const js=(await Promise.all(order.map(name=>fs.readFile(path.join(root,'src',name+'.js'),'utf8')))).join('\n');
 const css=(await fs.readFile(path.join(root,'src/styles.css'),'utf8'))+'\n'+(await fs.readFile(path.join(root,'src/glass.css'),'utf8'));
 const html=(await fs.readFile(path.join(root,'index.template.html'),'utf8')).replace('/*__STYLE__*/',()=>css).replace('/*__SCRIPT__*/',()=>js.replaceAll('</script','<\\/script'));

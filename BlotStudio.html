@@ -86,10 +86,93 @@ h1{font-size:22px;letter-spacing:-.6px;font-weight:640}h2{font-size:15px;letter-
 .module-controls [aria-pressed="true"]{background:#ffffffed;color:#226879;border:1px solid #ccdfe5;box-shadow:0 2px 6px #2b515212}
 
 .glass-popover{background:rgba(250,253,254,.985)}.modal{background:rgba(250,253,254,.985)}
+
+/* Optical material: viewport-aligned ambient field, not a scientific texture. */
+:root{--lq-backdrop:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNjAwIiBoZWlnaHQ9IjEwMDAiIHZpZXdCb3g9IjAgMCAxNjAwIDEwMDAiPjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iYmFzZSIgeDI9IjEiIHkyPSIxIj48c3RvcCBzdG9wLWNvbG9yPSIjZTBlZGYwIi8+PHN0b3Agb2Zmc2V0PSIuNDgiIHN0b3AtY29sb3I9IiNiZmQ5ZTUiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNkOGU3ZTciLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0iYmx1ZSIgeDI9IjEiIHkyPSIuMyI+PHN0b3Agc3RvcC1jb2xvcj0iI2FhYzlkYyIvPjxzdG9wIG9mZnNldD0iLjUiIHN0b3AtY29sb3I9IiNlNmYxZjIiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNhNWNiZDkiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0ic2lsdmVyIiB4Mj0iLjQiIHkyPSIxIj48c3RvcCBzdG9wLWNvbG9yPSIjZjhmY2ZjIiBzdG9wLW9wYWNpdHk9Ii44Ii8+PHN0b3Agb2Zmc2V0PSIuNSIgc3RvcC1jb2xvcj0iI2MyZGVlNCIgc3RvcC1vcGFjaXR5PSIuMSIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzhmYjljYyIgc3RvcC1vcGFjaXR5PSIuNSIvPjwvbGluZWFyR3JhZGllbnQ+PGZpbHRlciBpZD0ic29mdCI+PGZlR2F1c3NpYW5CbHVyIHN0ZERldmlhdGlvbj0iMTUiLz48L2ZpbHRlcj48L2RlZnM+PHJlY3Qgd2lkdGg9IjE2MDAiIGhlaWdodD0iMTAwMCIgZmlsbD0idXJsKCNiYXNlKSIvPjxwYXRoIGQ9Ik0tMzAwIDEwMzBDMzIwIDc0MCAyNjAgMjUwIDkxMCAzNzBTMTUzMCA3MCAxOTAwLTkwIiBmaWxsPSJub25lIiBzdHJva2U9InVybCgjYmx1ZSkiIHN0cm9rZS13aWR0aD0iMzYwIi8+PHBhdGggZD0iTS0yNTAgMTA2MEMzMDAgNzYwIDM1MCAzMDAgOTUwIDM4MFMxNjAwIDUwIDE5MDAtMTMwIiBmaWxsPSJub25lIiBzdHJva2U9InVybCgjc2lsdmVyKSIgc3Ryb2tlLXdpZHRoPSIxNjAiLz48cGF0aCBkPSJNLTEwMCAxMDAwQzQyMCA4NDAgMjQwIDM4MCA4MjAgMzkwUzE0ODAgNDMwIDE3MDAgMjAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2Y4ZmZmZiIgc3Ryb2tlLW9wYWNpdHk9Ii40MiIgc3Ryb2tlLXdpZHRoPSIyIi8+PHBhdGggZD0iTS0xMjAgMTA1MEM0NjAgODUwIDI2MCA0NTAgODQwIDQ2MFMxNTIwIDUyMCAxNzIwIDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzhjYjJjOSIgc3Ryb2tlLW9wYWNpdHk9Ii4xOCIgc3Ryb2tlLXdpZHRoPSIyIi8+PGVsbGlwc2UgY3g9IjEzMDAiIGN5PSIxMTAiIHJ4PSI0MjAiIHJ5PSIxOTAiIGZpbGw9IiNmN2ZiZmEiIG9wYWNpdHk9Ii42IiBmaWx0ZXI9InVybCgjc29mdCkiLz48ZWxsaXBzZSBjeD0iMTYwIiBjeT0iMTIwIiByeD0iMjAwIiByeT0iMzAwIiBmaWxsPSIjY2JlN2U0IiBvcGFjaXR5PSIuNDUiIGZpbHRlcj0idXJsKCNzb2Z0KSIvPjwvc3ZnPg==");--liquid-ink:#233d4b}
+body{background-color:#caddE5;background-image:var(--lq-backdrop);background-size:100vw 100vh;background-position:0 0;background-attachment:fixed}
+/* Structural styles for the liquid-glass layers. The *material* (refraction
+   filter, tint, rim light, shadow) is applied by the core via inline styles;
+   these rules just lay the layers out. */
+
+.lq {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* The layer that gets `filter: url(#glass)`. It holds the backdrop copy. */
+.lq-refraction {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* Promote to its own layer; keeps the filter cheap to recomposite on move. */
+  will-change: filter;
+}
+
+/* A copy of the page background, sized to the viewport and offset by the core
+   so it lines up with the real background behind the glass. */
+.lq-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background-repeat: no-repeat;
+  background-size: cover;
+  /* Offset by the core via transform; hint the compositor. */
+  will-change: transform;
+}
+
+/* Tint + rim light + hairline border + drop shadow. */
+.lq-sheen {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* The real, interactive content rides on top. */
+.lq-content {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+}
+
+[data-liquid-surface]{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.65);backdrop-filter:none!important;-webkit-backdrop-filter:none!important;color:var(--liquid-ink)}
+[data-liquid-surface]>.lq-refraction{border-radius:inherit;overflow:hidden;z-index:0}
+[data-liquid-surface]>.lq-sheen{border-radius:inherit;overflow:hidden;z-index:1}
+[data-liquid-surface]>.lq-sheen:after{content:"";position:absolute;inset:0;background:linear-gradient(140deg,rgba(255,255,255,.4),rgba(248,254,255,.19) 40%,rgba(239,249,253,.28));border-radius:inherit}
+.app-header nav,.glass-toolbar,.sidebar,.inspector,.content-page,.analysis-page,.glass-popover,.modal,.zoom-control{background:rgba(255,255,255,.16)}
+.content-page,.analysis-page{background:rgba(250,254,255,.22)}
+.app-header nav{border-color:#ffffffb3;background:#ffffff24}
+.app-header nav button.active{background:linear-gradient(150deg,#ffffff9c,#ffffff42);border-color:#ffffffc9;box-shadow:0 3px 10px #28576a10,inset 0 1px 0 #ffffff}
+.app-header nav button:hover{background:#ffffff4d}.brand-mark{background:linear-gradient(135deg,#ffffff85,#ffffff21);border-color:#ffffffd9;box-shadow:inset 0 1px 2px white,0 4px 14px #325a701c}
+button{border-color:transparent}button:hover{background:#ffffff66}.tool-module{border-color:#4d7c8f26}.module-caption{color:#6c8996}.module-controls button.chosen,.module-controls [aria-pressed="true"]{background:linear-gradient(145deg,#ffffffba,#ffffff42);border-color:#ffffffba;box-shadow:inset 0 1px 0 white,0 2px 7px #2250640f}
+.layout-primary{background:linear-gradient(135deg,#edfaff85,#d2edf64f);border-color:#ffffffb3;box-shadow:inset 0 1px 0 #ffffffb3}
+button.primary{background:linear-gradient(145deg,#458caed9,#346d97cc);border-color:#ffffff66;color:white;box-shadow:inset 0 1px 1px #ffffff80,0 4px 15px #1f55742e}
+.panel-heading,.layer-heading,.inspector-tabs,.sidebar-bottom{background:#ffffff0d;border-color:#ffffff5c}.panel-heading h2,.sidebar-bottom button{color:#496d7e}
+.tree-root,.experiment-row b,.protein-row{color:#42677a}.tree-group.active{background:linear-gradient(125deg,#ffffff94,#ffffff42);box-shadow:inset 0 1px 0 #ffffffb3}.layer-row.active,.inspector-tabs button.active{background:#ffffff6e;box-shadow:inset 0 1px 0 #ffffffc4}.inspector-tabs button.active{border-bottom-color:transparent}
+.disclosure-panel{border-color:#ffffff66}.disclosure-panel>summary{color:#426578}.disclosure-panel>summary:hover{background:#ffffff26}
+input,select,textarea{background:linear-gradient(145deg,#ffffff6b,#ffffff26);border:1px solid #ffffff91;box-shadow:inset 0 1px 2px #527b8c0d,0 1px 0 #3e708112;color:#263f4d}
+input:hover,select:hover,textarea:hover{border-color:#ffffffeb;background-color:#ffffff26}
+input[type=range],input[type=checkbox]{background:transparent;box-shadow:none}
+.analysis-identity,.reference-disclosure,.solid-panel,.split-row>.disclosure-panel,.stats-controls,.chart-panel,.summary-panel,.design-detail,.condition-fields details,.table-scroll,.analysis-image-scroll{background:#ffffff30;border-color:#ffffff8c;box-shadow:inset 0 1px 0 #ffffff70;border-radius:15px}
+.analysis-identity input,.analysis-identity select{background:#ffffff61}
+.table-scroll th{background:#ffffff38;border-color:#ffffff75;color:#496f82}.table-scroll td{border-color:#ffffff4d;color:#2f5061}.table-scroll tr:hover td{background:#ffffff26}
+.subnav,.roi-segments{background:#ffffff24;border-color:#ffffff91;box-shadow:inset 0 1px 0 #ffffff66}.subnav button.active,.roi-segments button.chosen{background:#ffffff8c;border-color:#ffffffb3}
+.document-bar{background:#ffffff26;border-color:#ffffff66}.editor-center{background:#ffffff12;border-color:#ffffff8c;box-shadow:inset 0 1px 0 #ffffff80,0 10px 30px #274f6310}.canvas-viewport{background-color:transparent}.artboard-wrap{background:white;box-shadow:0 10px 34px #28475a1a,0 0 0 1px #b9d0d8}
+.glass-popover{border-color:#ffffffb3;box-shadow:0 18px 50px #25475735,inset 0 1px 0 #ffffffcc}.glass-popover>.lq-sheen:after,.modal>.lq-sheen:after{background:linear-gradient(145deg,#faffffc2,#f8ffff99)}
+.menu-section{border-color:#ffffff70}.menu-section>p{color:#6e8a9a}.menu-section>button:hover{background:#ffffff73}.menu-align-grid .icon-btn{background:#ffffff3d}
+.modal-heading,.modal-footer{background:#ffffff19;border-color:#ffffff66}.modal-body>.field{margin-bottom:15px}.modal-body pre{background:#ffffff7a;border-color:#ffffff99}
+.statusbar,.statusbar .save-status,.statusbar .demo-status{color:#607f90}.brand-caption{color:#6c8998}.field>span,.disclosure-body .field>span{color:#55798d}.hint,.analysis-caption{color:#648599}
+.workspace-empty{position:absolute;inset:41px 0 0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;gap:16px;background:transparent;color:#34586c}
+.workspace-empty>.empty-mark{display:grid;place-items:center;width:72px;height:72px;border-radius:24px;background:linear-gradient(145deg,#ffffffa3,#ffffff26);border:1px solid #ffffffe0;box-shadow:inset 0 2px 2px white,0 12px 30px #37647714;color:#487e98;margin-bottom:5px}
+.workspace-empty h1{font-size:24px;font-weight:600;letter-spacing:-.6px}.workspace-empty p{font-size:12px;line-height:1.9;color:#638497;max-width:310px}.workspace-empty .button-row{gap:10px;margin-top:6px}.workspace-empty button:not(.primary){background:#ffffff61;border:1px solid #ffffffb3}
+.editor-center.is-empty .canvas-viewport{visibility:hidden}.editor-center.is-empty .zoom-control{display:none}
+@media(prefers-reduced-transparency:reduce){body{background:#edf3f6}[data-liquid-surface],.analysis-identity,.reference-disclosure,.solid-panel,.chart-panel,.summary-panel,.table-scroll{background:#f6fafc!important;backdrop-filter:none!important}.lq-refraction,.lq-sheen{display:none!important}}
 </style></head>
 <body><div id="app"><div class="boot">正在打开 BlotStudio…</div></div><input id="images-input" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.tif,.tiff" hidden><input id="project-input" type="file" accept=".wbproj,.json" hidden><noscript>需要启用 JavaScript 才能运行本地编辑器。</noscript><script>(function(B) {
   'use strict';
-  B.VERSION = '0.6.0';
+  B.VERSION = '0.7.0';
   B.uid = () => 'b' + (globalThis.crypto?.randomUUID?.() || (Date.now().toString(36) + Math.random().toString(36).slice(2))).replaceAll('-', '');
   B.clamp = (n,a,b) => Math.max(a,Math.min(b,n));
   B.num = (v,f=0) => Number.isFinite(Number(v)) ? Number(v) : f;
@@ -146,7 +229,7 @@ h1{font-size:22px;letter-spacing:-.6px;font-weight:640}h2{font-size:15px;letter-
   B.xlsx = rows => B.workbook([{name:'WB data',rows}]);
   B.object = (type, props={}) => ({id:B.uid(),type,name:type==='text'?'文本':'图像',x:80,y:80,w:200,h:36,rotation:0,opacity:1,visible:true,locked:false,fill:'#20252c',stroke:'#20252c',strokeWidth:1,fontSize:22,fontFamily:'Arial',fontWeight:400,align:'left',...props});
   B.imageObject=(s,i=0)=>B.object('image',{name:s.name,sourceId:s.id,x:180,y:140+i*90,w:640,h:640*s.height/s.width,crop:{x:0,y:0,w:s.width,h:s.height},brightness:100,contrast:100,invert:false,flipX:false,flipY:false,grayscale:true,lockRatio:true,protein:s.name.replace(/\.[^.]+$/,''),mw:'',referenceId:'',rois:[],background:null,polarity:'dark'});
-  B.blankGroup=(name='新图组',experiment='实验 01')=>({id:B.uid(),name,experiment,status:'进行中',canvas:{width:1000,height:590,background:'#ffffff',dpi:300},samples:Array.from({length:12},(_,i)=>({id:'S'+(i+1),group:['Control','Low','Medium','High'][Math.floor(i/3)],replicate:i%3+1,include:true})),objects:[],notes:''});
+  B.blankGroup=(name='新图组',experiment='实验 01')=>({id:B.uid(),name,experiment,status:'进行中',canvas:{width:1000,height:590,background:'#ffffff',dpi:300},samples:[],objects:[],notes:''});
   B.blankProject=()=>{const g=B.blankGroup();return {format:'BlotStudio',version:1,id:B.uid(),name:'WB 实验项目',activeGroup:g.id,groups:[g],sources:[],sampleLibrary:[],antibodies:[],plan:[],audit:[],demo:false};};
   B.assertRect=(s,r,label='选区')=>{if(!r||![r.x,r.y,r.w,r.h].every(Number.isFinite)||r.x<0||r.y<0||r.w<=0||r.h<=0||r.x+r.w>s.width+1e-7||r.y+r.h>s.height+1e-7)throw Error(label+' 超出原图范围或尺寸无效。');return r;};
   const validatedSources=new WeakSet();
@@ -172,7 +255,7 @@ h1{font-size:22px;letter-spacing:-.6px;font-weight:640}h2{font-size:15px;letter-
     const groupIds=new Set();
     for(const g of p.groups){
       if(!g||!id(g.id)||groupIds.has(g.id)||!text(g.name)||!text(g.experiment))throw Error('图组信息无效或 ID 重复。');groupIds.add(g.id);if(g.topic!==undefined&&!text(g.topic))throw Error('课题名称无效。');
-      if(!g.canvas||![g.canvas.width,g.canvas.height].every(n=>Number.isFinite(n)&&n>=100&&n<=10000)||!color(g.canvas.background)||![150,300,600].includes(Number(g.canvas.dpi))||!Array.isArray(g.objects)||g.objects.length>3000||!Array.isArray(g.samples)||!g.samples.length||g.samples.length>200)throw Error('画布参数无效。');
+      if(!g.canvas||![g.canvas.width,g.canvas.height].every(n=>Number.isFinite(n)&&n>=100&&n<=10000)||!color(g.canvas.background)||![150,300,600].includes(Number(g.canvas.dpi))||!Array.isArray(g.objects)||g.objects.length>3000||!Array.isArray(g.samples)||g.samples.length>200)throw Error('画布参数无效。');
       const sampleIds=new Set();for(const s of g.samples){if(!s||!text(s.id)||!s.id.trim()||sampleIds.has(s.id)||!text(s.group)||!s.group.trim()||!Number.isInteger(s.replicate)||s.replicate<1)throw Error('样本 ID、分组或重复编号无效。');sampleIds.add(s.id);}
       const objectIds=new Set(),imageIds=new Set(g.objects.filter(o=>o?.type==='image').map(o=>o.id));
       for(const o of g.objects){
@@ -351,7 +434,7 @@ h1{font-size:22px;letter-spacing:-.6px;font-weight:640}h2{font-size:15px;letter-
     for(let i=0;i<a.length;i++){prev=Math.max(prev,Math.min(1,a[i].p*(a.length-i)));adjusted.set(a[i].index,prev);}
     return tests.map((t,i)=>({...t,adjusted:adjusted.get(i)??NaN}));
   };
-  B.statData=(records,protein,metric='corrected',control='Control',normalize=false)=>{
+  B.statData=(records,protein,metric='corrected',control='',normalize=false)=>{
     if(!['corrected','raw','ratio','controlRatio','totalRatio'].includes(metric))return {rows:[],groups:[],tests:[],error:'统计指标无效。'};
     const a=records.filter(r=>r.protein===protein&&r.include&&r.valid!==false&&Number.isFinite(r[metric])&&r[metric]>0).map(r=>({...r,value:r[metric]}));
     if(new Set(a.map(r=>JSON.stringify([r.method||'rect',r.analysisBitDepth||r.bitDepth,r.analysisSettings?[r.analysisSettings.convert8,r.analysisSettings.rgb,r.analysisSettings.background,r.analysisSettings.radius,r.analysisSettings.presmooth,r.analysisSettings.method,r.analysisSettings.rotation||0,r.analysisSettings.profileAxis||'y']:null]))).size>1)return {rows:[],groups:[],tests:[],error:'分析方法、位深或预处理设置不一致，请统一方法后再合并统计。'};
@@ -647,12 +730,15 @@ h1{font-size:22px;letter-spacing:-.6px;font-weight:640}h2{font-size:15px;letter-
     read:async()=>{const db=await B.db.open();return new Promise((resolve,reject)=>{const tx=db.transaction('projects','readonly'),r=tx.objectStore('projects').get('current');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);tx.oncomplete=()=>db.close();});},
     write:async project=>{const db=await B.db.open();return new Promise((resolve,reject)=>{const tx=db.transaction('projects','readwrite');tx.objectStore('projects').put(project,'current');tx.oncomplete=()=>{db.close();resolve();};tx.onerror=()=>{db.close();reject(tx.error);};tx.onabort=()=>{db.close();reject(tx.error||Error('本地保存事务已取消。'));};});}
   };
-  B.demoProject=()=>{
-    const p=B.blankProject(),g=p.groups[0];g.name='细胞蛋白';p.demo=true;g.demo=true;
-    let seed=7031;const rand=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
-    for(let k=0;k<3;k++){const w=720,h=68,a=new Uint8Array(w*h),strength=k===0?[.32,.34,.37,.43,.45,.48,.59,.61,.65,.75,.79,.83]:Array.from({length:12},()=>.71+rand()*.10);for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=236+(rand()-.5)*9+4*Math.sin(x/80);for(let j=0;j<12;j++){const dx=(x-(j+.5)*w/12)/18,dy=(y-34-Math.sin(j*2)*1.2)/5.3;v-=strength[j]*220*Math.exp(-.5*(dx**6+dy**2));}a[y*w+x]=B.clamp(Math.round(v),0,255);}const s=B.sourceFromPixels(['p-Akt','Akt','β-Actin'][k]+' · 模拟条带.png',w,h,8,a,{demo:true,hash:'synthetic-demo'});p.sources.push(s);const o=B.imageObject(s,k);o.protein=['p-Akt','Akt','β-Actin'][k];o.name=o.protein;o.mw=k===2?'42':'60';o.rois=B.autoROIs(o.crop,12);g.objects.push(o);}
-    g.objects.filter(o=>o.type==='image').forEach(o=>o.demo=true);g.objects[0].referenceId=g.objects[1].id;g.objects[1].referenceId=g.objects[2].id;B.quickLayout(g);B.log(p,'创建演示项目','所有条带均为算法生成的模拟图像，不代表实验结果。');return p;
+  // Only an untouched, entirely autogenerated legacy starter may be replaced.
+  // A mixed project, edited starter, imported original or user record is retained.
+  B.isLegacyStarter=project=>{
+    if(project?.demo!==true||project.groups?.length!==1||project.sources?.length!==3||project.groups[0].demo!==true)return false;
+    if(!project.sources.every(source=>source.demo===true&&source.hash==='synthetic-demo'&&source.original===undefined))return false;
+    if(!Array.isArray(project.audit)||project.audit.length!==1||project.audit[0]?.action!=='创建演示项目')return false;
+    return ['sampleLibrary','antibodies','plan','conditionRecords','deletedGroups'].every(key=>project[key]===undefined||Array.isArray(project[key])&&project[key].length===0);
   };
+
 })(globalThis.BS ||= {});
 
 (function(B){
@@ -931,7 +1017,7 @@ h1{font-size:22px;letter-spacing:-.6px;font-weight:640}h2{font-size:15px;letter-
     const w=760,h=420,left=85,top=50,bottom=350,available=610,groups=data.groups,max=Math.max(.01,...groups.flatMap(g=>[g.mean+(Number.isFinite(g.sd)?g.sd:0),...g.values]))*1.2,y=v=>bottom-v/max*(bottom-top),step=available/Math.max(1,groups.length),colors=['#183f48','#368d81','#81b5a5','#bfd9ce'];
     return'<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420"><rect width="760" height="420" fill="white"/><text x="380" y="27" font-family="Arial" font-size="18" text-anchor="middle" fill="#20252c">'+e(title)+'</text>'+Array.from({length:5},(_,i)=>{const val=max*i/4,py=y(val);return'<path d="M'+left+' '+py+'H715" stroke="#e9edf0"/><text x="73" y="'+(py+4)+'" text-anchor="end" font-family="Arial" font-size="12">'+e(B.format(val))+'</text>';}).join('')+'<path d="M85 45V350H715" fill="none" stroke="#273c45" stroke-width="1.4"/>'+groups.map((g,i)=>{const x=left+step*(i+.5),sd=Number.isFinite(g.sd)?g.sd:0;return'<rect x="'+(x-25)+'" y="'+y(g.mean)+'" width="50" height="'+(bottom-y(g.mean))+'" fill="'+colors[i%4]+'" fill-opacity=".5"/><path d="M'+x+' '+y(g.mean-sd)+'V'+y(g.mean+sd)+'M'+(x-9)+' '+y(g.mean+sd)+'H'+(x+9)+'M'+(x-9)+' '+y(g.mean-sd)+'H'+(x+9)+'" stroke="#273c45" stroke-width="1.4"/>'+g.values.map((v,j)=>'<circle cx="'+(x+((j%5)-Math.min(4,g.values.length-1)/2)*7)+'" cy="'+y(v)+'" r="4" fill="'+colors[i%4]+'" stroke="white" stroke-width="1"/>').join('')+'<text x="'+x+'" y="375" text-anchor="middle" font-family="Arial" font-size="13">'+e(g.name)+'</text><text x="'+x+'" y="394" text-anchor="middle" font-family="Arial" font-size="11" fill="#71808a">n = '+g.n+'</text>';}).join('')+'<text transform="translate(19 210) rotate(-90)" text-anchor="middle" font-family="Arial" font-size="13">'+(normalize?'Relative expression (control = 1)':'Signal / reference or integrated intensity')+'</text></svg>';
   };
-  B.currentStats=()=>{const {p,ui}=B.state,g=B.getGroup(),groups=ui.checkedGroups.length?p.groups.filter(v=>ui.checkedGroups.includes(v.id)):[g],records=groups.flatMap(gr=>B.records(p,gr).map(r=>({...r,imageGroup:gr.name}))),proteins=[...new Set(records.map(r=>r.protein))],protein=proteins.includes(ui.statsProtein)?ui.statsProtein:proteins[0]||'',control=ui.control||g.samples[0]?.group||'Control',data=B.statData(records,protein,ui.metric,control,ui.normalize);if(!data.rows.length&&!data.error&&protein)data.error=ui.metric==='ratio'?'当前蛋白尚无有效参照比值。请设置参照蛋白并框选对应泳道，或改选背景校正积分。':'没有纳入的有效正值。请检查 ROI、背景框和样本纳入状态。';return{...data,records,proteins,protein,control};};
+  B.currentStats=()=>{const {p,ui}=B.state,g=B.getGroup(),groups=ui.checkedGroups.length?p.groups.filter(v=>ui.checkedGroups.includes(v.id)):[g],records=groups.flatMap(gr=>B.records(p,gr).map(r=>({...r,imageGroup:gr.name}))),proteins=[...new Set(records.map(r=>r.protein))],protein=proteins.includes(ui.statsProtein)?ui.statsProtein:proteins[0]||'',control=ui.control||g.samples[0]?.group||'',data=B.statData(records,protein,ui.metric,control,ui.normalize);if(!data.rows.length&&!data.error&&protein)data.error=ui.metric==='ratio'?'当前蛋白尚无有效参照比值。请设置参照蛋白并框选对应泳道，或改选背景校正积分。':'没有纳入的有效正值。请检查 ROI、背景框和样本纳入状态。';return{...data,records,proteins,protein,control};};
   B.stats=()=>{
     const {ui,p}=B.state,d=B.currentStats(),groups=[...new Set(d.records.map(r=>r.group))];
     return'<section class="content-page stats-page"><div class="page-heading"><div><h1>灰度统计与归一化</h1><p>当前图组'+(ui.checkedGroups.length?' · 已合并 '+ui.checkedGroups.length+' 个选中图组':'')+' · 使用原始像素计算的积分信号</p></div><div class="button-row">'+B.btn('results-xlsx','导出数据','export')+B.btn('chart-export','导出图表 SVG','chart')+'</div></div>'+(!d.proteins.length?'<div class="empty-list">'+ic('chart',42)+'<h2>还没有可统计的 ROI</h2><p>先在图片分析中框选条带，并设置泳道和参照蛋白。</p>'+B.btn('to-analysis','前往图片分析','image','class="primary"')+'</div>':'<div class="stats-controls">'+B.select('ui','statsProtein',d.protein,d.proteins.map(x=>[x,x]),'目的蛋白')+B.select('ui','metric',ui.metric,[['corrected','背景校正积分'],['raw','原始积分'],['ratio','目的 / 参照比值']],'统计指标')+B.select('ui','control',d.control,groups.map(x=>[x,x]),'对照组')+B.check('ui','normalize',ui.normalize,'对照均值归一化为 1')+'</div>'+(d.error?'<p class="notice">'+e(d.error)+'</p>':'')+'<div class="stats-grid"><div class="chart-panel">'+B.chartSVG(d,d.protein+(B.getGroup().demo?' · 演示数据':''),ui.normalize)+'<p class="hint">单点为纳入的样本；柱为均值；误差线为 SD。'+(B.getGroup().demo?'当前为模拟演示数据，不是实验结果。':'')+'</p></div><div class="summary-panel"><h3>描述统计</h3><table><thead><tr><th>分组</th><th>n</th><th>均值</th><th>SD</th><th>SEM</th></tr></thead><tbody>'+d.groups.map(g=>'<tr><td>'+e(g.name)+'</td><td>'+g.n+'</td><td>'+B.format(g.mean)+'</td><td>'+B.format(g.sd)+'</td><td>'+B.format(g.sem)+'</td></tr>').join('')+'</tbody></table>'+B.check('ui','inferential',ui.inferential,'显示 Welch t 检验（各组 vs 对照）')+(ui.inferential?'<p class="hint">双侧、独立样本，Holm 多重比较校正。n &lt; 2 或方差为 0 时不报告 P 值。技术重复不能直接作为独立样本。</p><table><thead><tr><th>比较组</th><th>原始 P</th><th>Holm P</th></tr></thead><tbody>'+d.tests.map(t=>'<tr><td>'+e(t.group)+'</td><td>'+B.format(t.p)+'</td><td>'+B.format(t.adjusted)+'</td></tr>').join('')+'</tbody></table>':'')+'</div></div><div class="section-title"><h2>纳入统计的数据</h2><span class="muted">在实验设计中调整纳入状态；重复、非正信号或缺失参照需核查</span></div><div class="table-scroll"><table><thead><tr><th>图组</th><th>蛋白</th><th>样本</th><th>分组</th><th>重复</th><th>校正积分</th><th>目的/参照</th><th>当前统计值</th></tr></thead><tbody>'+d.rows.map(r=>'<tr><td>'+e(r.imageGroup)+'</td><td>'+e(r.protein)+'</td><td>'+e(r.sampleId)+'</td><td>'+e(r.group)+'</td><td>'+r.replicate+'</td><td>'+B.format(r.corrected)+'</td><td>'+B.format(r.ratio)+'</td><td>'+B.format(r.value)+'</td></tr>').join('')+'</tbody></table></div>')+'</section>';
@@ -1054,7 +1140,7 @@ h1{font-size:22px;letter-spacing:-.6px;font-weight:640}h2{font-size:15px;letter-
     'zoom-in':()=>{B.state.ui.zoom=B.clamp(B.state.ui.zoom*1.15,.1,3);B.render();},
     'zoom-out':()=>{B.state.ui.zoom=B.clamp(B.state.ui.zoom/1.15,.1,3);B.render();},
     'analysis-tool':el=>{B.state.ui.analysisTool=el.dataset.id;B.render();},
-    'auto-rois':()=>B.editAnalysis('按泳道生成 ROI',(o,p,g)=>{o.rois=B.autoROIs(o.crop,g.samples.length);B.state.ui.roiId=o.rois[0]?.id||'';}),
+    'auto-rois':()=>B.editAnalysis('按泳道生成 ROI',(o,p,g)=>{if(!g.samples.length)throw Error('请先在实验设计中设置样本与分组。');o.rois=B.autoROIs(o.crop,g.samples.length);B.state.ui.roiId=o.rois[0]?.id||'';}),
     'copy-rois':()=>B.commit('同步 ROI 到同尺寸图像',(p,g)=>{const from=g.objects.find(v=>v.id===B.getAnalysis().id),s=p.sources.find(s=>s.id===from.sourceId);let count=0;for(const o of g.objects.filter(o=>o.type==='image'&&o.id!==from.id)){const t=p.sources.find(v=>v.id===o.sourceId);if(!o.locked&&s.width===t.width&&s.height===t.height){o.rois=from.rois.map(r=>({...r,id:B.uid()}));count++;}}if(!count)throw Error('没有可编辑且原图尺寸完全相同的其他蛋白。请先解锁，或为不同尺寸图片单独框选。');}),
     'clear-rois':()=>B.editAnalysis('清空 ROI（可撤销）',o=>o.rois=[]),
     'clear-bg':()=>B.editAnalysis('清除背景 ROI',o=>o.background=null),
@@ -1070,8 +1156,8 @@ h1{font-size:22px;letter-spacing:-.6px;font-weight:640}h2{font-size:15px;letter-
     'imagej-bundle':()=>B.exportImagej('bundle'),
     'chart-export':()=>{const d=B.currentStats();return B.saveFile(d.protein+'-统计图.svg',B.chartSVG(d,d.protein+(B.getGroup().demo?' · 演示数据':''),B.state.ui.normalize),'image/svg+xml');},
     'design-tab':el=>{B.state.ui.designTab=el.dataset.id;B.render();},
-    'add-sample':()=>B.commit('添加泳道',(p,g)=>{if(g.samples.length>=200)throw Error('每个图组最多 200 条泳道。');let n=g.samples.length+1;while(g.samples.some(s=>s.id==='S'+n))n++;g.samples.push({id:'S'+n,group:g.samples.at(-1)?.group||'Control',replicate:1,include:true});}),
-    'remove-sample':el=>B.commit('删除泳道（可撤销）',(p,g)=>{if(g.samples.length<=1)throw Error('至少保留一条泳道。');const index=Number(el.dataset.id);g.samples.splice(index,1);for(const o of g.objects.filter(o=>o.type==='image'))o.rois=o.rois.filter(r=>r.sampleIndex!==index).map(r=>({...r,sampleIndex:r.sampleIndex>index?r.sampleIndex-1:r.sampleIndex}));}),
+    'add-sample':()=>B.commit('添加泳道',(p,g)=>{if(g.samples.length>=200)throw Error('每个图组最多 200 条泳道。');let n=g.samples.length+1;while(g.samples.some(s=>s.id==='S'+n))n++;g.samples.push({id:'S'+n,group:g.samples.at(-1)?.group||'未分组',replicate:1,include:true});}),
+    'remove-sample':el=>B.commit('删除泳道（可撤销）',(p,g)=>{if(!g.samples.length)throw Error('当前没有可删除的泳道。');const index=Number(el.dataset.id);g.samples.splice(index,1);for(const o of g.objects.filter(o=>o.type==='image'))o.rois=o.rois.filter(r=>r.sampleIndex!==index).map(r=>({...r,sampleIndex:r.sampleIndex>index?r.sampleIndex-1:r.sampleIndex}));}),
     'library-add':()=>{B.state.ui.modal={type:'library',index:null,record:{}};B.render();},
     'library-edit':el=>{const key=B.state.ui.designTab==='samples'?'sampleLibrary':B.state.ui.designTab;B.state.ui.modal={type:'library',index:Number(el.dataset.id),record:{...B.state.p[key][Number(el.dataset.id)]}};B.render();},
     'library-delete':el=>B.commit('删除资料记录（可撤销）',p=>{const key=B.state.ui.designTab==='samples'?'sampleLibrary':B.state.ui.designTab;p[key].splice(Number(el.dataset.id),1);}),
@@ -1104,7 +1190,7 @@ h1{font-size:22px;letter-spacing:-.6px;font-weight:640}h2{font-size:15px;letter-
   document.addEventListener('pointerdown',ev=>{
     if(ev.button!==0||!B.state.p)return;pointerControl=!!ev.target.closest('button,[data-action],input,select,textarea');if(B.state.ui.modal)return;const fig=ev.target.closest('#figure'),analysis=ev.target.closest('#analysis-image'),vp=ev.target.closest('#viewport'),{ui,p}=B.state;
     if(vp&&ui.tool==='hand'){gesture={type:'pan',x:ev.clientX,y:ev.clientY,left:vp.scrollLeft,top:vp.scrollTop,vp};ev.preventDefault();return;}
-    if(analysis){const o=B.getAnalysis();if(o.locked){B.toast('此图像已锁定，请先解锁再框选。');return;}const s=p.sources.find(s=>s.id===o.sourceId),start=point(analysis,ev),roiEl=ev.target.closest('[data-roi]');if(roiEl&&ui.analysisTool==='roi'){ui.roiId=roiEl.dataset.roi;gesture={type:'roi-move',start,base:p,objectId:o.id,roiId:roiEl.dataset.roi,svg:analysis,rect:{...o.rois.find(r=>r.id===roiEl.dataset.roi)}};}else gesture={type:'analysis',start,base:p,objectId:o.id,svg:analysis,mode:ui.analysisTool,width:s.width,height:s.height};ev.preventDefault();return;}
+    if(analysis){if(ui.analysisTool==='roi'&&!B.getGroup().samples.length){B.toast('请先在实验设计中设置样本与分组，再框选条带。');return;}const o=B.getAnalysis();if(o.locked){B.toast('此图像已锁定，请先解锁再框选。');return;}const s=p.sources.find(s=>s.id===o.sourceId),start=point(analysis,ev),roiEl=ev.target.closest('[data-roi]');if(roiEl&&ui.analysisTool==='roi'){ui.roiId=roiEl.dataset.roi;gesture={type:'roi-move',start,base:p,objectId:o.id,roiId:roiEl.dataset.roi,svg:analysis,rect:{...o.rois.find(r=>r.id===roiEl.dataset.roi)}};}else gesture={type:'analysis',start,base:p,objectId:o.id,svg:analysis,mode:ui.analysisTool,width:s.width,height:s.height};ev.preventDefault();return;}
     if(!fig)return;const start=point(fig,ev),resize=ev.target.closest('[data-resize]'),object=ev.target.closest('[data-object]');
     if(resize){const o=B.getGroup().objects.find(o=>o.id===resize.dataset.resize);if(o.locked)return;gesture={type:'resize',start,base:p,objects:B.getGroup().objects.filter(o=>ui.selected.includes(o.id)&&!o.locked),bounds:B.bounds(B.getGroup().objects.filter(o=>ui.selected.includes(o.id))),svg:fig};ev.preventDefault();return;}
     if(object){const id=object.dataset.object,o=B.getGroup().objects.find(o=>o.id===id);if(ev.shiftKey||ev.metaKey||ev.ctrlKey||!ui.selected.includes(id))B.selectObject(id,ev.shiftKey||ev.metaKey||ev.ctrlKey);if(!o.locked){gesture={type:'move',start,base:p,objects:B.getGroup().objects.filter(o=>ui.selected.includes(o.id)&&!o.locked),svg:fig};}B.render();ev.preventDefault();return;}
@@ -1147,7 +1233,7 @@ h1{font-size:22px;letter-spacing:-.6px;font-weight:640}h2{font-size:15px;letter-
   });
   document.addEventListener('dragover',ev=>{if(ev.dataTransfer?.types.includes('Files')){ev.preventDefault();document.body.classList.add('dragging');}});document.addEventListener('dragleave',ev=>{if(!ev.relatedTarget)document.body.classList.remove('dragging');});document.addEventListener('drop',async ev=>{ev.preventDefault();document.body.classList.remove('dragging');const files=Array.from(ev.dataTransfer?.files||[]);try{const project=files.find(f=>f.name.endsWith('.wbproj'));if(project)await B.openProject(project);else if(files.length)await B.importFiles(files);}catch(err){B.toast(err.message);}});
   window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(B.state.p&&B.state.ui.tab==='edit')B.fit();},200);});
-  B.ready=(async()=>{try{const saved=await B.db.read();B.state.p=saved?B.validate(saved):B.demoProject();B.state.ui.saveStatus=saved?'已恢复本地项目':'演示项目已就绪';}catch(err){B.state.p=B.demoProject();B.state.ui.saveStatus='自动保存不可用 · 可导出项目备份';}B.state.ui.group=B.state.p.activeGroup||B.state.p.groups[0].id;B.state.ui.selected=B.getGroup().objects.filter(o=>o.type==='image').slice(0,1).map(o=>o.id);B.render();requestAnimationFrame(()=>B.fit());})();
+  B.ready=(async()=>{try{const saved=await B.db.read(),restored=saved?B.validate(saved):null,legacy=B.isLegacyStarter(restored);B.state.p=restored&&!legacy?restored:B.blankProject();B.state.ui.saveStatus=saved&&!legacy?'已恢复本地项目':'空白项目已就绪';if(legacy)await B.db.write(B.state.p);}catch(err){B.state.p=B.blankProject();B.state.ui.saveStatus='自动保存不可用 · 可导出项目备份';}B.state.ui.group=B.state.p.activeGroup||B.state.p.groups[0].id;B.state.ui.selected=B.getGroup().objects.filter(o=>o.type==='image').slice(0,1).map(o=>o.id);B.render();requestAnimationFrame(()=>B.fit());})();
 })(globalThis.BS ||= {});
 
 (function(B){
@@ -1173,7 +1259,7 @@ h1{font-size:22px;letter-spacing:-.6px;font-weight:640}h2{font-size:15px;letter-
   B.replaceSource=(project,group,imageId,source)=>{
     const image=group.objects.find(v=>v.id===imageId&&v.type==='image');if(!image)throw Error('待替换图像不存在。');if(image.locked)throw Error('请先解锁图像。');
     const previous=project.sources.find(v=>v.id===image.sourceId);project.sources.push(source);image.sourceId=source.id;
-    if(previous.width!==source.width||previous.height!==source.height){image.crop={x:0,y:0,w:source.width,h:source.height};image.background=null;image.rois=B.autoROIs(image.crop,group.samples.length);if(image.lockRatio)image.h=image.w*source.height/source.width;}
+    if(previous.width!==source.width||previous.height!==source.height){image.crop={x:0,y:0,w:source.width,h:source.height};image.background=null;image.rois=group.samples.length?B.autoROIs(image.crop,group.samples.length):[];if(image.lockRatio)image.h=image.w*source.height/source.width;}
     return{from:previous.hash||previous.id,to:source.hash||source.id};
   };
   B.linkedSVG=async(p,g)=>{
@@ -1260,8 +1346,8 @@ h1{font-size:22px;letter-spacing:-.6px;font-weight:640}h2{font-size:15px;letter-
     'create-group':()=>{const m=ui().modal;if(!m.name?.trim())throw Error('请填写图组名称。');B.commit('新建图组',project=>{const group=B.blankGroup(m.name.trim(),m.experiment||'实验 01');group.topic=m.topic||g().topic||project.name;project.groups.push(group);ui().group=group.id;ui().modal=null;});},
     methods:()=>{ui().modal={type:'methods',...(o().analysis||{...B.analysisDefaults(),convert8:false,background:o().background?'roi':'none'})};B.render();},
     'apply-methods':()=>{const m=ui().modal,a=B.validateAnalysis(Object.fromEntries(['convert8','rgb','background','radius','presmooth','method','rotation','profileAxis'].map(k=>[k,m[k]])));if(m.applyAll)B.commit('统一图组灰度分析方法',(_project,group)=>{const images=group.objects.filter(v=>v.type==='image');if(images.some(v=>v.locked))throw Error('请先解锁全部蛋白，再统一方法。');for(const image of images){image.analysis={...a};for(const roi of image.rois)delete roi.shape;}ui().modal=null;});else B.editAnalysis('设置灰度分析方法',v=>{v.analysis={...a};for(const r of v.rois)delete r.shape;ui().modal=null;});},
-    'detect-rois':()=>B.editAnalysis('自动定位条带',(v,project,group)=>{v.analysis ||= B.analysisDefaults();const s=project.sources.find(s=>s.id===v.sourceId);v.rois=B.detectBandROIs(s,v.crop,group.samples.length,v.analysis,v.polarity);ui().roiId=v.rois[0]?.id||'';}),
-    wizard:()=>{ui().projectTools=false;ui().modal={type:'wizard',mode:'linear',repeats:3,groups:'Control, Treatment',factors:'基因型:WT,cKO\n处理:Vehicle,Drug',conditions:'刺激:-,+,-,+\n药物:-,-,+,+'};B.render();},
+    'detect-rois':()=>B.editAnalysis('自动定位条带',(v,project,group)=>{v.analysis ||= B.analysisDefaults();const s=project.sources.find(s=>s.id===v.sourceId);if(!group.samples.length)throw Error('请先在实验设计中设置样本与分组。');v.rois=B.detectBandROIs(s,v.crop,group.samples.length,v.analysis,v.polarity);ui().roiId=v.rois[0]?.id||'';}),
+    wizard:()=>{ui().projectTools=false;ui().modal={type:'wizard',mode:'linear',repeats:1,groups:'',factors:'',conditions:''};B.render();},
     'preview-design':()=>{const m=ui().modal;m.preview=B.designSamples(m).map((v,i)=>(i+1)+'\t'+v.id+'\t'+v.group+'\t重复 '+v.replicate).join('\n');B.render();},
     'apply-design':()=>{const m=ui().modal,samples=B.designSamples(m);B.commit('应用实验设计',(project,group)=>{group.samples=samples;group.design={mode:m.mode};for(const image of group.objects.filter(v=>v.type==='image'))image.rois=image.rois.filter(r=>r.sampleIndex<samples.length);ui().modal=null;});},
     'new-topic':()=>{ui().modal={type:'node',kind:'topic',name:'新课题'};B.render();},
@@ -1285,10 +1371,10 @@ h1{font-size:22px;letter-spacing:-.6px;font-weight:640}h2{font-size:15px;letter-
   B.removeDirectory=cascade=>{const m=ui().modal;B.commit(cascade?'删除目录与下级至恢复区':'删除目录并提升下级',project=>{const match=gr=>m.kind==='topic'?(gr.topic||project.name)===m.name:gr.experiment===m.name&&(gr.topic||project.name)===m.topic;const affected=project.groups.filter(match);if(cascade){project.deletedGroups ||= [];for(const group of affected)project.deletedGroups.push({group:JSON.parse(JSON.stringify(group)),time:new Date().toISOString()});project.groups=project.groups.filter(gr=>!match(gr));}else for(const group of affected){if(m.kind==='topic')group.topic='未分类课题';else group.experiment='未分类实验';}project.topics=(project.topics||[]).filter(t=>m.kind!=='topic'||t!==m.name);project.experiments=(project.experiments||[]).filter(v=>m.kind==='topic'?v.topic!==m.name:!(v.topic===m.topic&&v.name===m.name));if(!project.groups.length)project.groups=[B.blankGroup()];ui().group=project.groups[0].id;ui().modal=null;});};
   const deleteGroup=actions.deletegroup;actions.deletegroup=el=>{const target=p().groups.find(v=>v.id===el.dataset.id);if(!target)return;B.commit('删除图组至恢复区',project=>{project.deletedGroups ||= [];project.deletedGroups.push({group:JSON.parse(JSON.stringify(target)),time:new Date().toISOString()});project.groups=project.groups.filter(v=>v.id!==target.id);if(!project.groups.length)project.groups=[B.blankGroup()];ui().group=project.groups[0].id;ui().modal=null;});};
   const doExport=B.doExport;B.doExport=async()=>{const m=ui().modal;if(!m||!['jpg','svg-linked'].includes(m.format))return doExport();if(ui().exporting)throw Error('正在导出。');ui().exporting=true;try{const name=g().name.replace(/[\\/:*?"<>|]/g,'_');let data,mime,ext;if(m.format==='svg-linked'){data=await B.linkedSVG(p(),g());mime='application/zip';ext='zip';}else{const scale=Number(m.scale),quality=Number(m.quality||.94);if(![1,2,3,4].includes(scale)||![1,.94,.85].includes(quality))throw Error('JPG 导出参数无效。');const canvas=await B.rasterize(B.svg(p(),g()),g().canvas.width*scale,g().canvas.height*scale);data=B.unbase64(canvas.toDataURL('image/jpeg',quality).split(',')[1]);mime='image/jpeg';ext='jpg';}const result=await B.saveFile(name+'.'+ext,data,mime);ui().modal=null;B.render();B.toast(result.status==='saved'?'文件已保存。':'已请求浏览器下载，请核对下载记录。');}finally{ui().exporting=false;}};
-  const imported=B.importFiles;B.importFiles=async files=>{const old=new Set(p().sources.map(s=>s.id));await imported(files);if(!p().sources.some(s=>!old.has(s.id)))return;B.commit('为新图像创建分析选区',(project)=>{for(const group of project.groups)for(const image of group.objects.filter(v=>v.type==='image'&&!old.has(v.sourceId)&&!v.rois.length)){image.analysis=B.analysisDefaults();image.kind='target';image.rois=B.detectBandROIs(project.sources.find(s=>s.id===image.sourceId),image.crop,group.samples.length,image.analysis,image.polarity);}});};
+  const imported=B.importFiles;B.importFiles=async files=>{const old=new Set(p().sources.map(s=>s.id));await imported(files);if(!p().sources.some(s=>!old.has(s.id)))return;B.commit('为新图像创建分析选区',(project)=>{for(const group of project.groups)for(const image of group.objects.filter(v=>v.type==='image'&&!old.has(v.sourceId)&&!v.rois.length)){image.analysis=B.analysisDefaults();image.kind='target';image.rois=group.samples.length?B.detectBandROIs(project.sources.find(s=>s.id===image.sourceId),image.crop,group.samples.length,image.analysis,image.polarity):[];}});};
   document.addEventListener('change',ev=>{const el=ev.target;if(el.dataset.scope!=='baseline')return;try{const value=Number(el.value);if(!Number.isFinite(value)||value<0)throw Error('基线必须为非负有限数值。');B.editAnalysis('调整峰图基线',image=>{const r=image.rois.find(r=>r.id===ui().profileRoiId);if(!r)throw Error('请先选择泳道。');r[el.dataset.field]=value;});}catch(error){B.toast(error.message);}});
   const commitStyle=B.commit;B.commit=(label,job,detail='')=>commitStyle(label,(project,group)=>{const before=new Map(group.objects.map(v=>[v.id,{...v}]));job(project,group);const opts=group.layoutOptions||{},styles=['fontFamily','fontSize','fontWeight','italic','fill','script','stroke','strokeWidth','dash','opacity'];for(const [role,enabled] of [['group',opts.syncGroups],['group-line',opts.syncGroups],['protein',opts.syncProtein],['mw',opts.syncMw]]){if(!enabled)continue;const changed=group.objects.find(v=>v.labelRole===role&&before.has(v.id)&&styles.some(key=>v[key]!==before.get(v.id)[key]));if(!changed)continue;for(const target of group.objects.filter(v=>v.labelRole===role&&!v.locked))for(const key of styles)if(changed[key]!==before.get(changed.id)[key])target[key]=changed[key];}},detail);
-  const renderDisplay=B.render;let displayGeneration=0;B.render=()=>{renderDisplay();const generation=++displayGeneration,images=g().objects.filter(v=>v.type==='image'&&v.visible!==false),jobs=images.map(image=>{const source=p().sources.find(s=>s.id===image.sourceId);if(!source)return null;const params={grayscale:!!image.grayscale,brightness:B.num(image.brightness,100),contrast:B.num(image.contrast,100),invert:!!image.invert};return B.cachedDisplay(source.url,params)?null:B.displayURL(source.url,params);}).filter(Boolean);if(jobs.length)Promise.all(jobs).then(()=>{if(generation===displayGeneration)renderDisplay();}).catch(error=>B.toast(error.message));};
+  const renderDisplay=B.render;let displayGeneration=0;B.render=()=>{renderDisplay();const generation=++displayGeneration,images=g().objects.filter(v=>v.type==='image'&&v.visible!==false),jobs=images.map(image=>{const source=p().sources.find(s=>s.id===image.sourceId);if(!source)return null;const params={grayscale:!!image.grayscale,brightness:B.num(image.brightness,100),contrast:B.num(image.contrast,100),invert:!!image.invert};return B.cachedDisplay(source.url,params)?null:B.displayURL(source.url,params);}).filter(Boolean);if(jobs.length)Promise.all(jobs).then(()=>{if(generation===displayGeneration)B.render();}).catch(error=>B.toast(error.message));};
   let clipboard=[];
   document.addEventListener('keydown',ev=>{if(!(ev.metaKey||ev.ctrlKey)||!['c','x','v'].includes(ev.key.toLowerCase())||ev.target.matches('input,textarea,select,[contenteditable="true"]')||ui().tab!=='edit'||ui().modal)return;ev.preventDefault();const key=ev.key.toLowerCase();if(key==='c'||key==='x'){clipboard=JSON.parse(JSON.stringify(g().objects.filter(v=>ui().selected.includes(v.id))));if(key==='x')actions.delete();else B.toast('已复制 '+clipboard.length+' 个对象。');}else if(clipboard.length)B.commit('粘贴对象',(project,group)=>{const ids=new Map(clipboard.map(v=>[v.id,B.uid()])),items=clipboard.map(v=>{const copy=JSON.parse(JSON.stringify(v));copy.id=ids.get(v.id);copy.x+=20;copy.y+=20;if(copy.type==='image'){copy.rois=[];copy.referenceId='';copy.controlId='';copy.totalId='';}if(copy.groupId)copy.groupId='paste'+ids.get(clipboard[0].id)+copy.groupId;return copy;});group.objects.push(...items);ui().selected=items.map(v=>v.id);});});
 })(globalThis.BS ||= {});
@@ -1367,7 +1453,7 @@ h1{font-size:22px;letter-spacing:-.6px;font-weight:640}h2{font-size:15px;letter-
   const previous=B.currentStats;
   B.currentStats=()=>{
     const settings=B.state.p.statisticsSettings;if(!settings)return previous();
-    const {p,ui}=B.state,g=B.getGroup(),selected=ui.checkedGroups.length?p.groups.filter(v=>ui.checkedGroups.includes(v.id)):[g],records=B.statisticsRecords(selected.flatMap(group=>B.records(p,group).map(r=>({...r,imageGroup:group.name}))),settings),proteins=[...new Set(records.map(v=>v.protein))],protein=proteins.includes(ui.statsProtein)?ui.statsProtein:proteins[0]||'',control=ui.control||mapped(settings.groups,g.samples[0]?.group)||'Control',data=B.statData(records,protein,ui.metric,control,ui.normalize);
+    const {p,ui}=B.state,g=B.getGroup(),selected=ui.checkedGroups.length?p.groups.filter(v=>ui.checkedGroups.includes(v.id)):[g],records=B.statisticsRecords(selected.flatMap(group=>B.records(p,group).map(r=>({...r,imageGroup:group.name}))),settings),proteins=[...new Set(records.map(v=>v.protein))],protein=proteins.includes(ui.statsProtein)?ui.statsProtein:proteins[0]||'',control=ui.control||mapped(settings.groups,g.samples[0]?.group)||'',data=B.statData(records,protein,ui.metric,control,ui.normalize);
     return{...data,records,proteins,protein,control};
   };
   const stats=B.stats;B.stats=()=>stats().replace('<div class="stats-controls">','<div class="button-row">'+B.btn('statistics-settings','编辑统计分组 / 蛋白名称','grid')+B.btn('clear-statistics-settings','撤销统计映射','undo')+'</div><div class="stats-controls">');
@@ -1381,6 +1467,857 @@ h1{font-size:22px;letter-spacing:-.6px;font-weight:640}h2{font-size:15px;letter-
     'clear-statistics-settings':()=>B.commit('撤销统计名称映射',project=>delete project.statisticsSettings)
   });
 })(globalThis.BS ||= {});
+
+/*
+@tomagranate/liquid-glass core 0.0.2
+Upstream SHA: efe48923a08c026b77158f3df0317f83571a038d
+BlotStudio adaptation: bounded geometry-map cache, optical math unchanged.
+MIT License
+
+Copyright (c) 2026 Tom
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+(function(global){
+const _blotMapCache=new Map();
+/**
+ * liquid-glass.ts
+ * ----------------
+ * Framework-independent "liquid glass" refraction for the web, using a plain
+ * SVG `filter` (works in every browser). The glass refracts a copy of what sits
+ * behind it — the real page underneath stays selectable and clickable.
+ *
+ * Layers (built by `applyGlass`, or supply your own to `createGlassController`):
+ *   .lq                the glass element (overflow:hidden, rounded, isolates)
+ *    ├─ .lq-refraction has `filter: url(#glass)`; bends its child
+ *    │   └─ .lq-backdrop a copy of the backdrop, offset to line up with reality
+ *    ├─ .lq-sheen      CSS tint + rim light + hairline border + drop shadow
+ *    └─ .lq-content    your real, interactive content, on top
+ *
+ * The displacement map is a small PNG (R/G = x/y bend, B = specular) encoding a
+ * rounded-rectangle SDF: bending concentrated in a rim of thickness `depth`,
+ * fading to a clear centre. It's regenerated only on shape change; moving the
+ * lens just shifts the backdrop copy.
+ */
+
+
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+const clampByte = (v        )         => (v < 0 ? 0 : v > 255 ? 255 : v) | 0;
+const smoothstep = (t        )         =>
+  t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
+
+let _uid = 0;
+const nextId = ()         => `lq-${Date.now().toString(36)}-${_uid++}`;
+
+/** Signed distance to an axis-aligned rounded rectangle, centred at origin. */
+function sdfRoundRect(
+  px        ,
+  py        ,
+  hw        ,
+  hh        ,
+  r        ,
+)         {
+  const qx = Math.abs(px) - (hw - r);
+  const qy = Math.abs(py) - (hh - r);
+  return (
+    Math.min(Math.max(qx, qy), 0) +
+    Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) -
+    r
+  );
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/** Render the displacement map and return a PNG data URL (or null if no 2D ctx). */
+function generateDisplacementMap(
+  o                        ,
+)                {
+const _blotKey=JSON.stringify([o.width,o.height,o.radius,o.depth,o.dpr,o.specular,o.specularAngle,o.inset]);if(_blotMapCache.has(_blotKey))return _blotMapCache.get(_blotKey);
+
+  const {
+    width,
+    height,
+    radius = 0,
+    depth = 12,
+    dpr = 2,
+    specular = 0,
+    specularAngle = 135,
+    inset = 0,
+  } = o;
+
+  const w = Math.max(1, Math.round(width * dpr));
+  const h = Math.max(1, Math.round(height * dpr));
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  const img = ctx.createImageData(w, h);
+  const data = img.data;
+
+  // Half-extents of the lens shape, shrunk by `inset` so a flat-grey margin
+  // surrounds it (see `inset` docs).
+  const ins = Math.max(0, inset * dpr);
+  const cx = w / 2;
+  const cy = h / 2;
+  const hw = cx - ins;
+  const hh = cy - ins;
+  const r = Math.min(Math.max(0, radius * dpr), Math.min(hw, hh));
+  const rim = Math.max(1, depth * dpr);
+
+  const la = (specularAngle * Math.PI) / 180;
+  const lx = Math.cos(la);
+  const ly = Math.sin(la);
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = (y * w + x) * 4;
+      const px = x + 0.5 - cx;
+      const py = y + 0.5 - cy;
+
+      const sdf = sdfRoundRect(px, py, hw, hh, r);
+
+      if (sdf >= 0) {
+        data[idx] = 128;
+        data[idx + 1] = 128;
+        data[idx + 2] = 128;
+        data[idx + 3] = 255;
+        continue;
+      }
+
+      let gx =
+        sdfRoundRect(px + 1, py, hw, hh, r) -
+        sdfRoundRect(px - 1, py, hw, hh, r);
+      let gy =
+        sdfRoundRect(px, py + 1, hw, hh, r) -
+        sdfRoundRect(px, py - 1, hw, hh, r);
+      const glen = Math.hypot(gx, gy) || 1;
+      gx /= glen;
+      gy /= glen;
+
+      const mag = 1 - smoothstep(-sdf / rim);
+      const dx = gx * mag;
+      const dy = gy * mag;
+
+      data[idx] = clampByte((0.5 + 0.5 * dx) * 255);
+      data[idx + 1] = clampByte((0.5 + 0.5 * dy) * 255);
+
+      let b = 128;
+      if (specular > 0) {
+        const facing = Math.max(0, gx * lx + gy * ly);
+        const s = specular * mag * facing ** 2;
+        b = clampByte(128 + 127 * Math.min(1, s));
+      }
+      data[idx + 2] = b;
+      data[idx + 3] = 255;
+    }
+  }
+
+  ctx.putImageData(img, 0, 0);
+  const _blotURL=canvas.toDataURL("image/png");_blotMapCache.set(_blotKey,_blotURL);if(_blotMapCache.size>32)_blotMapCache.delete(_blotMapCache.keys().next().value);return _blotURL;
+}
+
+/* One shared off-screen <svg> holds every generated <filter>. */
+let _defs                        = null;
+function getDefs()                 {
+  if (_defs?.isConnected) return _defs;
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("aria-hidden", "true");
+  svg.style.cssText =
+    "position:absolute;width:0;height:0;overflow:hidden;pointer-events:none;";
+  const defs = document.createElementNS(SVG_NS, "defs");
+  svg.appendChild(defs);
+  document.body.appendChild(svg);
+  _defs = defs;
+  return defs;
+}
+
+function svgEl                                      (
+  name   ,
+  attrs                        ,
+)                          {
+  const n = document.createElementNS(SVG_NS, name);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  return n;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/** Build the SVG `<filter>` that bends the backdrop copy. */
+function buildGlassFilter(o                    )                   {
+  const { id, mapUrl, scale, blur = 0, chroma = 0, specular = 0, lens } = o;
+
+  const filter = svgEl("filter", {
+    id,
+    filterUnits: "objectBoundingBox",
+    primitiveUnits: "userSpaceOnUse",
+    "color-interpolation-filters": "sRGB",
+    x: "-30%",
+    y: "-30%",
+    width: "160%",
+    height: "160%",
+  });
+
+  if (lens) {
+    // Flat-grey field everywhere (R=G=128 → no bend), with the bump bitmap
+    // placed at the lens box. Sliding the lens is just moving the feImage —
+    // the field and the displacement chain are untouched (the map stays the
+    // same, only the filter's region shifts).
+    filter.appendChild(
+      svgEl("feFlood", {
+        "flood-color": "rgb(128,128,128)",
+        "flood-opacity": "1",
+        result: "lqfield",
+      }),
+    );
+    filter.appendChild(
+      svgEl("feImage", {
+        href: mapUrl,
+        preserveAspectRatio: "none",
+        x: String(lens.x),
+        y: String(lens.y),
+        width: String(lens.width),
+        height: String(lens.height),
+        result: "lqbump",
+      }),
+    );
+    const merge = svgEl("feMerge", { result: "map" });
+    merge.appendChild(svgEl("feMergeNode", { in: "lqfield" }));
+    merge.appendChild(svgEl("feMergeNode", { in: "lqbump" }));
+    filter.appendChild(merge);
+  } else {
+    filter.appendChild(
+      svgEl("feImage", {
+        href: mapUrl,
+        preserveAspectRatio: "none",
+        x: "0",
+        y: "0",
+        width: "100%",
+        height: "100%",
+        result: "map",
+      }),
+    );
+  }
+
+  let source = "SourceGraphic";
+  if (blur > 0) {
+    filter.appendChild(
+      svgEl("feGaussianBlur", {
+        in: "SourceGraphic",
+        stdDeviation: String(blur),
+        result: "blurred",
+      }),
+    );
+    source = "blurred";
+  }
+
+  if (chroma > 0) {
+    const passes                                          = [
+      [
+        "R",
+        scale * (1 + 0.18 * chroma),
+        "1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0",
+        "dispR",
+      ],
+      [
+        "G",
+        scale * (1 + 0.09 * chroma),
+        "0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0",
+        "dispG",
+      ],
+      ["B", scale, "0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0", "dispB"],
+    ];
+    for (const [, s, mtx, result] of passes) {
+      filter.appendChild(
+        svgEl("feDisplacementMap", {
+          in: source,
+          in2: "map",
+          scale: String(s),
+          xChannelSelector: "R",
+          yChannelSelector: "G",
+        }),
+      );
+      filter.appendChild(
+        svgEl("feColorMatrix", { type: "matrix", values: mtx, result }),
+      );
+    }
+    filter.appendChild(
+      svgEl("feComposite", {
+        in: "dispR",
+        in2: "dispG",
+        operator: "arithmetic",
+        k1: "0",
+        k2: "1",
+        k3: "1",
+        k4: "0",
+      }),
+    );
+    filter.appendChild(
+      svgEl("feComposite", {
+        in2: "dispB",
+        operator: "arithmetic",
+        k1: "0",
+        k2: "1",
+        k3: "1",
+        k4: "0",
+        result: "lens",
+      }),
+    );
+  } else {
+    filter.appendChild(
+      svgEl("feDisplacementMap", {
+        in: source,
+        in2: "map",
+        scale: String(scale),
+        xChannelSelector: "R",
+        yChannelSelector: "G",
+        result: "lens",
+      }),
+    );
+  }
+
+  if (specular > 0) {
+    filter.appendChild(
+      svgEl("feColorMatrix", {
+        in: "map",
+        type: "matrix",
+        values: `0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 1 0 ${-128 / 255}`,
+        result: "spec",
+      }),
+    );
+    filter.appendChild(
+      svgEl("feComposite", {
+        in: "spec",
+        in2: "lens",
+        operator: "arithmetic",
+        k1: "0",
+        k2: String(specular),
+        k3: "1",
+        k4: "0",
+      }),
+    );
+  }
+
+  return filter;
+}
+
+/**
+ * Slide a sub-lens (built via {@link buildGlassFilter} with `lens`) to a new x/y
+ * by repositioning its bump bitmap. No map regeneration, no backdrop repaint —
+ * just two attribute writes — so it stays inside the frame budget even on Safari.
+ */
+function moveFilterLens(
+  filter                  ,
+  x        ,
+  y        ,
+)       {
+  const bump = filter.querySelector('feImage[result="lqbump"]');
+  if (!bump) return;
+  bump.setAttribute("x", String(x));
+  bump.setAttribute("y", String(y));
+}
+
+/* ── Backdrop alignment ────────────────────────────────────────────────────
+   A backdrop copy must stay registered with whatever it refracts:
+   - clone mode follows the page, so it only needs realigning on scroll/resize;
+   - refraction-target (`alignTo`) mode tracks an element that can move on its
+     own, so those controllers are realigned every frame.
+   The previous design ran one perpetual rAF over *every* controller, each doing
+   a `getBoundingClientRect` (a forced layout read) per frame. With several glass
+   elements present that continuous churn made Safari's pre-click compositing
+   flush slow enough to noticeably delay click handling. So clone-mode
+   controllers stay off the rAF entirely and ride scroll/resize instead; only
+   `alignTo` controllers are ticked. */
+const _all = new Set                 ();
+const _live = new Set                 ();
+let _raf = 0;
+function tickLive()       {
+  for (const c of _live) c._reposition();
+  _raf = _live.size ? requestAnimationFrame(tickLive) : 0;
+}
+function startLive()       {
+  if (!_raf && _live.size) _raf = requestAnimationFrame(tickLive);
+}
+let _scrollBound = false;
+function repositionAll()       {
+  for (const c of _all) c._reposition();
+}
+function bindScroll()       {
+  if (_scrollBound || typeof window === "undefined") return;
+  window.addEventListener("scroll", repositionAll, {
+    passive: true,
+    capture: true,
+  });
+  window.addEventListener("resize", repositionAll);
+  _scrollBound = true;
+}
+
+/** A reference element (or accessor) for "refraction target" mode. */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const DEFAULTS                  = {
+  radius: 16,
+  depth: 14,
+  scale: 90,
+  blur: 0.6,
+  chroma: 0.4,
+  specular: 0,
+  specularAngle: 135,
+  dpr: 2,
+  tint: "rgba(255,255,255,0.06)",
+  rimLight: 0.6,
+  shadow: "0 8px 30px rgba(0,0,0,0.25)",
+  backdrop: null,
+  alignTo: null,
+};
+
+function resolveBackdrop(backdrop               )         {
+  if (backdrop) return backdrop;
+  const root = getComputedStyle(document.documentElement);
+  const v = root.getPropertyValue("--lq-backdrop").trim();
+  if (v) return v;
+  const body = getComputedStyle(document.body);
+  if (body.backgroundImage && body.backgroundImage !== "none") {
+    return `${body.backgroundColor} ${body.backgroundImage}`;
+  }
+  return body.backgroundColor || "transparent";
+}
+
+/**
+ * Wire the glass effect onto an existing layer structure. Used by both the
+ * vanilla `applyGlass` and the React components.
+ */
+function createGlassController(
+  host             ,
+  layers             ,
+  options               = {},
+)                  {
+  const opts                  = { ...DEFAULTS, ...options };
+  const { refraction, backdrop, sheen } = layers;
+
+  let filterEl                          = null;
+  let lastW = 0;
+  let lastH = 0;
+  let lastLeft = Number.NaN;
+  let lastTop = Number.NaN;
+  let lastBW = Number.NaN;
+  let lastBH = Number.NaN;
+  // Cache the displacement map (a canvas → PNG, the expensive part) so changes
+  // that don't affect geometry can reuse it.
+  let cachedMapUrl                = null;
+  let mapSig = "";
+
+  /** Signature of every option that requires rebuilding the map or the filter.
+   *  CSS-only props (backdrop, tint, rimLight, shadow) are deliberately absent,
+   *  so colour/opacity changes skip the costly regenerate entirely. */
+  const rebuildSig = ()         =>
+    [
+      opts.radius,
+      opts.depth,
+      opts.scale,
+      opts.blur,
+      opts.chroma,
+      opts.specular,
+      opts.specularAngle,
+      opts.dpr,
+    ].join("|");
+
+  function radiusPx(w        , h        )         {
+    const r = opts.radius;
+    if (typeof r === "string" && r.endsWith("%")) {
+      return (Number.parseFloat(r) / 100) * Math.min(w, h);
+    }
+    return Math.min(r          , Math.min(w, h) / 2);
+  }
+
+  function applyStatic()       {
+    if (getComputedStyle(host).position === "static")
+      host.style.position = "relative";
+    host.style.overflow = "hidden";
+    host.style.isolation = "isolate";
+    host.style.background = opts.tint;
+    host.style.boxShadow = opts.shadow;
+
+    backdrop.style.position = "absolute";
+    backdrop.style.pointerEvents = "none";
+    if (!opts.alignTo) {
+      const bg = resolveBackdrop(opts.backdrop);
+      if (opts.backdrop) {
+        // An explicit backdrop is a local fill — paint it across the (small) box.
+        backdrop.style.backgroundImage = "";
+        backdrop.style.background = bg;
+      } else {
+        // Page clone: a viewport-sized gradient, but shown through a small box
+        // sliced to the element's position (size/position set in `_reposition`).
+        // Never give the filter a viewport-sized source graphic — that stalls
+        // Safari's compositor and, with several glass elements, makes its
+        // pre-click flush slow enough to delay click handling.
+        backdrop.style.background = "";
+        backdrop.style.backgroundImage = bg;
+        backdrop.style.backgroundRepeat = "no-repeat";
+      }
+    }
+
+    if (sheen) {
+      const k = opts.rimLight;
+      sheen.style.boxShadow = [
+        `inset 0 1px 1.5px rgba(255,255,255,${0.9 * k})`,
+        `inset 1px 0 1px rgba(255,255,255,${0.35 * k})`,
+        `inset -1px 0 1px rgba(255,255,255,${0.35 * k})`,
+        `inset 0 -1.5px 2px rgba(0,0,0,${0.25 * k})`,
+        `inset 0 0 0 1px rgba(255,255,255,${0.25 * k})`,
+      ].join(", ");
+      sheen.style.background = `linear-gradient(${opts.specularAngle + 90}deg, rgba(255,255,255,${0.18 * k}) 0%, rgba(255,255,255,0) 38%, rgba(255,255,255,0) 64%, rgba(255,255,255,${0.08 * k}) 100%)`;
+    }
+  }
+
+  function syncRadius(w        , h        )         {
+    const rad = radiusPx(w, h);
+    host.style.borderRadius = `${rad}px`;
+    if (sheen) sheen.style.borderRadius = `${rad}px`;
+    return rad;
+  }
+
+  function regenerate()       {
+    const rect = host.getBoundingClientRect();
+    const w = Math.round(rect.width);
+    const h = Math.round(rect.height);
+    if (w < 2 || h < 2) return;
+
+    const rad = syncRadius(w, h);
+
+    // The map depends only on geometry; regenerate it just when that changes.
+    const sig = `${w}x${h}|${rad}|${opts.depth}|${opts.specular}|${opts.specularAngle}|${opts.dpr}`;
+    if (sig !== mapSig || !cachedMapUrl) {
+      const mapUrl = generateDisplacementMap({
+        width: w,
+        height: h,
+        radius: rad,
+        depth: opts.depth,
+        dpr: opts.dpr,
+        specular: opts.specular,
+        specularAngle: opts.specularAngle,
+      });
+      if (!mapUrl) return;
+      cachedMapUrl = mapUrl;
+      mapSig = sig;
+    }
+
+    const id = nextId();
+    const newFilter = buildGlassFilter({
+      id,
+      mapUrl: cachedMapUrl,
+      scale: opts.scale,
+      blur: opts.blur,
+      chroma: opts.chroma,
+      specular: opts.specular,
+    });
+    getDefs().appendChild(newFilter);
+    refraction.style.filter = `url(#${id})`;
+    refraction.style.setProperty("-webkit-filter", `url(#${id})`);
+
+    if (filterEl) filterEl.remove();
+    filterEl = newFilter;
+
+    lastW = w;
+    lastH = h;
+    _reposition(true);
+  }
+
+  function _reposition(force          )       {
+    const rect = host.getBoundingClientRect();
+
+    if (opts.alignTo) {
+      const ref =
+        typeof opts.alignTo === "function" ? opts.alignTo() : opts.alignTo;
+      const a =
+        ref && "getBoundingClientRect" in ref
+          ? ref.getBoundingClientRect()
+          : ref;
+      if (!a) return;
+      const left = a.left - rect.left;
+      const top = a.top - rect.top;
+      if (
+        !force &&
+        left === lastLeft &&
+        top === lastTop &&
+        a.width === lastBW &&
+        a.height === lastBH
+      )
+        return;
+      lastLeft = left;
+      lastTop = top;
+      lastBW = a.width;
+      lastBH = a.height;
+      backdrop.style.width = `${a.width}px`;
+      backdrop.style.height = `${a.height}px`;
+      backdrop.style.transform = `translate(${left}px, ${top}px)`;
+      return;
+    }
+
+    // Clone mode: a small box (element + sampling margin), not a viewport-sized
+    // layer. The margin covers the filter's reach (~30% past each edge + `scale`
+    // px of displacement) so the rim never samples past the copy.
+    const mx = Math.ceil(0.4 * rect.width + opts.scale);
+    const my = Math.ceil(0.4 * rect.height + opts.scale);
+    const width = rect.width + 2 * mx;
+    const height = rect.height + 2 * my;
+    if (!opts.backdrop) {
+      // Slice the viewport-anchored page background to this box's screen
+      // position, including the same cover-fit offset used by the real page.
+      // (For an explicit local-fill backdrop, the fill already covers the box.)
+      backdrop.style.backgroundSize =
+        "var(--lq-cover-width, 100vw) var(--lq-cover-height, 100vh)";
+      backdrop.style.backgroundPosition = `calc(${mx - rect.left}px + var(--lq-cover-x, 0px)) calc(${my - rect.top}px + var(--lq-cover-y, 0px))`;
+    }
+    if (force || width !== lastBW || height !== lastBH) {
+      lastBW = width;
+      lastBH = height;
+      lastLeft = -mx;
+      lastTop = -my;
+      backdrop.style.width = `${width}px`;
+      backdrop.style.height = `${height}px`;
+      backdrop.style.transform = `translate(${-mx}px, ${-my}px)`;
+    }
+  }
+
+  applyStatic();
+  regenerate();
+
+  const ro = new ResizeObserver(() => {
+    const rect = host.getBoundingClientRect();
+    if (
+      Math.abs(rect.width - lastW) > 0.5 ||
+      Math.abs(rect.height - lastH) > 0.5
+    )
+      regenerate();
+  });
+  ro.observe(host);
+
+  // Per-frame realignment is only needed in refraction-target mode (the target
+  // can move on its own); clone mode rides scroll/resize.
+  function syncLive()       {
+    if (opts.alignTo) {
+      if (!_live.has(ctrl)) {
+        _live.add(ctrl);
+        startLive();
+      }
+    } else {
+      _live.delete(ctrl);
+    }
+  }
+
+  const ctrl                  = {
+    _reposition,
+    update(patch              ) {
+      const prevSig = rebuildSig();
+      Object.assign(opts, patch);
+      applyStatic();
+      // Rebuild the map/filter only when a prop that affects them changed.
+      // A pure CSS change (e.g. a switch's on/off colour) just restyles —
+      // no canvas/PNG/filter work — so the animation stays smooth.
+      if (rebuildSig() !== prevSig) regenerate();
+      syncLive();
+      _reposition();
+    },
+    refresh: regenerate,
+    destroy() {
+      _all.delete(ctrl);
+      _live.delete(ctrl);
+      if (!_live.size && _raf) {
+        cancelAnimationFrame(_raf);
+        _raf = 0;
+      }
+      ro.disconnect();
+      if (filterEl) filterEl.remove();
+      refraction.style.filter = "";
+    },
+  };
+  _all.add(ctrl);
+  bindScroll();
+  syncLive();
+  return ctrl;
+}
+
+/**
+ * Vanilla, zero-markup entry point. Builds the layers inside `host`, moving any
+ * existing children into a content layer, and wires the effect.
+ */
+function applyGlass(
+  host             ,
+  options               = {},
+)                  {
+  const originalStyle = {
+    position: host.style.position,
+    overflow: host.style.overflow,
+    isolation: host.style.isolation,
+    background: host.style.background,
+    boxShadow: host.style.boxShadow,
+    borderRadius: host.style.borderRadius,
+  };
+  const shouldRestorePosition = getComputedStyle(host).position === "static";
+
+  const content = document.createElement("div");
+  content.className = "lq-content";
+  while (host.firstChild) content.appendChild(host.firstChild);
+
+  const refraction = document.createElement("div");
+  refraction.className = "lq-refraction";
+  const backdrop = document.createElement("div");
+  backdrop.className = "lq-backdrop";
+  refraction.appendChild(backdrop);
+
+  const sheen = document.createElement("div");
+  sheen.className = "lq-sheen";
+
+  host.classList.add("lq");
+  host.appendChild(refraction);
+  host.appendChild(sheen);
+  host.appendChild(content);
+
+  const ctrl = createGlassController(
+    host,
+    { refraction, backdrop, sheen },
+    options,
+  );
+
+  return {
+    update: (patch              ) => ctrl.update(patch),
+    refresh: () => ctrl.refresh(),
+    _reposition: (force          ) => ctrl._reposition(force),
+    destroy() {
+      ctrl.destroy();
+      while (content.firstChild) host.appendChild(content.firstChild);
+      refraction.remove();
+      sheen.remove();
+      content.remove();
+      host.classList.remove("lq");
+      if (shouldRestorePosition) host.style.position = originalStyle.position;
+      host.style.overflow = originalStyle.overflow;
+      host.style.isolation = originalStyle.isolation;
+      host.style.background = originalStyle.background;
+      host.style.boxShadow = originalStyle.boxShadow;
+      host.style.borderRadius = originalStyle.borderRadius;
+    },
+  };
+}
+
+
+
+global.LiquidGlassOptics={applyGlass,createGlassController,generateDisplacementMap,buildGlassFilter,moveFilterLens};
+})(globalThis);
 
 (function(B){
   'use strict';
@@ -1438,7 +2375,7 @@ h1{font-size:22px;letter-spacing:-.6px;font-weight:640}h2{font-size:15px;letter-
   };
   const editor=B.editor;B.editor=()=>{
     const t=parse(editor()),bar=t.content.querySelector('.document-bar');
-    const controls=document.createElement('div');controls.className='view-controls';controls.innerHTML=B.ib('toggle-sidebar',sidebarHidden()?'显示项目目录':'收起项目目录','sidebar','aria-pressed="'+!sidebarHidden()+'"')+B.ib('toggle-inspector',ui().inspectorHidden?'显示对象属性':'收起对象属性','properties','aria-pressed="'+!ui().inspectorHidden+'"');bar.prepend(controls);return t.innerHTML;
+    const controls=document.createElement('div');controls.className='view-controls';controls.innerHTML=B.ib('toggle-sidebar',sidebarHidden()?'显示项目目录':'收起项目目录','sidebar','aria-pressed="'+!sidebarHidden()+'"')+B.ib('toggle-inspector',ui().inspectorHidden?'显示对象属性':'收起对象属性','properties','aria-pressed="'+!ui().inspectorHidden+'"');bar.prepend(controls);if(!B.getGroup().objects.length){const root=t.content.querySelector('.editor-center');root.classList.add('is-empty');const empty=document.createElement('div');empty.className='workspace-empty';empty.innerHTML='<span class="empty-mark">'+B.icon('image',31)+'</span><h1>开始一张新的 WB 图</h1><p>设置实验分组，导入原始图像。<br>你的分析与排版将从这里开始。</p><div class="button-row">'+B.btn('start-design','设置分组','grid','class="primary"')+B.btn('start-import','导入原图','plus')+'</div>';root.append(empty);}return t.innerHTML;
   };
   function fold(key,title,contents,open=false,extra=''){
     const expanded=ui().glassFolds?.[key]??open;
@@ -1475,8 +2412,44 @@ h1{font-size:22px;letter-spacing:-.6px;font-weight:640}h2{font-size:15px;letter-
   B.actions['glass-menu']=el=>{const rect=el.getBoundingClientRect();ui().projectTools=false;ui().glassMenu=ui().glassMenu===el.dataset.id?null:el.dataset.id;ui().glassAnchor={x:rect.left,y:rect.bottom+9};B.render();};
   B.actions['toggle-sidebar']=()=>{ui().sidebarHidden=!sidebarHidden();B.render();if(ui().tab==='edit')B.fit();};
   B.actions['toggle-inspector']=()=>{ui().inspectorHidden=!ui().inspectorHidden;B.render();if(ui().tab==='edit')B.fit();};
+  B.actions['start-design']=()=>B.actions.wizard();B.actions['start-import']=()=>B.actions.import();
   B.actions['glass-close-menu']=()=>{ui().glassMenu=null;ui().projectTools=false;B.render();};
   document.addEventListener('click',event=>{const button=event.target.closest?.('[data-action]');if(!button||['glass-menu','project-menu','glass-close-menu'].includes(button.dataset.action))return;ui().glassMenu=null;ui().projectTools=false;document.querySelectorAll('.glass-popover,.glass-menu-shade').forEach(n=>n.remove());},true);
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&(ui().glassMenu||ui().projectTools)){ui().glassMenu=null;ui().projectTools=false;B.render();}},true);
+})(globalThis.BS ||= {});
+
+(function(B){
+  'use strict';
+  // MIT @tomagranate/liquid-glass, pinned in vendor/liquid-glass.
+  // Only an ambient backdrop copy is refracted. Text, original WB pixels,
+  // scientific SVGs and export canvases never enter a filter or texture.
+  const controllers=[];
+  const reduced=matchMedia('(prefers-reduced-transparency: reduce)');
+  const selectors='.app-header nav,.glass-toolbar,.sidebar,.inspector,.editor-center,.content-page,.analysis-page,.glass-popover,.modal,.zoom-control';
+  B.liquidOptics={engine:'@tomagranate/liquid-glass',version:'efe48923a08c026b77158f3df0317f83571a038d',count:0};
+  const destroy=()=>{for(const item of controllers.splice(0)){item.mapResize.disconnect();item.ctrl.destroy();item.host.removeEventListener('scroll',item.scroll);item.refraction.remove();item.sheen.remove();Object.assign(item.host.style,item.original);item.host.removeAttribute('data-liquid-surface');}B.liquidOptics.count=0;};
+  const mount=()=>{
+    if(reduced.matches||!globalThis.LiquidGlassOptics?.createGlassController){B.liquidOptics.reason='reduced-transparency';return;}
+    const maps=[];
+    for(const host of document.querySelectorAll(selectors)){
+      if(host.hidden||host.getBoundingClientRect().width<2||host.closest('[hidden]'))continue;
+      const original={position:host.style.position,overflow:host.style.overflow,isolation:host.style.isolation,background:host.style.background,boxShadow:host.style.boxShadow,borderRadius:host.style.borderRadius};
+      const refraction=document.createElement('div'),backdrop=document.createElement('div'),sheen=document.createElement('div'),sourceClip=document.createElement('div');refraction.className='lq-refraction';refraction.style.transform='translateZ(0)';backdrop.className='lq-backdrop';sheen.className='lq-sheen';refraction.setAttribute('aria-hidden','true');sheen.setAttribute('aria-hidden','true');sourceClip.className='lq-source-clip';Object.assign(sourceClip.style,{position:'absolute',inset:'0',overflow:'hidden'});sourceClip.append(backdrop);refraction.append(sourceClip);
+      for(const child of host.children){if(getComputedStyle(child).position==='static')child.style.position='relative';child.style.zIndex='2';}
+      host.prepend(refraction,sheen);host.setAttribute('data-liquid-surface','');
+      const computed=getComputedStyle(host),overflow=computed.overflow,radius=parseFloat(computed.borderRadius)||18,large=host.clientHeight>160;
+      const ctrl=LiquidGlassOptics.createGlassController(host,{refraction,backdrop,sheen},{radius,depth:large?18:12,scale:large?38:26,blur:.35,chroma:.16,specular:.14,dpr:.75,rimLight:.9,tint:'rgba(255,255,255,.08)',shadow:'0 12px 36px rgba(35,72,96,.12),inset 0 1px 0 rgba(255,255,255,.85)'});
+      host.style.overflow=(overflow==='auto'||overflow==='scroll')?overflow:'hidden';refraction.style.clipPath='inset(0 round '+radius+'px)';
+      const alignMap=()=>{const id=refraction.style.filter.match(/#([^"')\s]+)/)?.[1],image=id&&document.getElementById(id)?.querySelector('feImage');if(image){image.setAttribute('x','0');image.setAttribute('y','0');image.setAttribute('width',String(refraction.clientWidth));image.setAttribute('height',String(refraction.clientHeight));host.dataset.liquidMapPixels=refraction.clientWidth+'x'+refraction.clientHeight;}};alignMap();const mapResize=new ResizeObserver(alignMap);mapResize.observe(host);
+      const scroll=()=>{const y=host.scrollTop;for(const layer of [refraction,sheen]){layer.style.top=y+'px';layer.style.height=host.clientHeight+'px';layer.style.bottom='auto';}};scroll();host.addEventListener('scroll',scroll,{passive:true});
+      controllers.push({host,ctrl,scroll,refraction,sheen,original,mapResize});
+    }
+    B.liquidOptics.count=controllers.length;B.liquidOptics.reason='svg-refraction';
+    for(const image of document.querySelectorAll('svg defs feImage')){const url=image.getAttribute('href')||image.getAttribute('xlink:href');if(url?.startsWith('data:image/'))maps.push(B.loadImage(url).then(image=>image.decode?.()).catch(()=>{}));}
+    B.opticsReady=Promise.all(maps);
+  };
+  const render=B.render;B.render=()=>{const before=document.getElementById('app')?.firstElementChild;render();if(document.getElementById('app')?.firstElementChild===before)return;destroy();mount();};
+  reduced.addEventListener?.('change',()=>{destroy();B.render();});
+  addEventListener('pagehide',destroy);
 })(globalThis.BS ||= {});
 </script></body></html>

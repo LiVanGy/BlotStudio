@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 for(const f of ['core','scene','pptx'])require('../src/'+f+'.js');
 const B=globalThis.BS;
+require('./support/synthetic.js');
 const png=fs.readFileSync(path.join(__dirname,'fixtures/dpi96.png'));
 function packageFiles(bytes){
   const v=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),files={};let i=0;
@@ -12,7 +13,7 @@ function packageFiles(bytes){
     assert.equal(B.crc32(data),v.getUint32(i+14,true),'CRC '+name);files[name]=new TextDecoder().decode(data);i=start+size;
   }return files;
 }
-function imageProject(){const p=B.blankProject(),g=p.groups[0],s={id:B.uid(),name:'synthetic-WB.png',url:'data:image/png;base64,'+png.toString('base64'),width:800,height:100,hash:'synthetic-fixture'};p.sources=[s];g.objects=[B.imageObject(s)];return{p,g,o:g.objects[0],s};}
+function imageProject(){const p=B.blankProject(),g=p.groups[0],s={id:B.uid(),name:'synthetic-WB.png',url:'data:image/png;base64,'+png.toString('base64'),width:800,height:100,hash:'synthetic-fixture'};g.samples=B.testSamples();p.sources=[s];g.objects=[B.imageObject(s)];return{p,g,o:g.objects[0],s};}
 test('PowerPoint retains full source preview, editable crop, both flips, rotation and native opacity',async()=>{
   const {p,g,o}=imageProject();Object.assign(o,{crop:{x:80,y:20,w:400,h:50},flipX:true,flipY:true,rotation:-30,opacity:.35,strokeWidth:0});
   const calls=[],original=B.rasterize;B.rasterize=async(svg,w,h)=>{calls.push({svg,w,h});return{toDataURL:()=> 'data:image/png;base64,'+png.toString('base64')};};

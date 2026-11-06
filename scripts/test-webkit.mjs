@@ -14,6 +14,9 @@ try{
   const build=await fs.readFile('build.mjs','utf8'),order=build.match(/const order=\[([^\]]+)\]/)[1].split(',').map(v=>v.trim().replaceAll("'",'')),parts=[];
   for(const name of order){parts.push(await fs.readFile('src/'+name+'.js','utf8'));if(name==='io')parts.push('BS.db={read:async()=>null,write:async()=>{}};');}
   let app=(await fs.readFile('index.template.html','utf8')).replace('/*__STYLE__*/',(await fs.readFile('src/styles.css','utf8'))+'\n'+(await fs.readFile('src/glass.css','utf8'))).replace('/*__SCRIPT__*/',parts.join('\n').replaceAll('</script','<\\/script'));
+  // Synthetic projects are test-only; this helper never enters build.mjs output.
+  app=app.replace('<head>','<head><script>addEventListener("error",e=>webkit.messageHandlers.qaResult.postMessage({fatal:e.message,stack:e.error?.stack}));addEventListener("unhandledrejection",e=>webkit.messageHandlers.qaResult.postMessage({fatal:String(e.reason),stack:e.reason?.stack}));</script>');
+  app=inject(app,await fs.readFile('tests/support/synthetic.js','utf8'));
   app=inject(app,await fs.readFile('tests/app-webkit.js','utf8'));
   const reports=[];
   for(const [name,html] of [['pixels',pixel],['app',app]]){const file=path.join(temporary,name+'.html');await fs.writeFile(file,html);const report=JSON.parse(execFileSync(host,[file],{encoding:'utf8',timeout:60000,maxBuffer:5*1024*1024}));reports.push({name,...report});console.log(JSON.stringify({name,...report}));}

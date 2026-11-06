@@ -21,6 +21,8 @@ else{
   await fs.copyFile('dist/BlotStudio.html',path.join(folder,'BlotStudio.html'));
   await fs.writeFile(path.join(folder,'Start-BlotStudio.cmd'),'@echo off\r\nstart "" "%~dp0BlotStudio.html"\r\n');
 }
+await fs.mkdir(path.join(folder,'licenses'),{recursive:true});
+await fs.copyFile('vendor/liquid-glass/LICENSE',path.join(folder,'licenses/liquid-glass-MIT.txt'));
 const zip=folder+'.zip';
 if(kind==='mac')execFileSync('ditto',['-c','-k','--sequesterRsrc','--keepParent',folder,zip]);
 else if(process.platform==='win32')execFileSync('powershell',['-NoProfile','-Command',`Compress-Archive -Path '${folder.replaceAll("'","''")}\\*' -DestinationPath '${zip.replaceAll("'","''")}' -Force`]);

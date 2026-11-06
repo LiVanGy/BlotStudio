@@ -52,7 +52,7 @@
         "name": "细胞蛋白.jpg"
       },
       {
-        "bytes": 145606,
+        "bytes": 145603,
         "mime": "application/zip",
         "name": "细胞蛋白.zip"
       },
@@ -67,7 +67,7 @@
         "name": "细胞蛋白.pptx"
       },
       {
-        "bytes": 392440,
+        "bytes": 392435,
         "mime": "application/json",
         "name": "WB 实验项目.wbproj"
       },
@@ -77,9 +77,17 @@
         "name": "BlotStudio-topic.xlsx"
       }
     ],
-    "passed": 13,
+    "passed": 16,
     "suite": "real WebKit app components",
     "tests": [
+      {
+        "name": "Published app starts empty without seeded groups or a production demo generator",
+        "pass": true
+      },
+      {
+        "name": "Import before designing groups retains originals without fabricating lanes or ROIs",
+        "pass": true
+      },
       {
         "name": "Page renders real controls and editable simulated images",
         "pass": true
@@ -131,8 +139,12 @@
       {
         "name": "Save/open round trip preserves conditions, analysis and group labels",
         "pass": true
+      },
+      {
+        "name": "Optical refraction stays isolated from analytical pixels and export nodes",
+        "pass": true
       }
     ],
-    "total": 13
+    "total": 16
   }
 ]

@@ -1,6 +1,6 @@
 (function(B) {
   'use strict';
-  B.VERSION = '0.6.0';
+  B.VERSION = '0.7.0';
   B.uid = () => 'b' + (globalThis.crypto?.randomUUID?.() || (Date.now().toString(36) + Math.random().toString(36).slice(2))).replaceAll('-', '');
   B.clamp = (n,a,b) => Math.max(a,Math.min(b,n));
   B.num = (v,f=0) => Number.isFinite(Number(v)) ? Number(v) : f;
@@ -57,7 +57,7 @@
   B.xlsx = rows => B.workbook([{name:'WB data',rows}]);
   B.object = (type, props={}) => ({id:B.uid(),type,name:type==='text'?'文本':'图像',x:80,y:80,w:200,h:36,rotation:0,opacity:1,visible:true,locked:false,fill:'#20252c',stroke:'#20252c',strokeWidth:1,fontSize:22,fontFamily:'Arial',fontWeight:400,align:'left',...props});
   B.imageObject=(s,i=0)=>B.object('image',{name:s.name,sourceId:s.id,x:180,y:140+i*90,w:640,h:640*s.height/s.width,crop:{x:0,y:0,w:s.width,h:s.height},brightness:100,contrast:100,invert:false,flipX:false,flipY:false,grayscale:true,lockRatio:true,protein:s.name.replace(/\.[^.]+$/,''),mw:'',referenceId:'',rois:[],background:null,polarity:'dark'});
-  B.blankGroup=(name='新图组',experiment='实验 01')=>({id:B.uid(),name,experiment,status:'进行中',canvas:{width:1000,height:590,background:'#ffffff',dpi:300},samples:Array.from({length:12},(_,i)=>({id:'S'+(i+1),group:['Control','Low','Medium','High'][Math.floor(i/3)],replicate:i%3+1,include:true})),objects:[],notes:''});
+  B.blankGroup=(name='新图组',experiment='实验 01')=>({id:B.uid(),name,experiment,status:'进行中',canvas:{width:1000,height:590,background:'#ffffff',dpi:300},samples:[],objects:[],notes:''});
   B.blankProject=()=>{const g=B.blankGroup();return {format:'BlotStudio',version:1,id:B.uid(),name:'WB 实验项目',activeGroup:g.id,groups:[g],sources:[],sampleLibrary:[],antibodies:[],plan:[],audit:[],demo:false};};
   B.assertRect=(s,r,label='选区')=>{if(!r||![r.x,r.y,r.w,r.h].every(Number.isFinite)||r.x<0||r.y<0||r.w<=0||r.h<=0||r.x+r.w>s.width+1e-7||r.y+r.h>s.height+1e-7)throw Error(label+' 超出原图范围或尺寸无效。');return r;};
   const validatedSources=new WeakSet();
@@ -83,7 +83,7 @@
     const groupIds=new Set();
     for(const g of p.groups){
       if(!g||!id(g.id)||groupIds.has(g.id)||!text(g.name)||!text(g.experiment))throw Error('图组信息无效或 ID 重复。');groupIds.add(g.id);if(g.topic!==undefined&&!text(g.topic))throw Error('课题名称无效。');
-      if(!g.canvas||![g.canvas.width,g.canvas.height].every(n=>Number.isFinite(n)&&n>=100&&n<=10000)||!color(g.canvas.background)||![150,300,600].includes(Number(g.canvas.dpi))||!Array.isArray(g.objects)||g.objects.length>3000||!Array.isArray(g.samples)||!g.samples.length||g.samples.length>200)throw Error('画布参数无效。');
+      if(!g.canvas||![g.canvas.width,g.canvas.height].every(n=>Number.isFinite(n)&&n>=100&&n<=10000)||!color(g.canvas.background)||![150,300,600].includes(Number(g.canvas.dpi))||!Array.isArray(g.objects)||g.objects.length>3000||!Array.isArray(g.samples)||g.samples.length>200)throw Error('画布参数无效。');
       const sampleIds=new Set();for(const s of g.samples){if(!s||!text(s.id)||!s.id.trim()||sampleIds.has(s.id)||!text(s.group)||!s.group.trim()||!Number.isInteger(s.replicate)||s.replicate<1)throw Error('样本 ID、分组或重复编号无效。');sampleIds.add(s.id);}
       const objectIds=new Set(),imageIds=new Set(g.objects.filter(o=>o?.type==='image').map(o=>o.id));
       for(const o of g.objects){

@@ -7,6 +7,7 @@ const path=require('node:path');
 const {spawnSync}=require('node:child_process');
 for(const name of ['core','science','imagej-interop'])require('../src/'+name+'.js');
 const B=globalThis.BS;
+require('./support/synthetic.js');
 function unpack(bytes){
   const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),files={};let at=0;
   while(view.getUint32(at,true)===0x04034b50){const length=view.getUint32(at+18,true),nameLength=view.getUint16(at+26,true),extra=view.getUint16(at+28,true),name=new TextDecoder().decode(bytes.subarray(at+30,at+30+nameLength)),start=at+30+nameLength+extra,data=bytes.subarray(start,start+length);assert.equal(B.crc32(data),view.getUint32(at+14,true),name+' CRC');files[name]=data;at=start+length;}return files;
@@ -14,7 +15,7 @@ function unpack(bytes){
 const text=bytes=>new TextDecoder().decode(bytes);
 function source(values,width,bitDepth,name){const bytes=new Uint8Array(values.length*bitDepth/8),view=new DataView(bytes.buffer);values.forEach((value,i)=>bitDepth===16?view.setUint16(i*2,value,true):bytes[i]=value);return{id:B.uid(),name,width,height:values.length/width,bitDepth,pixels:B.base64(bytes),url:'preview-must-not-be-used',original:'multi-page-original-must-not-be-used',hash:'source-checksum'};}
 function fixture(){
-  const p=B.blankProject(),g=p.groups[0],pixels16=Array.from({length:24},(_,i)=>1000+i*79);pixels16[23]=65535;const s16=source(pixels16,6,16,'16位原图 "A".tiff'),s8=source([20,30,40,50,200,210,220,230],4,8,'8-bit fluorescence.png');p.sources=[s16,s8];
+  const p=B.blankProject(),g=p.groups[0],pixels16=Array.from({length:24},(_,i)=>1000+i*79);pixels16[23]=65535;const s16=source(pixels16,6,16,'16位原图 "A".tiff'),s8=source([20,30,40,50,200,210,220,230],4,8,'8-bit fluorescence.png');g.samples=B.testSamples();p.sources=[s16,s8];
   const a=B.imageObject(s16),b=B.imageObject(s8);a.protein='β-Actin "样本"\n"; run("Close All"); // 🧪';a.crop={x:1,y:1,w:3,h:2};a.brightness=23;a.contrast=180;a.invert=true;a.rotation=45;a.flipX=true;a.opacity=.2;a.rois=[{id:B.uid(),sampleIndex:0,x:1.2,y:.1,w:2.3,h:1.5}];a.background={x:4.5,y:2,w:2,h:2};
   b.polarity='light';b.visible=false;b.rois=[{id:B.uid(),sampleIndex:1,x:0,y:0,w:2,h:1}];b.background={x:2,y:1,w:2,h:1};g.samples[0].id='样本 "1",\n🧬';g.samples[1].include=false;g.objects=[a,b];return{p,g,a,b,s16,s8,pixels16};
 }

@@ -54,7 +54,7 @@
   };
   const editor=B.editor;B.editor=()=>{
     const t=parse(editor()),bar=t.content.querySelector('.document-bar');
-    const controls=document.createElement('div');controls.className='view-controls';controls.innerHTML=B.ib('toggle-sidebar',sidebarHidden()?'显示项目目录':'收起项目目录','sidebar','aria-pressed="'+!sidebarHidden()+'"')+B.ib('toggle-inspector',ui().inspectorHidden?'显示对象属性':'收起对象属性','properties','aria-pressed="'+!ui().inspectorHidden+'"');bar.prepend(controls);return t.innerHTML;
+    const controls=document.createElement('div');controls.className='view-controls';controls.innerHTML=B.ib('toggle-sidebar',sidebarHidden()?'显示项目目录':'收起项目目录','sidebar','aria-pressed="'+!sidebarHidden()+'"')+B.ib('toggle-inspector',ui().inspectorHidden?'显示对象属性':'收起对象属性','properties','aria-pressed="'+!ui().inspectorHidden+'"');bar.prepend(controls);if(!B.getGroup().objects.length){const root=t.content.querySelector('.editor-center');root.classList.add('is-empty');const empty=document.createElement('div');empty.className='workspace-empty';empty.innerHTML='<span class="empty-mark">'+B.icon('image',31)+'</span><h1>开始一张新的 WB 图</h1><p>设置实验分组，导入原始图像。<br>你的分析与排版将从这里开始。</p><div class="button-row">'+B.btn('start-design','设置分组','grid','class="primary"')+B.btn('start-import','导入原图','plus')+'</div>';root.append(empty);}return t.innerHTML;
   };
   function fold(key,title,contents,open=false,extra=''){
     const expanded=ui().glassFolds?.[key]??open;
@@ -91,6 +91,7 @@
   B.actions['glass-menu']=el=>{const rect=el.getBoundingClientRect();ui().projectTools=false;ui().glassMenu=ui().glassMenu===el.dataset.id?null:el.dataset.id;ui().glassAnchor={x:rect.left,y:rect.bottom+9};B.render();};
   B.actions['toggle-sidebar']=()=>{ui().sidebarHidden=!sidebarHidden();B.render();if(ui().tab==='edit')B.fit();};
   B.actions['toggle-inspector']=()=>{ui().inspectorHidden=!ui().inspectorHidden;B.render();if(ui().tab==='edit')B.fit();};
+  B.actions['start-design']=()=>B.actions.wizard();B.actions['start-import']=()=>B.actions.import();
   B.actions['glass-close-menu']=()=>{ui().glassMenu=null;ui().projectTools=false;B.render();};
   document.addEventListener('click',event=>{const button=event.target.closest?.('[data-action]');if(!button||['glass-menu','project-menu','glass-close-menu'].includes(button.dataset.action))return;ui().glassMenu=null;ui().projectTools=false;document.querySelectorAll('.glass-popover,.glass-menu-shade').forEach(n=>n.remove());},true);
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&(ui().glassMenu||ui().projectTools)){ui().glassMenu=null;ui().projectTools=false;B.render();}},true);

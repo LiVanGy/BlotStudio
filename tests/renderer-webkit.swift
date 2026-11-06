@@ -26,9 +26,22 @@ final class RendererTestHost: NSObject, WKScriptMessageHandler, WKNavigationDele
     }
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.name == "qaResult", message.frameInfo.isMainFrame else { return }
+        if let body = message.body as? [String:Any], let progress = body["progress"] {
+            fputs("[webkit progress] \(String(describing:progress))\n",stderr)
+            return
+        }
         if let path = snapshotPath {
             let config = WKSnapshotConfiguration()
             config.rect = view.bounds
+            if let body = message.body as? [String:Any],
+               let requested = body["snapshotRect"] as? [String:Double],
+               let x = requested["x"], let y = requested["y"],
+               let width = requested["w"], let height = requested["h"],
+               [x,y,width,height].allSatisfy({ $0.isFinite }),
+               x >= 0, y >= 0, width > 0, height > 0,
+               x+width <= view.bounds.width, y+height <= view.bounds.height {
+                config.rect = NSRect(x:x,y:y,width:width,height:height)
+            }
             config.afterScreenUpdates = true
             view.takeSnapshot(with:config) { image, error in
                 guard error == nil, let image, let tiff = image.tiffRepresentation,
