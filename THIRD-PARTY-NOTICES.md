@@ -25,3 +25,8 @@ read-only DOM/SVG scene copy supplies a thin refracting rim through the optical
 core. Scientific model pixels and export buffers are neither modified nor
 filtered. This is a cross-platform Apple-style implementation, not Apple's
 native Liquid Glass renderer or a complete browser compositor capture.
+
+The button and frame supplement uses an original signed-distance normal /
+Fresnel lighting implementation, a bounded normal cache and the same read-only
+scene. Apple reference screenshots are used for local design comparison only;
+no Apple screenshots, SF font files or proprietary native material are bundled.

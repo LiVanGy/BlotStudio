@@ -7,7 +7,7 @@ const arch=process.argv[3]||process.arch;
 if(!['web','mac','windows'].includes(kind)||!['x64','arm64'].includes(arch))throw Error('Invalid release target');
 const name=`BlotStudio-${kind==='web'?'Web':kind==='mac'?'macOS':'Windows'}-${kind==='web'?'offline':arch}-v${version}`;
 const folder=path.resolve('release',name);await fs.mkdir(folder,{recursive:true});
-for(const file of ['README.md','LICENSE','ImageJ方法与复核.md','整改与测试说明.md','RELEASE-NOTES.md','THIRD-PARTY-NOTICES.md'])await fs.copyFile(file,path.join(folder,file));
+for(const file of ['README.md','LICENSE','ImageJ方法与复核.md','整改与测试说明.md','RELEASE-NOTES.md','THIRD-PARTY-NOTICES.md','design-qa.md'])await fs.copyFile(file,path.join(folder,file));
 await fs.cp('docs',path.join(folder,'docs'),{recursive:true});
 await fs.cp('verification',path.join(folder,'verification'),{recursive:true});
 await fs.mkdir(path.join(folder,'示例说明'),{recursive:true});

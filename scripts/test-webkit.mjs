@@ -13,7 +13,7 @@ try{
   pixel=pixel.replace("document.title='Export '+window.exportTestResults.passed+'/'+logs.length;","document.title='Export '+window.exportTestResults.passed+'/'+logs.length;webkit.messageHandlers.qaResult.postMessage(window.exportTestResults);");
   const build=await fs.readFile('build.mjs','utf8'),order=build.match(/const order=\[([^\]]+)\]/)[1].split(',').map(v=>v.trim().replaceAll("'",'')),parts=[];
   for(const name of order){parts.push(await fs.readFile('src/'+name+'.js','utf8'));if(name==='io')parts.push('BS.db={read:async()=>null,write:async()=>{}};');}
-  let app=(await fs.readFile('index.template.html','utf8')).replace('/*__STYLE__*/',(await fs.readFile('src/styles.css','utf8'))+'\n'+(await fs.readFile('src/glass.css','utf8'))).replace('/*__SCRIPT__*/',parts.join('\n').replaceAll('</script','<\\/script'));
+  let app=(await fs.readFile('index.template.html','utf8')).replace('/*__STYLE__*/',(await fs.readFile('src/styles.css','utf8'))+'\n'+(await fs.readFile('src/glass.css','utf8'))+'\n'+(await fs.readFile('src/button-glass.css','utf8'))).replace('/*__SCRIPT__*/',parts.join('\n').replaceAll('</script','<\\/script'));
   // Synthetic projects are test-only; this helper never enters build.mjs output.
   app=app.replace('<head>','<head><script>addEventListener("error",e=>webkit.messageHandlers.qaResult.postMessage({fatal:e.message,stack:e.error?.stack}));addEventListener("unhandledrejection",e=>webkit.messageHandlers.qaResult.postMessage({fatal:String(e.reason),stack:e.reason?.stack}));</script>');
   // This independent production-only suite has no synthetic-project helper.
@@ -21,12 +21,13 @@ try{
   // JS preference-change listener; the operating system's CSS setting is intact.
   const mediaFixture='<script>window.__bsLiquidMedia=new Map();{const nativeMatchMedia=window.matchMedia.bind(window);window.matchMedia=query=>{if(!window.__bsLiquidMedia.has(query))window.__bsLiquidMedia.set(query,nativeMatchMedia(query));return window.__bsLiquidMedia.get(query);};}</script>';
   const liquid=inject(app.replace('<head>','<head>'+mediaFixture),await fs.readFile('tests/liquid-glass-webkit.js','utf8'));
+  const buttons=inject(app.replace('<head>','<head>'+mediaFixture),await fs.readFile('tests/button-glass-webkit.js','utf8'));
   app=inject(app,await fs.readFile('tests/support/synthetic.js','utf8'));
   app=inject(app,await fs.readFile('tests/app-webkit.js','utf8'));
   const reports=[];
   // Native host exits on 90 s without a progress message, or 300 s total.
   // The shell guard is slightly longer so it cannot kill a healthy late suite.
-  for(const [name,html] of [['pixels',pixel],['app',app],['liquid',liquid]]){const file=path.join(temporary,name+'.html');await fs.writeFile(file,html);const report=JSON.parse(execFileSync(host,[file],{encoding:'utf8',timeout:330000,maxBuffer:5*1024*1024}));reports.push({name,...report});console.log(JSON.stringify({name,...report}));}
+  for(const [name,html] of [['pixels',pixel],['app',app],['liquid',liquid],['buttons',buttons]]){const file=path.join(temporary,name+'.html');await fs.writeFile(file,html);const report=JSON.parse(execFileSync(host,[file],{encoding:'utf8',timeout:330000,maxBuffer:5*1024*1024}));reports.push({name,...report});console.log(JSON.stringify({name,...report}));}
   await fs.mkdir('verification',{recursive:true});await fs.writeFile('verification/webkit-results.json',JSON.stringify(reports,null,2)+'\n');
   if(reports.some(r=>r.fatal||r.passed!==r.total||r.errors?.length))process.exitCode=1;
 }finally{await fs.rm(temporary,{recursive:true,force:true});}

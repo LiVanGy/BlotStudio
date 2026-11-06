@@ -1,21 +1,23 @@
-# BlotStudio 0.8.0
+# BlotStudio 0.9.0
 
 免费、离线、MIT 开源的 Western blot 分析与自由排版工作台。
 
-[下载](https://github.com/LiVanGy/BlotStudio/releases) · [功能对照与验收](docs/FEATURE-PARITY.md)
+[下载](https://github.com/LiVanGy/BlotStudio/releases) · [功能对照与验收](docs/FEATURE-PARITY.md) · [材质复核](design-qa.md)
 
-## 0.8 实时材质与编辑关系修复
+## 0.9 按钮与边框的实时玻璃
 
-以 [Apple HIG Materials](https://developer.apple.com/design/human-interface-guidelines/materials) 和 [WWDC25 Meet Liquid Glass](https://developer.apple.com/videos/play/wwdc2025/219/) 的设计原则为依据：内容优先，导航和操作浮在内容上方；去掉静态蓝色光场、内容区玻璃和厚白边，保持中性色与清晰文字。编辑工具条现在浮于真实画布，支持内容从下方经过。
+对照 Apple 实际 [Done / Share 控件](https://developer.apple.com/design/human-interface-guidelines/color#Liquid-Glass-color) 和 [Landmarks 工具栏](https://developer.apple.com/tutorials/images/com.apple.SwiftUI/Landmarks-Building-an-app-with-Liquid-Glass-4@2x.png) 重做按钮材质，保留已有科研排版与中性内容层。
 
-材质由两层组成：系统 `backdrop-filter` 实时处理背后的真实 DOM；MIT 开源 [@tomagranate/liquid-glass](https://github.com/tomagranate/liquid-glass) 的光学函数让当前应用场景的只读副本在薄镜缘折射。内容、滚动、缩放和编辑触发刷新，指针和按压只控制局部光照；空闲后停止额外绘制。小型操作面自适应背景明暗，大型侧栏和菜单保持稳定的 regular 材质。字体和交互节点保持清晰，分析原图、定量像素和导出缓冲区不进入滤镜。
+- 独立主按钮、图标按钮和选中胶囊具有自己的实时折射镜缘，文字、图标保持独立清晰。
+- 工具条内的控件共享父材质，仅增加清透轮廓与局部光照，避免重复模糊。面板只增加外围光学环，内容区保持清晰。
+- 材质覆盖各工作页的主操作、按钮行、弹窗，以及折叠/滚动后出现的动作；选中胶囊随布局变化对齐。
+- 曲面法线光照随指针变化，按压后恢复；复用当前场景和有界几何缓存，空闲时不持续绘制。
+- 蓝色按钮保持窄青蓝镜缘，标签下方的中心亮度根据真实底色适应。四组明暗和高饱和底色的白字中心对比度检查为 4.68–6.12:1；这不代表整款应用已通过完整无障碍认证。
+- 保持空白启动，不预置测试分组或模拟条带；已有真实项目继续保留。
 
-这是跨平台 Apple 风格实现，未使用 Apple 的专有原生材质。镜缘场景是受控 DOM/SVG 的语义副本，不是浏览器合成器的完整逐像素截图。Mac WebKit 与 Windows WebView2 共用应用代码，支持减少透明度、减少动态效果及增强对比度。
+真实 DOM 背景由系统 `backdrop-filter` 处理；MIT 开源 [@tomagranate/liquid-glass](https://github.com/tomagranate/liquid-glass) 的位移函数处理只读应用场景副本的局部折射。科研内容节点、原始定量数据和导出缓冲区保持独立。本项目按 Apple 的实际控件视觉与交互重构，不是 Apple 原生材质引擎，也不是浏览器私有合成器的完整逐像素截图。支持减少透明度、减少动态效果与增强对比度。
 
-- 修复删除内参/总蛋白后的引用清理和撤销恢复。
-- 复制分析对象时正确关联复制后的内参与总蛋白。
-- 跨项目粘贴携带原始数据，处理来源 ID 冲突，防止误用其他原图；粘贴不携带 ROI/定量关系。
-- 保持零样本、零图像、零对象的空白启动，不预置测试分组或模拟条带；测试助手只在独立临时上下文注入。
+此前修复的内参引用清理、分析面板复制关系和跨项目粘贴来源保护继续保留。
 
 ## 使用
 

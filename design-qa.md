@@ -1,41 +1,58 @@
-# BlotStudio v0.8 Design QA
+# BlotStudio v0.9 控件材质复核
 
 final result: passed
 
-## Comparison target and evidence
+## 目标与参照
 
-The selected direction is Apple's Liquid Glass design language, applied to the existing WB application whose scientific layout is retained. The source is the official [HIG Materials](https://developer.apple.com/design/human-interface-guidelines/materials), [HIG Color](https://developer.apple.com/design/human-interface-guidelines/color) and [Meet Liquid Glass](https://developer.apple.com/videos/play/wwdc2025/219/). These define materials and hierarchy, not a screenshot of the same WB product. This is a design-language comparison, not a claim of pixel-identical Apple UI or the native Apple renderer.
+本轮目标是让实际按钮、选中胶囊和面板边框具有清楚的液态玻璃质感，保留既有科研排版。直接参照 Apple [Done / Share 实际控件](https://developer.apple.com/design/human-interface-guidelines/color#Liquid-Glass-color)、[Landmarks 实际工具栏](https://developer.apple.com/tutorials/images/com.apple.SwiftUI/Landmarks-Building-an-app-with-Liquid-Glass-4@2x.png)以及[自定义玻璃控件示例](https://developer.apple.com/documentation/swiftui/applying-liquid-glass-to-custom-views)。本轮实际打开并观察了这些控件图及官方交互视频，不仅使用材质圆形示意图。
 
-Reference visual truth: `v08-audit/06-apple-regular-glass.png`, captured from Apple's rendered HIG page during this audit. Implementation evidence: `08-after-editor-refined.png`, `09-after-synthetic-figure.png`, `10-after-content-under-glass.png`, `11-after-synthetic-analysis.png`, `13-final-empty-editor-1280.png`, `14-final-empty-800.png`, `15-final-open-sidebar-800.png`. The local proof packet is kept separately; Apple screenshots and synthetic projects are not distributed in release packages.
+Apple 原图为 2×：Landmarks 1574×328 对应 787×164 CSS；Done 290×290 对应 145×145 CSS。当前应用原生 WebKit 捕获为 2×：1000×800 CSS 对应 2000×1600 PNG；局部为 659×179 CSS 对应 1318×358 PNG。应用与原图放在同一比较输入中，并按密度判断边缘宽度。较大的 Done 勾形只用于颜色/镜缘参考，不把它的小字对比标准套到 12px 标签。
 
-Source HIG and main IAB implementation captures are 1280 x 720 pixels at 1280 x 720 CSS viewport, density 1. The two independent macOS WK snapshots are 1600 x 1800 pixels at an actual 800 x 900 CSS viewport, density 2; these were judged at their CSS scale. The IAB viewport override did not take effect and was not counted as an 800-pixel result. The application starts with no seeded images, samples or objects.
+## 本轮证据包
 
-## Full-view and focused comparison
+本地保留的 `v09-glass/` 证据未随发布包分发，Apple 图像不打包：
 
-The official material reference and current application images were opened together in one comparison input. Compared with the previous blue-wallpaper implementation, the content plane is now neutral and opaque, with glass restricted to navigation and functional surfaces. Floating tools sit over the actual canvas, and content was manually scrolled beneath them. No large tinted glass sheet competes with scientific content. Large sidebar and menu materials remain stable; compact controls adapt to the sampled backdrop.
+- 01-current-buttons.png：本轮开始时的实际界面。
+- 02/03/04/05：官方自定义控件、动态示例、Done/Share 与 Landmarks 工具栏的实际捕获。
+- 06-button-frame-first-pass.png：首次按钮镜缘过宽的拒绝稿。
+- 09-thin-glass-final-controls.png、10-primary-glass-detail.png：中期外观及小字风险来源。
+- 11-final-empty-wk-1000.png、12-primary-controls-wk-detail.png：当前生产代码的 2× 空白界面及控件细节。
+- 13-final-empty-wk-800.png：800×900 CSS 的布局、命中与零数据证据；其颜色调整前的图仅作布局证据。
+- 14-real-content-through-controls.png：本轮实际加载明确标注的合成图后，滚动内容经过玻璃按钮镜缘的浏览器画面。
+- 16-final-thin-control-preview.png、17-final-primary-detail.png：浏览器里的薄镜缘与主按钮细节。
 
-Focused inspections used the readable 800-pixel Retina snapshots for inspector text, selection state, toolbar geometry and border weight. The actual analysis screenshot confirms that ROI and table content remain in the clear content plane. The source reference's circular material samples are not the same geometry or content as this application; no false pixel-precision score was assigned.
+## 分步复核
 
-## Findings and comparison history
+1. 工具按钮与主操作：通过。独立 circle / capsule 轮廓、曲面法线反光与实时位移镜缘；标签在清晰前景层。
+2. 面板边界：通过。编辑、设计与分析面板只增加外围光学环，原图、文字内容及科研节点不整体套玻璃。
+3. 交互与当前场景：通过。背景变化更新实际折射源；指针改变光照像素；按压、取消、失焦和减少动态效果均复位；保留上一帧避免重绘闪空。
+4. 跨页面与展开后的操作：通过。分析空白入口、主按钮、按钮行、页头操作和展开后的可滚动控件均有材质；原生 disclosure 展开后可被正常命中。
+5. 布局与生命周期：通过。窗口布局变化后的选中项位置被保留，切换结束后镜缘场景坐标误差为 0；无过滤器泄漏，页面结束释放资源。
+6. 空白交付：通过。默认工厂及独立截图均为零样本、零来源、零对象；浏览器审核项目已恢复为空白并等到本地保存确认后重开。曾在保存前重载的画面未作为空白交付证据。
 
-- Earlier P1: blue static wallpaper, thick white highlights and content-layer glass produced a plastic appearance. Fixed by removing that wallpaper and content filters, using a neutral content plane and thinner functional surfaces. Verified in 08/09/10/11/13.
-- Earlier P1: the material only referenced a static environment image. Fixed with live compositor backdrop sampling and a read-only application scene texture for the refracting rim. The live WebKit suite verifies actual red-to-blue DOM pixel changes, automatic refracting-source changes, tone adaptation and idle cessation; 10 also shows real figure labels passing underneath the toolbar.
-- Earlier P2: inspector active tab retained an old blue underline. Fixed with an explicit border reset. Verified in 08/13/14/15.
-- Earlier P2: inspector empty-state copy inherited low-contrast blue-grey. Fixed with neutral readable secondary text. Verified in 08/13/14/15.
-- No remaining actionable P0/P1/P2 was observed in the reviewed states.
+## 发现、修正与复核历史
 
-## Required fidelity surfaces
+- P1：v0.8 主要是整块工具条的材质，按钮自身缺少可见曲率。已增加独立控件层与局部反射，嵌套控件不重复模糊。
+- P1：首次折射/反射叠加过多，宽灰槽呈现浮雕感。已去掉重复的固定 specular，将反射高光与折射带分开，改为窄镜缘；06 不予接受，11/12 为修正后证据。
+- P2：主按钮宽蓝环在 2× 观看时仍过厚。主按钮折射带与反光进一步收窄，保留平静中心、青蓝细边；最新 11/12 和 16/17 不再使用宽蓝环。
+- P2：小白字在浅色底上对比不足，且背景过渡时会短暂降低对比。只调整标签下方中心亮度，保留镜缘色彩；实际 CSS 合成在白、黑、青、黄四种背景测得 4.68–6.12:1。中心不再做会延迟可读性的颜色渐变。
+- P2：仅初始可见控件有材质会漏掉分析入口和折叠/滚入后的操作。已补齐全局主操作与按钮行，disclosure 可发现新控件；装饰清理仅恢复自己拥有的样式，不覆盖导航布局。
+- 无剩余需要阻断交付的 P0/P1/P2。
 
-- Typography: platform SF / PingFang typography, restrained weights and scale; neutral dark labels and readable secondary text. Dense scientific text and fields remain readable without an optical filter.
-- Spacing and rhythm: existing scientific three-pane layout retained; functional tools float in a bounded editor region. Actual 800 x 900 tests with sidebar hidden and open verify header/toolbar controls stay within viewport, and their center points hit the intended nodes.
-- Color and tokens: neutral greys, a single system-blue primary emphasis, light hairlines and restrained elevation. Compact material brightness has hysteresis; large regular surfaces do not flip appearance.
-- Image quality: scientific source/display layers remain separate from decorative optics. Existing image export pixel tests pass. No source illustration, brand asset or icon was replaced by generated decorative art, and no Apple proprietary assets are bundled.
-- Copy and content: original scientific labels and workflow names retained. Blank start has no test groups or generated bands. Synthetic audit content was loaded only into an isolated local review project and the preview was restored to an empty project.
+## 五项外观检查
 
-## Interaction and verification
+- 字体：保留平台字体、中文层级和现有信息密度；图标/标签不进入装饰滤镜，焦点轮廓继续可见。
+- 间距与形状：保留既有三栏排版；独立操作采用 circle/capsule，密集属性选择保持小圆角。实际 1000/800 CSS 窗口无已观察到的控件裁切、遮挡或命中错误。
+- 颜色与材质：中心安静、镜缘窄，亮暗来自实时场景和曲面光照；不加入固定蓝色壁纸。小字中心亮度与亮镜缘分别控制。
+- 图像：真实 DOM 模糊与只读场景副本分别承担散射与镜缘折射；科学原图、ROI 模型和导出不受装饰层修改。未打包 Apple 截图、字体文件或原生专有材质。
+- 文案：维持已有科研名称和操作标签；界面没有实现细节、测试组别或预置模拟条带。
 
-IAB audit exercised page navigation, project menu, actual project file chooser/open, figure zoom, scroll under the floating toolbar, analysis navigation and empty-project creation. Browser warning/error logs were empty. Independent WebKit suites pass 9 pixel checks, 17 application flows and 10 live-material checks. Functional additions cover denominator delete/undo, duplicated references, cross-project originals, source-ID collision and real keyboard copy/paste/undo/redo. Full Node independent comparisons pass 181 tests.
+## 最终覆盖补证
 
-## Limits and follow-up
+新增 18-analysis-entry-glass.png 已在实际浏览器确认分析空白页的导入入口为独立玻璃主按钮；19-final-v09-preview.png 为当前版本重开后的空白编辑预览，控制台警告/错误为空。新增回归同时确认响应式选中胶囊位置不会被控件发现覆盖，导航过渡结束后镜缘坐标误差为 0。
 
-The rim texture is a controlled read-only DOM/SVG drawing, not a complete pixel-identical compositor capture. Apple-native material is not claimed. Reduced-motion change handling is tested on native MediaQueryList objects in an isolated fixture; system CSS settings were not manually changed. Screenshots do not prove full accessibility compliance. Windows and ARM64 device manual acceptance remains distinct from automated checks and cross-architecture compilation. No P3 refinement is required for this release's acceptance.
+## 检查与边界
+
+完整 Node 独立对照 181 项通过；实际 WebKit 四套检查为像素 9、应用流程 17、实时材质 10、按钮/边框 12，均通过且无错误。交互检查包含当前场景缓存、真实内容变色、光照像素变化、按压清理、滚动边缘、折叠后新控件、响应式布局与定量状态独立。
+
+镜缘场景是受控 DOM/SVG 的只读语义绘制，不是浏览器私有合成器的完整截图。本项目是跨平台重构，不宣称 Apple 原生引擎或逐像素相同。AppKit 原生样例仅做 SDK/编译探测；查看该新样例应用未获 CUA 授权，未启动或观察，编译结果没有计入本轮视觉验收。系统媒体偏好测试使用独立环境的真实 MediaQueryList 事件处理，没有修改用户的 OS 设置。截图/小字检查不等同整款应用的完整无障碍认证。Windows 与 ARM64 设备的人工验收仍区别于构建和自动测试。

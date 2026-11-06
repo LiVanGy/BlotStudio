@@ -96,7 +96,7 @@
   }
   listen(window,'pointermove',event=>{if(reduceMotion.matches)return;lastPointer={x:event.clientX,y:event.clientY};if(!pointerFrame)pointerFrame=requestAnimationFrame(updatePointer);},{passive:true});
   listen(window,'pointerout',event=>{if(event.relatedTarget===null)resetPointer();},{passive:true});listen(window,'blur',resetPointer);listen(document,'visibilitychange',()=>{if(document.hidden)resetPointer();});
-  listen(window,'pointerdown',event=>{if(reduceMotion.matches)return;const host=event.target.closest?.('[data-live-glass-host]');if(host)host.setAttribute('data-glass-pressed','true');},{passive:true,capture:true});
+  listen(window,'pointerdown',event=>{if(reduceMotion.matches)return;const host=event.target.closest?.('[data-live-glass-host]');if(host&&surfaces.some(item=>item.host===host))host.setAttribute('data-glass-pressed','true');},{passive:true,capture:true});
   const release=()=>{for(const item of surfaces)item.host.removeAttribute('data-glass-pressed');};listen(window,'pointerup',release,{passive:true,capture:true});listen(window,'pointercancel',resetPointer,{passive:true,capture:true});
   listen(reduceMotion,'change',()=>{if(reduceMotion.matches)resetPointer();});listen(reduceTransparency,'change',refresh);
   listen(window,'pagehide',()=>{disposed=true;appObserver?.disconnect();stopSource?.();destroy();for(const[target,type,handler,options]of events)target.removeEventListener(type,handler,options);B.liveGlassSource?.destroy();});

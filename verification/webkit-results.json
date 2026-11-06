@@ -67,7 +67,7 @@
         "name": "细胞蛋白.pptx"
       },
       {
-        "bytes": 392437,
+        "bytes": 392429,
         "mime": "application/json",
         "name": "WB 实验项目.wbproj"
       },
@@ -226,8 +226,8 @@
         0,
         255
       ],
-      "sceneElements": 33,
-      "scenePaintMs": 4
+      "sceneElements": 20,
+      "scenePaintMs": 5
     },
     "passed": 10,
     "suite": "real WebKit live liquid glass components",
@@ -274,5 +274,171 @@
       }
     ],
     "total": 10
+  },
+  {
+    "name": "buttons",
+    "errors": [],
+    "observations": {
+      "buttonCount": 17,
+      "defaultLightingSignature": 4100132874,
+      "frameCount": 1,
+      "frameScrollTop": 350,
+      "interactiveLightingSignature": 1348096941,
+      "mediaPreferenceScope": "Native MediaQueryList JS listener under explicit enabled/reduced states; OS CSS preference unchanged",
+      "nativeReducedMotion": false,
+      "primaryLabelContrast": [
+        {
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "composite": [
+            10.20000000000001,
+            116.76000000000002,
+            209.88000000000002
+          ],
+          "fill": [
+            0,
+            111,
+            208,
+            0.96
+          ],
+          "ratio": 4.69,
+          "text": [
+            255,
+            255,
+            255
+          ]
+        },
+        {
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "composite": [
+            0,
+            97.92,
+            183.6
+          ],
+          "fill": [
+            0,
+            136,
+            255,
+            0.72
+          ],
+          "ratio": 6.12,
+          "text": [
+            255,
+            255,
+            255
+          ]
+        },
+        {
+          "background": [
+            0,
+            255,
+            255
+          ],
+          "composite": [
+            0,
+            118.49999999999999,
+            202.22
+          ],
+          "fill": [
+            0,
+            105,
+            197,
+            0.91
+          ],
+          "ratio": 4.7,
+          "text": [
+            255,
+            255,
+            255
+          ]
+        },
+        {
+          "background": [
+            255,
+            255,
+            0
+          ],
+          "composite": [
+            15.300000000000013,
+            119.64,
+            195.51999999999998
+          ],
+          "fill": [
+            0,
+            111,
+            208,
+            0.94
+          ],
+          "ratio": 4.68,
+          "text": [
+            255,
+            255,
+            255
+          ]
+        }
+      ],
+      "settledNavigationAlignment": 0,
+      "standaloneBackdrop": "blur(10px) saturate(1.4)"
+    },
+    "passed": 12,
+    "suite": "real WebKit button and frame material components",
+    "tests": [
+      {
+        "name": "Blank production app has visible control-level and frame-level optics without sample data",
+        "pass": true
+      },
+      {
+        "name": "Nested controls share parent material while independent controls have a single live backdrop",
+        "pass": true
+      },
+      {
+        "name": "Repainting retains the current live scene immediately and releases old button filters",
+        "pass": true
+      },
+      {
+        "name": "Actual backdrop mutation updates each control lens without changing the project",
+        "pass": true
+      },
+      {
+        "name": "Small white primary labels retain contrast while the luminous rim stays separate",
+        "pass": true
+      },
+      {
+        "name": "Physical edge lighting responds locally and restores after blur or reduced motion",
+        "pass": true
+      },
+      {
+        "name": "Press and cancel do not strand either module in an active button state",
+        "pass": true
+      },
+      {
+        "name": "Frame optical ring follows the visible scroll viewport and excludes the content plane",
+        "pass": true
+      },
+      {
+        "name": "Primary entry controls receive glass material across workflow pages",
+        "pass": true
+      },
+      {
+        "name": "Responsive selection geometry survives discovering controls inside a native disclosure",
+        "pass": true
+      },
+      {
+        "name": "Selected navigation lens settles on the same screen coordinates as its capsule",
+        "pass": true
+      },
+      {
+        "name": "Scientific objects remain outside all control and border filters",
+        "pass": true
+      }
+    ],
+    "total": 12
   }
 ]

@@ -43,7 +43,10 @@ final class RendererTestHost: NSObject, WKScriptMessageHandler, WKNavigationDele
         // attach to any existing app session.
         window = NSWindow(contentRect:frame,styleMask:.borderless,backing:.buffered,defer:false)
         window?.contentView = view
-        window?.orderBack(nil)
+        // Keep this owned test surface composited on macOS even when the IDE
+        // fills the screen. Never take keyboard focus or consume user input.
+        window?.ignoresMouseEvents = true
+        window?.orderFrontRegardless()
         view.navigationDelegate = self
         view.loadHTMLString(try String(contentsOfFile:path,encoding:.utf8), baseURL:nil)
     }

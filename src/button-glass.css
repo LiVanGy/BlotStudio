@@ -1,0 +1,22 @@
+/* Live, individual lenses. The quiet centre and narrow illuminated perimeter
+   follow Apple's actual Done / Share / Landmarks control references. */
+button[data-button-glass][data-live-glass-host]{isolation:isolate;overflow:hidden;box-sizing:border-box;border:1px solid rgba(110,120,137,.08);border-radius:999px;background:rgba(255,255,255,.13);box-shadow:0 1px 4px rgba(12,21,38,.045);transition:transform .25s cubic-bezier(.2,.85,.2,1.15),background .2s,box-shadow .2s}
+button[data-button-glass="standalone"][data-live-glass-host]{backdrop-filter:blur(10px) saturate(140%);-webkit-backdrop-filter:blur(10px) saturate(140%);background:rgba(255,255,255,.23);border-color:rgba(255,255,255,.48);box-shadow:0 3px 10px rgba(18,28,46,.065)}
+button[data-button-glass="contour"][data-live-glass-host]{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(255,255,255,.07);border-color:rgba(75,88,105,.12);box-shadow:0 1px 4px rgba(12,21,38,.045)}
+button[data-button-glass][data-live-glass-host].primary{background:rgba(0,var(--button-glass-center-green,108),var(--button-glass-center-blue,224),var(--button-glass-tint-alpha,.96));border-color:rgba(0,113,225,.18);border-radius:999px;color:#fff;font-weight:600;box-shadow:0 3px 10px rgba(0,100,230,.13);transition:transform .25s cubic-bezier(.2,.85,.2,1.15),box-shadow .2s}
+.header-actions>button[data-button-glass],.workspace-empty button[data-button-glass]{border-radius:999px}.header-actions>.primary[data-button-glass],.workspace-empty button[data-button-glass]{padding-left:15px;padding-right:15px}
+.header-actions>.icon-btn[data-button-glass],.sidebar-heading-actions>button[data-button-glass],.view-controls>button[data-button-glass],.modal-heading>.icon-btn[data-button-glass]{border-radius:50%;padding-left:5px;padding-right:5px}
+.module-controls>button[data-button-glass],.layout-primary[data-button-glass]{border-radius:999px}.module-controls>.icon-btn[data-button-glass]{border-radius:50%}
+.inspector-tabs button[data-button-glass]{border-radius:9px}
+.app-header nav>.nav-indicator[data-button-glass]{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.64);box-shadow:0 2px 6px #0000000b}
+[data-button-glass]>.button-glass-optics{opacity:.52;mix-blend-mode:normal}[data-button-glass="contour"]>.button-glass-optics{opacity:.26}[data-button-glass].primary>.button-glass-optics{opacity:.36}
+[data-button-glass]>.button-glass-shading{opacity:1;background:none;transition:none;box-shadow:none}
+button[data-button-glass][data-live-glass-host]:hover{background-color:rgba(255,255,255,.22);box-shadow:0 4px 12px rgba(12,24,40,.09),inset 0 0 0 .5px rgba(255,255,255,.5)}
+button[data-button-glass][data-live-glass-host].primary:hover{background-color:rgba(0,var(--button-glass-center-green,108),var(--button-glass-center-blue,224),var(--button-glass-tint-alpha,.96))}
+[data-button-glass][data-button-pressed]{transform:scale(.96);box-shadow:0 1px 3px rgba(12,24,40,.07),inset 0 0 0 .5px rgba(255,255,255,.6)}
+.nav-indicator[data-button-glass][data-button-pressed]{transform:none}
+[data-glass-frame]{border-color:transparent;box-shadow:0 2px 10px rgba(10,20,40,.035)}
+[data-glass-frame]>.button-glass-optics{opacity:.38}[data-glass-frame]>.button-glass-shading{opacity:.9;background:none;box-shadow:none;transition:none}
+@media(prefers-reduced-transparency:reduce){button[data-button-glass][data-live-glass-host]{background:#f8f8fa;backdrop-filter:none;-webkit-backdrop-filter:none}button.primary,button[data-button-glass][data-live-glass-host].primary{background:#0061d8;color:white}.button-glass-optics,.button-glass-shading{display:none}}
+@media(prefers-reduced-motion:reduce){[data-button-glass]{transition:none}[data-button-glass][data-button-pressed]{transform:none}}
+@media(prefers-contrast:more){button[data-button-glass][data-live-glass-host]{border-color:#777;background:#fafafa;color:#111}button[data-button-glass][data-live-glass-host].primary{background:#0061d8;color:white}[data-button-glass][data-live-glass-host]>.button-glass-optics,[data-button-glass][data-live-glass-host]>.button-glass-shading,[data-glass-frame]>.button-glass-optics,[data-glass-frame]>.button-glass-shading{opacity:.15}[data-glass-frame]{border-color:#777;box-shadow:none}}

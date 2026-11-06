@@ -85,12 +85,12 @@ jobs:
           merge-multiple: true
       - name: Checksums and source archive
         run: |
-          git archive --format=zip --prefix=BlotStudio-source/ HEAD -o release-assets/BlotStudio-source-v0.8.0.zip
+          git archive --format=zip --prefix=BlotStudio-source/ HEAD -o release-assets/BlotStudio-source-v0.9.0.zip
           cd release-assets
           sha256sum *.zip > SHA256SUMS.txt
       - name: Publish verified builds as preview
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag=v0.8.0-preview.${{ github.run_number }}
-          gh release create "$tag" release-assets/* --target "$GITHUB_SHA" --title "BlotStudio v0.8.0 Preview" --prerelease --notes-file RELEASE-NOTES.md
+          tag=v0.9.0-preview.${{ github.run_number }}
+          gh release create "$tag" release-assets/* --target "$GITHUB_SHA" --title "BlotStudio v0.9.0 Preview" --prerelease --notes-file RELEASE-NOTES.md
