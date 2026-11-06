@@ -36,13 +36,14 @@ final class RendererTestHost: NSObject, WKScriptMessageHandler, WKNavigationDele
         config.userContentController.add(self, name: "qaResult")
         let frame = NSRect(x:0,y:0,width:width,height:height)
         view = WKWebView(frame: frame, configuration:config)
-        if snapshotPath != nil {
-            // An owned, non-interactive test window supplies a compositing surface.
-            // It never becomes key and does not attach to any existing app session.
-            window = NSWindow(contentRect:frame,styleMask:.borderless,backing:.buffered,defer:false)
-            window?.contentView = view
-            window?.orderBack(nil)
-        }
+        // SVG filters and their pre-click layout flush need a live compositing
+        // surface on CI as well as during screenshots. A detached WKWebView can
+        // suspend that work even while its script timers keep running.
+        // This owned, non-interactive window never becomes key and does not
+        // attach to any existing app session.
+        window = NSWindow(contentRect:frame,styleMask:.borderless,backing:.buffered,defer:false)
+        window?.contentView = view
+        window?.orderBack(nil)
         view.navigationDelegate = self
         view.loadHTMLString(try String(contentsOfFile:path,encoding:.utf8), baseURL:nil)
     }
@@ -87,6 +88,9 @@ final class RendererTestHost: NSObject, WKScriptMessageHandler, WKNavigationDele
     }
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         fputs("Renderer load failed: \(error)\n",stderr);exit(2)
+    }
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        fputs("Renderer content process terminated\n",stderr);exit(5)
     }
 }
 let app = NSApplication.shared
