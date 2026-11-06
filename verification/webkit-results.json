@@ -52,7 +52,7 @@
         "name": "细胞蛋白.jpg"
       },
       {
-        "bytes": 145609,
+        "bytes": 145606,
         "mime": "application/zip",
         "name": "细胞蛋白.zip"
       },
@@ -67,7 +67,7 @@
         "name": "细胞蛋白.pptx"
       },
       {
-        "bytes": 392434,
+        "bytes": 392437,
         "mime": "application/json",
         "name": "WB 实验项目.wbproj"
       },
@@ -162,9 +162,64 @@
         255,
         255
       ],
+      "checkNavigation": [
+        {
+          "connected": true,
+          "isCurrent": true,
+          "name": "Empty production app supplies a read-only live copy of actual visible DOM"
+        },
+        {
+          "connected": true,
+          "isCurrent": true,
+          "name": "Actual DOM mutation automatically refreshes source pixels and refracting image"
+        },
+        {
+          "connected": true,
+          "isCurrent": true,
+          "name": "Compact tone and busy state follow actual sampled backdrop with hysteresis"
+        },
+        {
+          "connected": true,
+          "isCurrent": true,
+          "name": "Live texture stops repainting after the app becomes idle"
+        },
+        {
+          "connected": true,
+          "isCurrent": true,
+          "name": "Pointer highlight stays local and resets on blur and reduced motion"
+        },
+        {
+          "connected": true,
+          "isCurrent": true,
+          "name": "Press feedback is transient and leaves ordinary actions intact"
+        },
+        {
+          "connected": true,
+          "isCurrent": true,
+          "name": "Long menus remain scrollable while optical decoration stays pinned"
+        },
+        {
+          "connected": true,
+          "isCurrent": true,
+          "name": "Scientific canvas and project state remain independent of optical rendering"
+        },
+        {
+          "connected": true,
+          "isCurrent": true,
+          "name": "Final CSS supplies the intended live backdrop and renderer remains error-free"
+        },
+        {
+          "connected": true,
+          "isCurrent": true,
+          "name": "Page lifecycle releases optical surfaces and stops queued drawing and tracking"
+        }
+      ],
       "idleVersion": 9,
       "mediaPreferenceScope": "Native MediaQueryList change handler; OS CSS preference is unchanged",
       "menuScrollTop": 265,
+      "nativeReducedMotion": false,
+      "navIsCurrent": true,
+      "pointerNavConnected": true,
       "red": [
         255,
         0,
