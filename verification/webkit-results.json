@@ -67,7 +67,7 @@
         "name": "细胞蛋白.pptx"
       },
       {
-        "bytes": 392435,
+        "bytes": 392434,
         "mime": "application/json",
         "name": "WB 实验项目.wbproj"
       },
@@ -77,7 +77,7 @@
         "name": "BlotStudio-topic.xlsx"
       }
     ],
-    "passed": 16,
+    "passed": 17,
     "suite": "real WebKit app components",
     "tests": [
       {
@@ -141,10 +141,83 @@
         "pass": true
       },
       {
+        "name": "Real keyboard copy/paste transfers original pixels across projects and supports undo/redo",
+        "pass": true
+      },
+      {
         "name": "Optical refraction stays isolated from analytical pixels and export nodes",
         "pass": true
       }
     ],
-    "total": 16
+    "total": 17
+  },
+  {
+    "name": "liquid",
+    "errors": [],
+    "observations": {
+      "backdrop": "blur(22px) saturate(1.15)",
+      "blue": [
+        0,
+        0,
+        255,
+        255
+      ],
+      "idleVersion": 9,
+      "mediaPreferenceScope": "Native MediaQueryList change handler; OS CSS preference is unchanged",
+      "menuScrollTop": 265,
+      "red": [
+        255,
+        0,
+        0,
+        255
+      ],
+      "sceneElements": 33,
+      "scenePaintMs": 4
+    },
+    "passed": 10,
+    "suite": "real WebKit live liquid glass components",
+    "tests": [
+      {
+        "name": "Empty production app supplies a read-only live copy of actual visible DOM",
+        "pass": true
+      },
+      {
+        "name": "Actual DOM mutation automatically refreshes source pixels and refracting image",
+        "pass": true
+      },
+      {
+        "name": "Compact tone and busy state follow actual sampled backdrop with hysteresis",
+        "pass": true
+      },
+      {
+        "name": "Live texture stops repainting after the app becomes idle",
+        "pass": true
+      },
+      {
+        "name": "Pointer highlight stays local and resets on blur and reduced motion",
+        "pass": true
+      },
+      {
+        "name": "Press feedback is transient and leaves ordinary actions intact",
+        "pass": true
+      },
+      {
+        "name": "Long menus remain scrollable while optical decoration stays pinned",
+        "pass": true
+      },
+      {
+        "name": "Scientific canvas and project state remain independent of optical rendering",
+        "pass": true
+      },
+      {
+        "name": "Final CSS supplies the intended live backdrop and renderer remains error-free",
+        "pass": true
+      },
+      {
+        "name": "Page lifecycle releases optical surfaces and stops queued drawing and tracking",
+        "pass": true
+      }
+    ],
+    "total": 10
   }
 ]

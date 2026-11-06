@@ -137,6 +137,31 @@
   document.addEventListener('change',ev=>{const el=ev.target;if(el.dataset.scope!=='baseline')return;try{const value=Number(el.value);if(!Number.isFinite(value)||value<0)throw Error('基线必须为非负有限数值。');B.editAnalysis('调整峰图基线',image=>{const r=image.rois.find(r=>r.id===ui().profileRoiId);if(!r)throw Error('请先选择泳道。');r[el.dataset.field]=value;});}catch(error){B.toast(error.message);}});
   const commitStyle=B.commit;B.commit=(label,job,detail='')=>commitStyle(label,(project,group)=>{const before=new Map(group.objects.map(v=>[v.id,{...v}]));job(project,group);const opts=group.layoutOptions||{},styles=['fontFamily','fontSize','fontWeight','italic','fill','script','stroke','strokeWidth','dash','opacity'];for(const [role,enabled] of [['group',opts.syncGroups],['group-line',opts.syncGroups],['protein',opts.syncProtein],['mw',opts.syncMw]]){if(!enabled)continue;const changed=group.objects.find(v=>v.labelRole===role&&before.has(v.id)&&styles.some(key=>v[key]!==before.get(v.id)[key]));if(!changed)continue;for(const target of group.objects.filter(v=>v.labelRole===role&&!v.locked))for(const key of styles)if(changed[key]!==before.get(changed.id)[key])target[key]=changed[key];}},detail);
   const renderDisplay=B.render;let displayGeneration=0;B.render=()=>{renderDisplay();const generation=++displayGeneration,images=g().objects.filter(v=>v.type==='image'&&v.visible!==false),jobs=images.map(image=>{const source=p().sources.find(s=>s.id===image.sourceId);if(!source)return null;const params={grayscale:!!image.grayscale,brightness:B.num(image.brightness,100),contrast:B.num(image.contrast,100),invert:!!image.invert};return B.cachedDisplay(source.url,params)?null:B.displayURL(source.url,params);}).filter(Boolean);if(jobs.length)Promise.all(jobs).then(()=>{if(generation===displayGeneration)B.render();}).catch(error=>B.toast(error.message));};
-  let clipboard=[];
-  document.addEventListener('keydown',ev=>{if(!(ev.metaKey||ev.ctrlKey)||!['c','x','v'].includes(ev.key.toLowerCase())||ev.target.matches('input,textarea,select,[contenteditable="true"]')||ui().tab!=='edit'||ui().modal)return;ev.preventDefault();const key=ev.key.toLowerCase();if(key==='c'||key==='x'){clipboard=JSON.parse(JSON.stringify(g().objects.filter(v=>ui().selected.includes(v.id))));if(key==='x')actions.delete();else B.toast('已复制 '+clipboard.length+' 个对象。');}else if(clipboard.length)B.commit('粘贴对象',(project,group)=>{const ids=new Map(clipboard.map(v=>[v.id,B.uid()])),items=clipboard.map(v=>{const copy=JSON.parse(JSON.stringify(v));copy.id=ids.get(v.id);copy.x+=20;copy.y+=20;if(copy.type==='image'){copy.rois=[];copy.referenceId='';copy.controlId='';copy.totalId='';}if(copy.groupId)copy.groupId='paste'+ids.get(clipboard[0].id)+copy.groupId;return copy;});group.objects.push(...items);ui().selected=items.map(v=>v.id);});});
+  let clipboard=[],clipboardSources=[];
+  const sameOriginal=(a,b)=>{const keys=Object.keys(a).filter(key=>key!=='id');return keys.length===Object.keys(b).filter(key=>key!=='id').length&&keys.every(key=>a[key]===b[key]);};
+  document.addEventListener('keydown',ev=>{
+    if(!(ev.metaKey||ev.ctrlKey)||!['c','x','v'].includes(ev.key.toLowerCase())||ev.target.matches('input,textarea,select,[contenteditable="true"]')||ui().tab!=='edit'||ui().modal)return;
+    ev.preventDefault();const key=ev.key.toLowerCase();
+    if(key==='c'||key==='x'){
+      clipboard=JSON.parse(JSON.stringify(g().objects.filter(v=>ui().selected.includes(v.id))));
+      const sourceIds=new Set(clipboard.filter(v=>v.type==='image').map(v=>v.sourceId));
+      // Original source objects are immutable. Keep them with the clipboard so
+      // switching projects cannot orphan a pasted figure or substitute pixels.
+      clipboardSources=p().sources.filter(source=>sourceIds.has(source.id));
+      if(key==='x')actions.delete();else B.toast('已复制 '+clipboard.length+' 个对象。');
+    }else if(clipboard.length)B.commit('粘贴对象',(project,group)=>{
+      const sourceIds=new Map();
+      for(const source of clipboardSources){
+        let original=project.sources.find(current=>sameOriginal(current,source));
+        if(!original){original=project.sources.some(current=>current.id===source.id)?{...source,id:B.uid()}:source;project.sources.push(original);}
+        sourceIds.set(source.id,original.id);
+      }
+      const ids=new Map(clipboard.map(v=>[v.id,B.uid()])),items=clipboard.map(v=>{
+        const copy=JSON.parse(JSON.stringify(v));copy.id=ids.get(v.id);copy.x+=20;copy.y+=20;
+        if(copy.type==='image'){copy.sourceId=sourceIds.get(v.sourceId)||v.sourceId;copy.rois=[];copy.referenceId='';copy.controlId='';copy.totalId='';}
+        if(copy.groupId)copy.groupId='paste'+ids.get(clipboard[0].id)+copy.groupId;return copy;
+      });
+      group.objects.push(...items);ui().selected=items.map(v=>v.id);
+    });
+  });
 })(globalThis.BS ||= {});

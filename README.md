@@ -1,18 +1,21 @@
-# BlotStudio 0.7.0
+# BlotStudio 0.8.0
 
 免费、离线、MIT 开源的 Western blot 分析与自由排版工作台。
 
 [下载](https://github.com/LiVanGy/BlotStudio/releases) · [功能对照与验收](docs/FEATURE-PARITY.md)
 
-## 0.7 液态玻璃与空白启动
+## 0.8 实时材质与编辑关系修复
 
-集成 MIT 开源 [@tomagranate/liquid-glass](https://github.com/tomagranate/liquid-glass) 的固定版本光学核心。导航、工具条、侧栏、操作面板和浮层使用 SVG 位移折射、边缘色散及高光，环境光场保持页面坐标对齐。字体和交互控件在独立清晰层；原图、ROI、科学画布和导出数据不进入光学滤镜。
+以 [Apple HIG Materials](https://developer.apple.com/design/human-interface-guidelines/materials) 和 [WWDC25 Meet Liquid Glass](https://developer.apple.com/videos/play/wwdc2025/219/) 的设计原则为依据：内容优先，导航和操作浮在内容上方；去掉静态蓝色光场、内容区玻璃和厚白边，保持中性色与清晰文字。编辑工具条现在浮于真实画布，支持内容从下方经过。
 
-- 首次打开为零样本、零图像、零对象的空白项目；不预置测试组别、模拟条带或演示生成器。
-- 新图组需由用户设置分组；可先导入原图，未设计泳道时不生成虚构 ROI。
-- 未编辑的纯旧演示缓存可迁移为空白；混合或用户修改过的项目不会被清除。
-- 模拟项目仅在 tests/support 中，测试时显式注入，不进入应用 HTML 或安装包。
-- 原生 Mac WebKit 与 Windows WebView2 共享相同光学代码；减少透明度的系统偏好仍受尊重。
+材质由两层组成：系统 `backdrop-filter` 实时处理背后的真实 DOM；MIT 开源 [@tomagranate/liquid-glass](https://github.com/tomagranate/liquid-glass) 的光学函数让当前应用场景的只读副本在薄镜缘折射。内容、滚动、缩放和编辑触发刷新，指针和按压只控制局部光照；空闲后停止额外绘制。小型操作面自适应背景明暗，大型侧栏和菜单保持稳定的 regular 材质。字体和交互节点保持清晰，分析原图、定量像素和导出缓冲区不进入滤镜。
+
+这是跨平台 Apple 风格实现，未使用 Apple 的专有原生材质。镜缘场景是受控 DOM/SVG 的语义副本，不是浏览器合成器的完整逐像素截图。Mac WebKit 与 Windows WebView2 共用应用代码，支持减少透明度、减少动态效果及增强对比度。
+
+- 修复删除内参/总蛋白后的引用清理和撤销恢复。
+- 复制分析对象时正确关联复制后的内参与总蛋白。
+- 跨项目粘贴携带原始数据，处理来源 ID 冲突，防止误用其他原图；粘贴不携带 ROI/定量关系。
+- 保持零样本、零图像、零对象的空白启动，不预置测试分组或模拟条带；测试助手只在独立临时上下文注入。
 
 ## 使用
 

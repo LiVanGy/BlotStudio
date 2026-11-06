@@ -10,7 +10,7 @@ const {File}=require('node:buffer');
 // isolated VM. DOM, canvas preview generation and IndexedDB are explicit stubs.
 // They do NOT exercise browser layout, actual Image decoding, OS dialogs or
 // native WebKit callbacks. TIFF numerical decoding uses the real decoder.
-async function harness(){
+async function harness(options={}){
   const handlers={},timers=new Map(),writes=[],messages=[],elements={app:{innerHTML:''},'canvas-content':{innerHTML:''},viewport:{clientWidth:1100,clientHeight:780,scrollLeft:0,scrollTop:0}};
   const preview='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jM1sAAAAASUVORK5CYII=';
   const context={console,TextEncoder,TextDecoder,Uint8Array,Uint16Array,Uint8ClampedArray,DataView,ArrayBuffer,Blob,File,URL,atob,btoa,structuredClone,
@@ -25,6 +25,7 @@ async function harness(){
   const B=sandbox.BS;let saved;
   B.db={read:async()=>saved,write:async p=>{saved=JSON.parse(JSON.stringify(p));writes.push(saved);}};
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/app.js'),'utf8'),sandbox,{filename:'app.js'});await B.ready;
+  if(options.workflow){B.cachedDisplay=()=>true;vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/workflow.js'),'utf8'),sandbox,{filename:'workflow.js'});}
   const uiDefaults=JSON.parse(JSON.stringify(B.state.ui));
   function reset(p=B.blankProject()){
     for(const timer of timers.keys())clearTimeout(timer);timers.clear();writes.length=0;messages.length=0;
@@ -112,6 +113,28 @@ test('thin and tall original image objects and real TIFF import preserve their c
 });
 test('deleting an unlocked reference image clears remaining protein links and retains a valid project',async t=>{
   const h=await harness();t.after(()=>h.dispose());const {B}=h,{p,g,o}=makeImage(B),reference={...JSON.parse(serial(o)),id:B.uid(),name:'reference',protein:'reference',referenceId:'',rois:[]};g.objects.push(reference);o.referenceId=reference.id;h.reset(p);B.state.ui.selected=[reference.id];B.actions.delete();assert.equal(B.getGroup().objects.length,1);assert.equal(B.getGroup().objects[0].referenceId,'');assert.equal(B.validate(B.state.p),B.state.p);
+});
+test('deleting control and total-protein denominators clears all links and undo restores the analytical relationships',async t=>{
+  const h=await harness();t.after(()=>h.dispose());const {B}=h,{p,g,o}=makeImage(B),denominators=['control','total'].map(kind=>({...JSON.parse(serial(o)),id:B.uid(),name:kind,protein:kind,kind,referenceId:'',rois:[]}));
+  g.objects.push(...denominators);Object.assign(o,{referenceId:denominators[0].id,controlId:denominators[0].id,totalId:denominators[1].id});h.reset(p);const source=p.sources[0].pixels;
+  B.state.ui.selected=denominators.map(v=>v.id);B.actions.delete();assert.equal(B.getGroup().objects.length,1);for(const field of ['referenceId','controlId','totalId'])assert.equal(B.getGroup().objects[0][field],'');B.validate(B.state.p);assert.equal(B.state.p.sources[0].pixels,source);
+  B.actions.undo();const restored=B.getGroup().objects[0];assert.equal(restored.controlId,denominators[0].id);assert.equal(restored.totalId,denominators[1].id);assert.equal(B.getGroup().objects.length,3);B.validate(B.state.p);
+});
+test('duplicating a selected analytical panel links the target copy to its copied control and total protein',async t=>{
+  const h=await harness();t.after(()=>h.dispose());const {B}=h,{p,g,o}=makeImage(B),denominators=['control','total'].map(kind=>({...JSON.parse(serial(o)),id:B.uid(),name:kind,protein:kind,kind,referenceId:'',rois:[]}));
+  g.objects.push(...denominators);Object.assign(o,{referenceId:denominators[0].id,controlId:denominators[0].id,totalId:denominators[1].id});h.reset(p);B.state.ui.selected=g.objects.map(v=>v.id);B.actions.duplicate();
+  const copies=B.getGroup().objects.filter(v=>B.state.ui.selected.includes(v.id));assert.equal(copies.length,3);assert.equal(copies[0].referenceId,copies[1].id);assert.equal(copies[0].controlId,copies[1].id);assert.equal(copies[0].totalId,copies[2].id);assert.equal(B.getGroup().objects[0].controlId,denominators[0].id);B.validate(B.state.p);
+  h.reset(p);B.state.ui.selected=[o.id];B.actions.duplicate();const single=B.getGroup().objects.at(-1);assert.equal(single.controlId,denominators[0].id);assert.equal(single.totalId,denominators[1].id,'an unselected existing denominator stays linked');
+});
+const clipboardKey=(h,key)=>h.handlers.keydown({key,ctrlKey:true,metaKey:false,target:{matches:()=>false},preventDefault(){}});
+test('copying an image into another project retains its original source and clears copied quantification',async t=>{
+  const h=await harness({workflow:true});t.after(()=>h.dispose());const {B}=h,{p,o,source}=makeImage(B);h.reset(p);B.state.ui.tab='edit';B.state.ui.selected=[o.id];clipboardKey(h,'c');
+  const destination=B.blankProject();h.reset(destination);B.state.ui.tab='edit';clipboardKey(h,'v');const pasted=B.getGroup().objects[0];assert.ok(pasted,'Image was not pasted');assert.equal(pasted.sourceId,source.id);assert.equal(B.state.p.sources[0].pixels,source.pixels);assert.equal(B.state.p.sources[0].url,source.url);assert.equal(pasted.rois.length,0);assert.equal(pasted.referenceId,'');assert.equal(pasted.controlId,'');assert.equal(pasted.totalId,'');assert.equal(pasted.crop.w,o.crop.w);B.validate(B.state.p);
+  clipboardKey(h,'v');assert.equal(B.state.p.sources.length,1,'repeat paste reuses the captured original');assert.equal(B.getGroup().objects.length,2);B.actions.undo();assert.equal(B.getGroup().objects.length,1);B.actions.undo();assert.equal(B.getGroup().objects.length,0);assert.equal(B.state.p.sources.length,0,'undo removes source added by the paste');
+});
+test('pasting into a project with a colliding source ID retains both originals under distinct IDs',async t=>{
+  const h=await harness({workflow:true});t.after(()=>h.dispose());const {B}=h,{p,o,source}=makeImage(B);h.reset(p);B.state.ui.tab='edit';B.state.ui.selected=[o.id];clipboardKey(h,'c');
+  const target=makeImage(B),other={...target.source,id:source.id,pixels:B.base64(new Uint8Array(source.width*source.height).fill(1))};target.p.sources=[other];target.o.sourceId=other.id;h.reset(target.p);B.state.ui.tab='edit';clipboardKey(h,'v');const pasted=B.getGroup().objects.at(-1);assert.notEqual(pasted.sourceId,source.id);assert.equal(B.state.p.sources.find(v=>v.id===pasted.sourceId).pixels,source.pixels);assert.equal(B.state.p.sources.find(v=>v.id===source.id).pixels,other.pixels);assert.equal(B.state.p.sources.length,2);B.validate(B.state.p);
 });
 test('native save Promise waits for the matching confirmed native callback',async t=>{
   const h=await harness();t.after(()=>h.dispose());const {B}=h;let settled=false;const job=B.saveFile('unsafe/name: WB.png',Uint8Array.of(1,2,3),'image/png').then(result=>{settled=true;return result;});

@@ -20,5 +20,8 @@ Pinned commit: efe48923a08c026b77158f3df0317f83571a038d.
 The full upstream license is in vendor/liquid-glass/LICENSE and in the HTML
 bundle header. The original core source is retained. The browser adaptation
 adds a bounded geometry-map cache without changing the optical equations.
-Only decorative ambient-background copies are filtered; no scientific pixel
-buffers or export content are captured or refracted.
+Native CSS backdrop-filter samples actual live DOM. The application's own
+read-only DOM/SVG scene copy supplies a thin refracting rim through the optical
+core. Scientific model pixels and export buffers are neither modified nor
+filtered. This is a cross-platform Apple-style implementation, not Apple's
+native Liquid Glass renderer or a complete browser compositor capture.

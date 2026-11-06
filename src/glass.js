@@ -28,7 +28,7 @@
   };
   B.header=()=>{
     const stage=ui().tab,names=[['design','实验设计','grid'],['analysis','图片分析','image'],['edit','排版编辑','layers'],['stats','统计结果','chart']];
-    return'<header class="app-header"><div class="brand"><span class="brand-mark">'+B.icon('layers',22)+'</span><div><strong>BlotStudio</strong><span class="brand-caption">研究图像工作台</span></div></div><nav aria-label="WB 工作流程">'+names.map(([id,name,icon])=>'<button data-action="tab" data-id="'+id+'" aria-current="'+(stage===id?'page':'false')+'" class="'+(stage===id?'active':'')+'">'+B.icon(icon,15)+'<span>'+name+'</span></button>').join('')+'</nav><div class="header-actions">'+B.btn('save','保存项目','save','class="save-project"')+B.btn('export','导出','export','class="primary"')+B.ib('project-menu','项目工具','more','aria-haspopup="menu" aria-expanded="'+!!ui().projectTools+'"')+'</div></header>'+B.glassMenu();
+    return'<header class="app-header"><div class="brand"><span class="brand-mark">'+B.icon('layers',22)+'</span><div><strong>BlotStudio</strong><span class="brand-caption">研究图像工作台</span></div></div><nav aria-label="WB 工作流程"><span class="nav-indicator" aria-hidden="true"></span>'+names.map(([id,name,icon])=>'<button data-action="tab" data-id="'+id+'" aria-current="'+(stage===id?'page':'false')+'" class="'+(stage===id?'active':'')+'">'+B.icon(icon,15)+'<span>'+name+'</span></button>').join('')+'</nav><div class="header-actions">'+B.btn('save','保存项目','save','class="save-project"')+B.btn('export','导出','export','class="primary"')+B.ib('project-menu','项目工具','more','aria-haspopup="menu" aria-expanded="'+!!ui().projectTools+'"')+'</div></header>'+B.glassMenu();
   };
   B.toolbar=()=>{
     if(ui().tab!=='edit')return'';
@@ -52,8 +52,12 @@
     const foot=root.querySelector('.sidebar-bottom > span');if(foot)foot.textContent='离线模式';
     return t.innerHTML;
   };
+  // Editing tools float over the actual canvas. Panning content underneath
+  // them gives the material a real, changing backdrop rather than wallpaper.
+  const editorToolbar=B.toolbar;B.toolbar=()=>'';
   const editor=B.editor;B.editor=()=>{
-    const t=parse(editor()),bar=t.content.querySelector('.document-bar');
+    const t=parse(editor()),bar=t.content.querySelector('.document-bar'),root=t.content.querySelector('.editor-center');
+    root.prepend(parse(editorToolbar()).content);
     const controls=document.createElement('div');controls.className='view-controls';controls.innerHTML=B.ib('toggle-sidebar',sidebarHidden()?'显示项目目录':'收起项目目录','sidebar','aria-pressed="'+!sidebarHidden()+'"')+B.ib('toggle-inspector',ui().inspectorHidden?'显示对象属性':'收起对象属性','properties','aria-pressed="'+!ui().inspectorHidden+'"');bar.prepend(controls);if(!B.getGroup().objects.length){const root=t.content.querySelector('.editor-center');root.classList.add('is-empty');const empty=document.createElement('div');empty.className='workspace-empty';empty.innerHTML='<span class="empty-mark">'+B.icon('image',31)+'</span><h1>开始一张新的 WB 图</h1><p>设置实验分组，导入原始图像。<br>你的分析与排版将从这里开始。</p><div class="button-row">'+B.btn('start-design','设置分组','grid','class="primary"')+B.btn('start-import','导入原图','plus')+'</div>';root.append(empty);}return t.innerHTML;
   };
   function fold(key,title,contents,open=false,extra=''){
@@ -95,4 +99,14 @@
   B.actions['glass-close-menu']=()=>{ui().glassMenu=null;ui().projectTools=false;B.render();};
   document.addEventListener('click',event=>{const button=event.target.closest?.('[data-action]');if(!button||['glass-menu','project-menu','glass-close-menu'].includes(button.dataset.action))return;ui().glassMenu=null;ui().projectTools=false;document.querySelectorAll('.glass-popover,.glass-menu-shade').forEach(n=>n.remove());},true);
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&(ui().glassMenu||ui().projectTools)){ui().glassMenu=null;ui().projectTools=false;B.render();}},true);
+  const reduceMotion=matchMedia('(prefers-reduced-motion: reduce)'),render=B.render;
+  B.render=()=>{
+    const old=document.querySelector('.app-header nav button.active')?.getBoundingClientRect();
+    render();
+    const nav=document.querySelector('.app-header nav'),active=nav?.querySelector('button.active'),indicator=nav?.querySelector('.nav-indicator');
+    if(!indicator||!active)return;
+    Object.assign(indicator.style,{left:active.offsetLeft+'px',top:active.offsetTop+'px',width:active.offsetWidth+'px',height:active.offsetHeight+'px'});
+    const current=active.getBoundingClientRect();
+    if(old&&!reduceMotion.matches&&Math.abs(old.left-current.left)>2)indicator.animate([{transform:'translateX('+(old.left-current.left)+'px) scaleX('+(old.width/current.width)+')'},{transform:'translateX(0) scaleX(1)'}],{duration:320,easing:'cubic-bezier(.2,.8,.2,1)',fill:'none'});
+  };
 })(globalThis.BS ||= {});

@@ -15,6 +15,8 @@ Ordinary builds use the committed IIFE and need no package download. The convers
 A documented BlotStudio performance adaptation adds a bounded geometry-map PNG
 cache; upstream optical mathematics are unchanged and fresh filter IDs are retained.
 The UI adapter uses generateDisplacementMap and buildGlassFilter in separate,
-explicitly sized SVG viewports on decorative ambient-background copies. This
-avoids WebKit's HTML-filter coordinate ambiguity. It never filters the
-scientific image/ROI/export layer.
+explicitly sized SVG viewports for a thin rim only. Native CSS backdrop-filter
+samples actual live DOM. A read-only, event-driven app DOM/SVG scene copy gives
+the refracting rim changing content on WebKit and Blink. This is not a complete
+browser compositor capture or Apple's native material. Scientific image/model
+and export buffers stay untouched.
