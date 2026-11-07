@@ -1,6 +1,6 @@
 (function(B) {
   'use strict';
-  B.VERSION = '0.9.0';
+  B.VERSION = '0.9.1';
   B.uid = () => 'b' + (globalThis.crypto?.randomUUID?.() || (Date.now().toString(36) + Math.random().toString(36).slice(2))).replaceAll('-', '');
   B.clamp = (n,a,b) => Math.max(a,Math.min(b,n));
   B.num = (v,f=0) => Number.isFinite(Number(v)) ? Number(v) : f;

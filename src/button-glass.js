@@ -19,7 +19,7 @@
   const luminance=rgb=>rgb.reduce((value,channel,index)=>{const s=channel/255;return value+[.2126,.7152,.0722][index]*(s<=.04045?s/12.92:((s+.055)/1.055)**2.4);},0);
   function tint(item,frame){
     const x=Math.round((item.box.left+item.box.width/2)*frame.canvas.width/innerWidth),y=Math.round((item.box.top+item.box.height/2)*frame.canvas.height/innerHeight);if(x<0||y<0||x>=frame.canvas.width||y>=frame.canvas.height)return null;
-    const sampled=frame.canvas.getContext('2d').getImageData(x,y,1,1).data;let background=Array.from(sampled).slice(0,3);
+    const sampled=frame.canvas.getContext('2d').getImageData(x,y,1,1).data;let background=Array.from(sampled).slice(0,3).map(value=>value*sampled[3]/255+245*(1-sampled[3]/255));
     const parent=item.host.parentElement?.closest('[data-liquid-surface]'),color=parent&&getComputedStyle(parent).backgroundColor.match(/^rgba?\(([^)]+)\)$/);
     if(color){const channels=color[1].split(/[,\s/]+/).filter(Boolean).map(Number),alpha=channels[3]??1;if(channels.length>=3)background=background.map((v,i)=>v*(1-alpha)+channels[i]*alpha);}
     const alpha=.72+.24*luminance(background),contrast=factor=>1.05/(luminance(background.map((v,i)=>v*(1-alpha)+[0,136,255][i]*factor*alpha))+.05);
@@ -67,7 +67,7 @@
     // narrower surface. Do not bake a second broad highlight into the map.
     const id='bs-button-glass-'+(++uid),maskId=id+'-rim',scale=item.frame?15:24,map=LiquidGlassOptics.generateDisplacementMap({width:w,height:h,radius,depth:edge,dpr:item.frame ? .65 : 1.25,specular:0,specularAngle:225});
     const filter=LiquidGlassOptics.buildGlassFilter({id,mapUrl:map,scale,blur:.1,chroma:item.frame?0:.055,specular:0,lens:{x:0,y:0,width:w,height:h}}),pad=16,region={x:-pad,y:-pad,width:w+pad*2,height:h+pad*2};
-    filter.setAttribute('filterUnits','userSpaceOnUse');filter.setAttribute('primitiveUnits','userSpaceOnUse');for(const[k,v]of Object.entries(region))filter.setAttribute(k,v);for(const primitive of filter.children)if(primitive.localName!=='feImage')for(const[k,v]of Object.entries(region))primitive.setAttribute(k,v);
+    B.preserveGlassAlpha?.(filter);filter.setAttribute('filterUnits','userSpaceOnUse');filter.setAttribute('primitiveUnits','userSpaceOnUse');for(const[k,v]of Object.entries(region))filter.setAttribute(k,v);for(const primitive of filter.children)if(primitive.localName!=='feImage')for(const[k,v]of Object.entries(region))primitive.setAttribute(k,v);
     if(item.host.classList.contains('primary'))filter.append(el('feColorMatrix',{in:'lens',type:'matrix',values:'.18 0 0 0 0  0 .35 0 0 .45  0 0 .12 0 .88  0 0 0 1 0',...region}));
     const mask=el('mask',{id:maskId,maskUnits:'userSpaceOnUse',maskContentUnits:'userSpaceOnUse',x:0,y:0,width:w,height:h});mask.append(el('rect',{width:w,height:h,rx:radius,fill:'white'}),el('rect',{x:edge,y:edge,width:Math.max(0,w-edge*2),height:Math.max(0,h-edge*2),rx:Math.max(0,radius-edge),fill:'black'}));
     item.defs.replaceChildren(filter,mask);item.group.setAttribute('filter','url(#'+id+')');item.group.setAttribute('mask','url(#'+maskId+')');item.svg.setAttribute('viewBox','0 0 '+w+' '+h);item.svg.setAttribute('width',w);item.svg.setAttribute('height',h);

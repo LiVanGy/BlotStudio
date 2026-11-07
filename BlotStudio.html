@@ -194,10 +194,29 @@ button[data-button-glass][data-live-glass-host].primary:hover{background-color:r
 @media(prefers-reduced-transparency:reduce){button[data-button-glass][data-live-glass-host]{background:#f8f8fa;backdrop-filter:none;-webkit-backdrop-filter:none}button.primary,button[data-button-glass][data-live-glass-host].primary{background:#0061d8;color:white}.button-glass-optics,.button-glass-shading{display:none}}
 @media(prefers-reduced-motion:reduce){[data-button-glass]{transition:none}[data-button-glass][data-button-pressed]{transform:none}}
 @media(prefers-contrast:more){button[data-button-glass][data-live-glass-host]{border-color:#777;background:#fafafa;color:#111}button[data-button-glass][data-live-glass-host].primary{background:#0061d8;color:white}[data-button-glass][data-live-glass-host]>.button-glass-optics,[data-button-glass][data-live-glass-host]>.button-glass-shading,[data-glass-frame]>.button-glass-optics,[data-glass-frame]>.button-glass-shading{opacity:.15}[data-glass-frame]{border-color:#777;box-shadow:none}}
+
+/* A translucent frosted backdrop. Controls retain a clearer foreground layer;
+   scientific paper and image pixels keep their white. */
+:root{--glass:rgba(250,250,252,.76);--muted:#515155;background:transparent}
+html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{background:transparent;background-image:none}
+#app{background:rgba(235,239,245,.68);backdrop-filter:blur(30px) saturate(115%);-webkit-backdrop-filter:blur(30px) saturate(115%)}
+.document-bar{background:rgba(250,250,252,.76)}
+.content-page,.analysis-page{background:rgba(255,255,255,.8)}
+[data-liquid-surface][data-glass-material="regular"]{background:rgba(250,250,252,.84)}
+.brand{justify-self:start;background:rgba(250,250,252,.84);border-radius:12px;box-shadow:0 0 0 4px rgba(250,250,252,.84);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.workspace-intro{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;width:360px;max-width:100%;padding:24px;border-radius:24px;border:1px solid #ffffff80;background:rgba(250,250,252,.84);box-shadow:0 8px 32px #0000000b}
+.workspace-intro .empty-mark{display:grid;place-items:center;color:#8e8e93;width:56px;height:56px;background:transparent;border:0;box-shadow:none}
+.workspace-intro .empty-mark svg{width:38px;height:38px}
+.workspace-intro p{color:#45454a}
+.statusbar{background:rgba(250,250,252,.76);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:1px solid #ffffff4d}
+.document-bar,.document-bar>span:first-child,.document-bar .check,.field>span,.disclosure-body .field>span,.hint,.analysis-caption,.statusbar,.statusbar .save-status,.statusbar .demo-status,.brand-caption,.experiment-row,.experiment-row>b,.protein-row,.protein-row small,.sidebar-bottom button,.sidebar-bottom span{color:#515155}
+@media(max-width:700px){.workspace-intro{padding:18px;gap:10px;border-radius:20px}}
+@media(prefers-reduced-transparency:reduce){:root,html,body,#app{background:#f5f5f7}.editor-center,.canvas-viewport,#canvas-content{background:#ededf0}.content-page,.analysis-page{background:white}.brand,.workspace-intro,.statusbar,.document-bar{background:#f7f7f9;backdrop-filter:none;-webkit-backdrop-filter:none}}
+@media(prefers-contrast:more){.content-page,.analysis-page,.brand,.workspace-intro,.statusbar,.document-bar{background:#fafafa;color:#111}.workspace-intro{border-color:#777}}
 </style></head>
 <body><div id="app"><div class="boot">正在打开 BlotStudio…</div></div><input id="images-input" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.tif,.tiff" hidden><input id="project-input" type="file" accept=".wbproj,.json" hidden><noscript>需要启用 JavaScript 才能运行本地编辑器。</noscript><script>(function(B) {
   'use strict';
-  B.VERSION = '0.9.0';
+  B.VERSION = '0.9.1';
   B.uid = () => 'b' + (globalThis.crypto?.randomUUID?.() || (Date.now().toString(36) + Math.random().toString(36).slice(2))).replaceAll('-', '');
   B.clamp = (n,a,b) => Math.max(a,Math.min(b,n));
   B.num = (v,f=0) => Number.isFinite(Number(v)) ? Number(v) : f;
@@ -2429,7 +2448,7 @@ global.LiquidGlassOptics={applyGlass,createGlassController,generateDisplacementM
   const editor=B.editor;B.editor=()=>{
     const t=parse(editor()),bar=t.content.querySelector('.document-bar'),root=t.content.querySelector('.editor-center');
     root.prepend(parse(editorToolbar()).content);
-    const controls=document.createElement('div');controls.className='view-controls';controls.innerHTML=B.ib('toggle-sidebar',sidebarHidden()?'显示项目目录':'收起项目目录','sidebar','aria-pressed="'+!sidebarHidden()+'"')+B.ib('toggle-inspector',ui().inspectorHidden?'显示对象属性':'收起对象属性','properties','aria-pressed="'+!ui().inspectorHidden+'"');bar.prepend(controls);if(!B.getGroup().objects.length){const root=t.content.querySelector('.editor-center');root.classList.add('is-empty');const empty=document.createElement('div');empty.className='workspace-empty';empty.innerHTML='<span class="empty-mark">'+B.icon('image',31)+'</span><h1>开始一张新的 WB 图</h1><p>设置实验分组，导入原始图像。<br>你的分析与排版将从这里开始。</p><div class="button-row">'+B.btn('start-design','设置分组','grid','class="primary"')+B.btn('start-import','导入原图','plus')+'</div>';root.append(empty);}return t.innerHTML;
+    const controls=document.createElement('div');controls.className='view-controls';controls.innerHTML=B.ib('toggle-sidebar',sidebarHidden()?'显示项目目录':'收起项目目录','sidebar','aria-pressed="'+!sidebarHidden()+'"')+B.ib('toggle-inspector',ui().inspectorHidden?'显示对象属性':'收起对象属性','properties','aria-pressed="'+!ui().inspectorHidden+'"');bar.prepend(controls);if(!B.getGroup().objects.length){const root=t.content.querySelector('.editor-center');root.classList.add('is-empty');const empty=document.createElement('div');empty.className='workspace-empty';empty.innerHTML='<div class="workspace-intro"><span class="empty-mark">'+B.icon('image',31)+'</span><h1>开始一张新的 WB 图</h1><p>设置实验分组，导入原始图像。<br>你的分析与排版将从这里开始。</p><div class="button-row">'+B.btn('start-design','设置分组','grid','class="primary"')+B.btn('start-import','导入原图','plus')+'</div></div>';root.append(empty);}return t.innerHTML;
   };
   function fold(key,title,contents,open=false,extra=''){
     const expanded=ui().glassFolds?.[key]??open;
@@ -2583,7 +2602,9 @@ global.LiquidGlassOptics={applyGlass,createGlassController,generateDisplacementM
     try{
       // Small, shared texture: no per-frame full-resolution screenshot/encoding.
       const ratio=Math.min(.8,1200/innerWidth),w=Math.max(1,Math.ceil(innerWidth*ratio)),h=Math.max(1,Math.ceil(innerHeight*ratio));canvas.width=w;canvas.height=h;ctx.setTransform(ratio,0,0,ratio,0,0);
-      const background=getComputedStyle(document.body).backgroundColor;ctx.fillStyle=noColor(background)?getComputedStyle(document.documentElement).backgroundColor:background;ctx.fillRect(0,0,innerWidth,innerHeight);
+      // The body is painted by collect(). Seed only the root canvas so a
+      // translucent body is not composited twice into the optical scene.
+      const background=getComputedStyle(document.documentElement).backgroundColor;ctx.fillStyle=noColor(background)?'rgba(0,0,0,0)':background;ctx.fillRect(0,0,innerWidth,innerHeight);
       const commands=collect();state.sourceElements=commands.length;
       for(const draw of commands){await draw();if(mine!==generation)return;}
       const url=canvas.toDataURL('image/png');lastPaint=performance.now();state.version=++version;state.paintMs=Math.round((lastPaint-start)*10)/10;state.lastError=null;
@@ -2618,13 +2639,25 @@ global.LiquidGlassOptics={applyGlass,createGlassController,generateDisplacementM
   // This is an Apple-style web material, not Apple's private native material.
   const NS='http://www.w3.org/2000/svg',surfaces=[],events=[];
   const reduceTransparency=matchMedia('(prefers-reduced-transparency: reduce)'),reduceMotion=matchMedia('(prefers-reduced-motion: reduce)');
-  const selector='.app-header nav,.glass-toolbar,.sidebar,.inspector,.glass-popover,.modal,.zoom-control';
+  const selector='.app-header nav,.glass-toolbar,.sidebar,.inspector,.glass-popover,.modal,.zoom-control,.workspace-intro';
   let serial=0,frame=0,pointerFrame=0,lastRoot=null,lastPointer=null,disposed=false;
   const make=(tag,attrs={})=>{const n=document.createElementNS(NS,tag);for(const[k,v]of Object.entries(attrs))n.setAttribute(k,String(v));return n;};
   const decode=url=>B.loadImage(url).then(img=>img.decode?.()).catch(()=>{});
   const listen=(target,type,handler,options)=>{target.addEventListener(type,handler,options);events.push([target,type,handler,options]);};
   B.liquidOptics={engine:'@tomagranate/liquid-glass',version:'efe48923a08c026b77158f3df0317f83571a038d',count:0,reason:'live-dom-backdrop-and-scene-rim',liveVersion:0};
   B.opticsReady=Promise.resolve();
+  B.preserveGlassAlpha=filter=>{
+    if(filter.hasAttribute('data-bs-alpha-preserved'))return filter;
+    const channels=['dispR','dispG','dispB'].map(name=>filter.querySelector('feColorMatrix[result="'+name+'"]')),merge=filter.querySelector('[result="lens"]'),displacements=filter.querySelectorAll('feDisplacementMap');
+    if(!channels.every(Boolean)||!merge||!displacements.length)return filter;
+    // RGB separation must not add the source alpha three times. Merge opaque
+    // colour channels, then restore the actual displaced coverage exactly once.
+    for(const channel of channels){const values=channel.getAttribute('values').trim().split(/\s+/);values.splice(15,5,'0','0','0','0','1');channel.setAttribute('values',values.join(' '));}
+    displacements[displacements.length-1].setAttribute('result','bs-displaced-coverage');merge.setAttribute('result','bs-lens-colour');
+    merge.after(make('feComposite',{in:'bs-lens-colour',in2:'bs-displaced-coverage',operator:'in',result:'lens'}));
+    filter.setAttribute('data-bs-alpha-preserved','');
+    return filter;
+  };
   const ready=pending=>Promise.all(pending).catch(error=>{B.liquidOptics.lastError=String(error.message||error);});
   function resetPointer(){
     if(pointerFrame)cancelAnimationFrame(pointerFrame);pointerFrame=0;lastPointer=null;
@@ -2653,7 +2686,7 @@ global.LiquidGlassOptics={applyGlass,createGlassController,generateDisplacementM
     const radius=Math.min(item.radius,w/2,h/2),key=[w,h,radius].join(':');if(key===item.key)return null;
     const edge=Math.min(item.compact?10:12,radius*.7),scale=item.compact?12:9,map=LiquidGlassOptics.generateDisplacementMap({width:w,height:h,radius,depth:edge,dpr:.75,specular:.025,specularAngle:135});if(!map)return null;
     const id='bs-live-glass-'+(++serial),maskId=id+'-rim',pad=14,filter=LiquidGlassOptics.buildGlassFilter({id,mapUrl:map,scale,blur:.15,chroma:.025,specular:.025,lens:{x:0,y:0,width:w,height:h}}),region={x:-pad,y:-pad,width:w+2*pad,height:h+2*pad};
-    filter.setAttribute('filterUnits','userSpaceOnUse');filter.setAttribute('primitiveUnits','userSpaceOnUse');for(const[k,v]of Object.entries(region))filter.setAttribute(k,v);for(const primitive of filter.children)if(primitive.localName!=='feImage')for(const[k,v]of Object.entries(region))primitive.setAttribute(k,v);
+    B.preserveGlassAlpha(filter);filter.setAttribute('filterUnits','userSpaceOnUse');filter.setAttribute('primitiveUnits','userSpaceOnUse');for(const[k,v]of Object.entries(region))filter.setAttribute(k,v);for(const primitive of filter.children)if(primitive.localName!=='feImage')for(const[k,v]of Object.entries(region))primitive.setAttribute(k,v);
     const mask=make('mask',{id:maskId,maskUnits:'userSpaceOnUse',maskContentUnits:'userSpaceOnUse',x:0,y:0,width:w,height:h});mask.append(make('rect',{width:w,height:h,rx:radius,fill:'white'}),make('rect',{x:edge,y:edge,width:Math.max(0,w-edge*2),height:Math.max(0,h-edge*2),rx:Math.max(0,radius-edge),fill:'black'}));
     item.defs.replaceChildren(filter,mask);item.scene.setAttribute('filter','url(#'+id+')');item.scene.setAttribute('mask','url(#'+maskId+')');item.svg.setAttribute('viewBox','0 0 '+w+' '+h);item.svg.setAttribute('width',w);item.svg.setAttribute('height',h);item.key=key;item.host.dataset.liquidMapPixels=w+'x'+h;
     return decode(map);
@@ -2666,7 +2699,7 @@ global.LiquidGlassOptics={applyGlass,createGlassController,generateDisplacementM
     const r=item.refraction.getBoundingClientRect(),sx=canvas.width/innerWidth,sy=canvas.height/innerHeight;
     const x=Math.max(0,Math.floor(r.left*sx)),y=Math.max(0,Math.floor(r.top*sy)),w=Math.max(0,Math.min(canvas.width-x,Math.ceil(r.width*sx))),h=Math.max(0,Math.min(canvas.height-y,Math.ceil(r.height*sy)));if(w<1||h<1)return;
     const data=canvas.getContext('2d').getImageData(x,y,w,h).data,step=Math.max(1,Math.floor(Math.sqrt(w*h/96)));let sum=0,squares=0,n=0;
-    for(let row=0;row<h;row+=step)for(let col=0;col<w;col+=step){const at=(row*w+col)*4,luma=(.2126*data[at]+.7152*data[at+1]+.0722*data[at+2])/255;sum+=luma;squares+=luma*luma;n++;}
+    for(let row=0;row<h;row+=step)for(let col=0;col<w;col+=step){const at=(row*w+col)*4,alpha=data[at+3]/255,luma=((.2126*data[at]+.7152*data[at+1]+.0722*data[at+2])*alpha+245*(1-alpha))/255;sum+=luma;squares+=luma*luma;n++;}
     const brightness=sum/n,variance=Math.max(0,squares/n-brightness*brightness),prior=item.host.dataset.glassTone||'light';
     // Separate thresholds prevent flashing near the boundary while scrolling.
     const tone=prior==='dark'?(brightness>.49?'light':'dark'):(brightness<.34?'dark':'light'),busy=item.host.dataset.glassBusy==='true'?variance>.018:variance>.035;
@@ -2736,7 +2769,7 @@ global.LiquidGlassOptics={applyGlass,createGlassController,generateDisplacementM
   const luminance=rgb=>rgb.reduce((value,channel,index)=>{const s=channel/255;return value+[.2126,.7152,.0722][index]*(s<=.04045?s/12.92:((s+.055)/1.055)**2.4);},0);
   function tint(item,frame){
     const x=Math.round((item.box.left+item.box.width/2)*frame.canvas.width/innerWidth),y=Math.round((item.box.top+item.box.height/2)*frame.canvas.height/innerHeight);if(x<0||y<0||x>=frame.canvas.width||y>=frame.canvas.height)return null;
-    const sampled=frame.canvas.getContext('2d').getImageData(x,y,1,1).data;let background=Array.from(sampled).slice(0,3);
+    const sampled=frame.canvas.getContext('2d').getImageData(x,y,1,1).data;let background=Array.from(sampled).slice(0,3).map(value=>value*sampled[3]/255+245*(1-sampled[3]/255));
     const parent=item.host.parentElement?.closest('[data-liquid-surface]'),color=parent&&getComputedStyle(parent).backgroundColor.match(/^rgba?\(([^)]+)\)$/);
     if(color){const channels=color[1].split(/[,\s/]+/).filter(Boolean).map(Number),alpha=channels[3]??1;if(channels.length>=3)background=background.map((v,i)=>v*(1-alpha)+channels[i]*alpha);}
     const alpha=.72+.24*luminance(background),contrast=factor=>1.05/(luminance(background.map((v,i)=>v*(1-alpha)+[0,136,255][i]*factor*alpha))+.05);
@@ -2784,7 +2817,7 @@ global.LiquidGlassOptics={applyGlass,createGlassController,generateDisplacementM
     // narrower surface. Do not bake a second broad highlight into the map.
     const id='bs-button-glass-'+(++uid),maskId=id+'-rim',scale=item.frame?15:24,map=LiquidGlassOptics.generateDisplacementMap({width:w,height:h,radius,depth:edge,dpr:item.frame ? .65 : 1.25,specular:0,specularAngle:225});
     const filter=LiquidGlassOptics.buildGlassFilter({id,mapUrl:map,scale,blur:.1,chroma:item.frame?0:.055,specular:0,lens:{x:0,y:0,width:w,height:h}}),pad=16,region={x:-pad,y:-pad,width:w+pad*2,height:h+pad*2};
-    filter.setAttribute('filterUnits','userSpaceOnUse');filter.setAttribute('primitiveUnits','userSpaceOnUse');for(const[k,v]of Object.entries(region))filter.setAttribute(k,v);for(const primitive of filter.children)if(primitive.localName!=='feImage')for(const[k,v]of Object.entries(region))primitive.setAttribute(k,v);
+    B.preserveGlassAlpha?.(filter);filter.setAttribute('filterUnits','userSpaceOnUse');filter.setAttribute('primitiveUnits','userSpaceOnUse');for(const[k,v]of Object.entries(region))filter.setAttribute(k,v);for(const primitive of filter.children)if(primitive.localName!=='feImage')for(const[k,v]of Object.entries(region))primitive.setAttribute(k,v);
     if(item.host.classList.contains('primary'))filter.append(el('feColorMatrix',{in:'lens',type:'matrix',values:'.18 0 0 0 0  0 .35 0 0 .45  0 0 .12 0 .88  0 0 0 1 0',...region}));
     const mask=el('mask',{id:maskId,maskUnits:'userSpaceOnUse',maskContentUnits:'userSpaceOnUse',x:0,y:0,width:w,height:h});mask.append(el('rect',{width:w,height:h,rx:radius,fill:'white'}),el('rect',{x:edge,y:edge,width:Math.max(0,w-edge*2),height:Math.max(0,h-edge*2),rx:Math.max(0,radius-edge),fill:'black'}));
     item.defs.replaceChildren(filter,mask);item.group.setAttribute('filter','url(#'+id+')');item.group.setAttribute('mask','url(#'+maskId+')');item.svg.setAttribute('viewBox','0 0 '+w+' '+h);item.svg.setAttribute('width',w);item.svg.setAttribute('height',h);

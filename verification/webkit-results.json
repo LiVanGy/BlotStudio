@@ -52,7 +52,7 @@
         "name": "细胞蛋白.jpg"
       },
       {
-        "bytes": 145606,
+        "bytes": 145609,
         "mime": "application/zip",
         "name": "细胞蛋白.zip"
       },
@@ -67,7 +67,7 @@
         "name": "细胞蛋白.pptx"
       },
       {
-        "bytes": 392429,
+        "bytes": 392434,
         "mime": "application/json",
         "name": "WB 实验项目.wbproj"
       },
@@ -166,6 +166,16 @@
         {
           "connected": true,
           "isCurrent": true,
+          "name": "Frosted application gaps retain partial alpha while glass controls stay distinct"
+        },
+        {
+          "connected": true,
+          "isCurrent": true,
+          "name": "Chromatic glass preserves translucent source colour and coverage without grey halos"
+        },
+        {
+          "connected": true,
+          "isCurrent": true,
           "name": "Empty production app supplies a read-only live copy of actual visible DOM"
         },
         {
@@ -214,7 +224,13 @@
           "name": "Page lifecycle releases optical surfaces and stops queued drawing and tracking"
         }
       ],
-      "idleVersion": 9,
+      "frostedGap": [
+        234,
+        239,
+        245,
+        173
+      ],
+      "idleVersion": 10,
       "mediaPreferenceScope": "Native MediaQueryList change handler; OS CSS preference is unchanged",
       "menuScrollTop": 265,
       "nativeReducedMotion": false,
@@ -226,12 +242,26 @@
         0,
         255
       ],
-      "sceneElements": 20,
-      "scenePaintMs": 5
+      "sceneElements": 17,
+      "scenePaintMs": 6,
+      "translucentFilter": [
+        199,
+        159,
+        100,
+        128
+      ]
     },
-    "passed": 10,
+    "passed": 12,
     "suite": "real WebKit live liquid glass components",
     "tests": [
+      {
+        "name": "Frosted application gaps retain partial alpha while glass controls stay distinct",
+        "pass": true
+      },
+      {
+        "name": "Chromatic glass preserves translucent source colour and coverage without grey halos",
+        "pass": true
+      },
       {
         "name": "Empty production app supplies a read-only live copy of actual visible DOM",
         "pass": true
@@ -273,7 +303,7 @@
         "pass": true
       }
     ],
-    "total": 10
+    "total": 12
   },
   {
     "name": "buttons",

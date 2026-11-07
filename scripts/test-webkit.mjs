@@ -13,7 +13,7 @@ try{
   pixel=pixel.replace("document.title='Export '+window.exportTestResults.passed+'/'+logs.length;","document.title='Export '+window.exportTestResults.passed+'/'+logs.length;webkit.messageHandlers.qaResult.postMessage(window.exportTestResults);");
   const build=await fs.readFile('build.mjs','utf8'),order=build.match(/const order=\[([^\]]+)\]/)[1].split(',').map(v=>v.trim().replaceAll("'",'')),parts=[];
   for(const name of order){parts.push(await fs.readFile('src/'+name+'.js','utf8'));if(name==='io')parts.push('BS.db={read:async()=>null,write:async()=>{}};');}
-  let app=(await fs.readFile('index.template.html','utf8')).replace('/*__STYLE__*/',(await fs.readFile('src/styles.css','utf8'))+'\n'+(await fs.readFile('src/glass.css','utf8'))+'\n'+(await fs.readFile('src/button-glass.css','utf8'))).replace('/*__SCRIPT__*/',parts.join('\n').replaceAll('</script','<\\/script'));
+  let app=(await fs.readFile('index.template.html','utf8')).replace('/*__STYLE__*/',(await fs.readFile('src/styles.css','utf8'))+'\n'+(await fs.readFile('src/glass.css','utf8'))+'\n'+(await fs.readFile('src/button-glass.css','utf8'))+'\n'+(await fs.readFile('src/frosted-shell.css','utf8'))).replace('/*__SCRIPT__*/',parts.join('\n').replaceAll('</script','<\\/script'));
   // Synthetic projects are test-only; this helper never enters build.mjs output.
   app=app.replace('<head>','<head><script>addEventListener("error",e=>webkit.messageHandlers.qaResult.postMessage({fatal:e.message,stack:e.error?.stack}));addEventListener("unhandledrejection",e=>webkit.messageHandlers.qaResult.postMessage({fatal:String(e.reason),stack:e.reason?.stack}));</script>');
   // This independent production-only suite has no synthetic-project helper.

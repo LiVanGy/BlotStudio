@@ -1,8 +1,16 @@
-# BlotStudio 0.9.0
+# BlotStudio 0.9.1
 
 免费、离线、MIT 开源的 Western blot 分析与自由排版工作台。
 
 [下载](https://github.com/LiVanGy/BlotStudio/releases) · [功能对照与验收](docs/FEATURE-PARITY.md) · [材质复核](design-qa.md)
+
+## 0.9.1 半透明磨砂背景
+
+整体底色改为浅色半透明磨砂层：应用背景使用 `rgba(235,239,245,.68)`，配置 30px 模糊与 115% 饱和度，工作区去除实色灰底。按钮、面板和欢迎区保留更清晰的玻璃承托层。新项目保持空白，科研画布默认不透明白底，原图、定量像素与导出不随界面材质改变。
+
+修复半透明折射中的 RGB 通道透明度重复叠加，合并颜色后仅恢复一次实际覆盖率，消除灰色槽边；背景放在应用容器而非 body，避免 WebKit 重复叠画底色。现有记录为 181 项逻辑检查和 50 项 WebKit 检查全部通过，详见[材质复核](design-qa.md)。
+
+Mac 已配置公开的 NSVisualEffectView 窗口后方磨砂材质，透明 WKWebView 位于其上；用户桌面后方模糊尚未肉眼验收。清除 WebKit 默认白底使用带可用性检查的 `drawsBackground` 私有 SPI，不支持时保留默认底色。Windows WebView2 的透明像素显示白色宿主，不提供桌面模糊；浏览器材质也限于网页内容。本项目不使用 Apple 原生 Liquid Glass 引擎，不读取应用外桌面截图。
 
 ## 0.9 按钮与边框的实时玻璃
 
@@ -15,7 +23,7 @@
 - 蓝色按钮保持窄青蓝镜缘，标签下方的中心亮度根据真实底色适应。四组明暗和高饱和底色的白字中心对比度检查为 4.68–6.12:1；这不代表整款应用已通过完整无障碍认证。
 - 保持空白启动，不预置测试分组或模拟条带；已有真实项目继续保留。
 
-真实 DOM 背景由系统 `backdrop-filter` 处理；MIT 开源 [@tomagranate/liquid-glass](https://github.com/tomagranate/liquid-glass) 的位移函数处理只读应用场景副本的局部折射。科研内容节点、原始定量数据和导出缓冲区保持独立。本项目按 Apple 的实际控件视觉与交互重构，不是 Apple 原生材质引擎，也不是浏览器私有合成器的完整逐像素截图。支持减少透明度、减少动态效果与增强对比度。
+真实 DOM 背景由浏览器 CSS `backdrop-filter` 处理；MIT 开源 [@tomagranate/liquid-glass](https://github.com/tomagranate/liquid-glass) 的位移函数处理只读应用场景副本的局部折射。科研内容节点、原始定量数据和导出缓冲区保持独立。本项目按 Apple 的实际控件视觉与交互重构，不是 Apple 原生材质引擎，也不是浏览器私有合成器的完整逐像素截图。支持减少透明度、减少动态效果与增强对比度。
 
 此前修复的内参引用清理、分析面板复制关系和跨项目粘贴来源保护继续保留。
 

@@ -36,13 +36,26 @@ final class RendererTestHost: NSObject, WKScriptMessageHandler, WKNavigationDele
         config.userContentController.add(self, name: "qaResult")
         let frame = NSRect(x:0,y:0,width:width,height:height)
         view = WKWebView(frame: frame, configuration:config)
+        view.underPageBackgroundColor = .clear
+        if view.responds(to:NSSelectorFromString("_setDrawsBackground:")) || view.responds(to:NSSelectorFromString("setDrawsBackground:")) { view.setValue(false,forKey:"drawsBackground") }
         // SVG filters and their pre-click layout flush need a live compositing
         // surface on CI as well as during screenshots. A detached WKWebView can
         // suspend that work even while its script timers keep running.
         // This owned, non-interactive window never becomes key and does not
         // attach to any existing app session.
         window = NSWindow(contentRect:frame,styleMask:.borderless,backing:.buffered,defer:false)
-        window?.contentView = view
+        window?.isOpaque = false
+        window?.backgroundColor = .clear
+        let content = NSView(frame:frame)
+        let frost = NSVisualEffectView(frame:content.bounds)
+        frost.material = .underWindowBackground
+        frost.blendingMode = .behindWindow
+        frost.state = .active
+        frost.autoresizingMask = [.width,.height]
+        content.addSubview(frost)
+        view.autoresizingMask = [.width,.height]
+        content.addSubview(view)
+        window?.contentView = content
         // Keep this owned test surface composited on macOS even when the IDE
         // fills the screen. Never take keyboard focus or consume user input.
         window?.ignoresMouseEvents = true
@@ -84,7 +97,14 @@ final class RendererTestHost: NSObject, WKScriptMessageHandler, WKNavigationDele
     private func finish(_ body: Any) {
         idleGeneration += 1
         do {
-            let data = try JSONSerialization.data(withJSONObject:body,options:[.sortedKeys])
+            var result = body
+            if snapshotPath != nil, var payload = body as? [String:Any] {
+                payload["nativeWindowOpaque"] = window?.isOpaque ?? true
+                payload["nativeViewOpaque"] = view.isOpaque
+                payload["nativeWindowBackgroundAlpha"] = window?.backgroundColor.alphaComponent ?? 1
+                result = payload
+            }
+            let data = try JSONSerialization.data(withJSONObject:result,options:[.sortedKeys])
             FileHandle.standardOutput.write(data)
             FileHandle.standardOutput.write(Data("\n".utf8));exit(0)
         } catch { fputs("Result encoding failed\n",stderr);exit(2) }

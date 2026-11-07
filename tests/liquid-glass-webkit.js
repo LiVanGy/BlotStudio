@@ -30,8 +30,18 @@
   await B.ready;B.state.ui.tab='edit';B.render();await deadline(B.opticsReady,'Initial optical frame');
   const original=JSON.stringify(B.state.p),r=navigation().getBoundingClientRect(),marker=document.createElement('div');
   marker.dataset.testGlassBackdrop='';Object.assign(marker.style,{position:'fixed',left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px',background:'rgb(255,0,0)',zIndex:'1'});
-  document.getElementById('app').append(marker);
   const canvas=B.liveGlassSource.canvas,pixel=()=>{const box=marker.getBoundingClientRect();return Array.from(canvas.getContext('2d').getImageData(Math.floor((box.left+box.width*.7)*canvas.width/innerWidth),Math.floor((box.top+box.height*.5)*canvas.height/innerHeight),1,1).data);};
+  await check('Frosted application gaps retain partial alpha while glass controls stay distinct',async()=>{
+    await capture();const gap=Array.from(canvas.getContext('2d').getImageData(1,1,1,1).data);observations.frostedGap=gap;assert(gap[3]>=170&&gap[3]<=176,'Frosted backdrop alpha was flattened or composited twice: '+gap);assert(navigation().dataset.glassTone==='light','Translucent backdrop was incorrectly treated as black');
+    assert(getComputedStyle(document.querySelector('.artboard-wrap')).backgroundColor==='rgb(255, 255, 255)','Scientific paper background changed with the application shell');
+  });
+  await check('Chromatic glass preserves translucent source colour and coverage without grey halos',async()=>{
+    const map=document.createElement('canvas');map.width=map.height=40;const m=map.getContext('2d');m.fillStyle='rgb(128,128,128)';m.fillRect(0,0,40,40);
+    const filter=LiquidGlassOptics.buildGlassFilter({id:'qa-alpha-glass',mapUrl:map.toDataURL(),scale:0,blur:0,chroma:.05,specular:0});B.preserveGlassAlpha(filter);
+    const svg='<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><defs>'+filter.outerHTML+'</defs><rect width="40" height="40" fill="rgb(200,160,100)" fill-opacity=".5" filter="url(#qa-alpha-glass)"/></svg>',image=await deadline(B.loadImage('data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)),'Translucent filter raster');
+    const output=document.createElement('canvas');output.width=output.height=40;const context=output.getContext('2d');context.drawImage(image,0,0);const pixel=Array.from(context.getImageData(20,20,1,1).data);observations.translucentFilter=pixel;assert(pixel.every((value,index)=>Math.abs(value-[200,160,100,128][index])<=2),'Glass changed translucent colour or alpha: '+pixel);
+  });
+  document.getElementById('app').append(marker);
   await check('Empty production app supplies a read-only live copy of actual visible DOM',async()=>{
     assert(B.state.p.sources.length===0&&B.getGroup().samples.length===0&&B.getGroup().objects.length===0,'Production app is not empty');
     assert(typeof B.syntheticProject==='undefined'&&typeof B.testSamples==='undefined'&&typeof B.demoProject==='undefined','Synthetic helper entered isolated production suite');

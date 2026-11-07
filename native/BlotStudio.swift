@@ -54,13 +54,31 @@ import WebKit
         let screen = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 950)
         window = NSWindow(contentRect: NSRect(x:0,y:0,width:min(1440,screen.width-70),height:min(930,screen.height-65)), styleMask:[.titled,.closable,.miniaturizable,.resizable], backing:.buffered, defer:false)
         window.title = "BlotStudio · 免费 WB 工作台"; window.minSize = NSSize(width:800,height:600);window.delegate = self;window.center()
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.titlebarAppearsTransparent = true
         let configuration = WKWebViewConfiguration()
         configuration.userContentController.add(self, name:"saveFile")
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
         configuration.websiteDataStore = .default()
         webView = WKWebView(frame:window.contentView!.bounds,configuration:configuration)
+        webView.underPageBackgroundColor = .clear
+        // WebKit currently has no public macOS switch for the page's default
+        // white fill. Use its visual-only SPI when present; keep a safe fallback.
+        if webView.responds(to:NSSelectorFromString("_setDrawsBackground:")) || webView.responds(to:NSSelectorFromString("setDrawsBackground:")) {
+            webView.setValue(false,forKey:"drawsBackground")
+        }
         webView.uiDelegate = self;webView.navigationDelegate = self
-        webView.autoresizingMask = [.width,.height];window.contentView = webView
+        let content = NSView(frame:window.contentView!.bounds)
+        let frost = NSVisualEffectView(frame:content.bounds)
+        frost.material = .underWindowBackground
+        frost.blendingMode = .behindWindow
+        frost.state = .active
+        frost.autoresizingMask = [.width,.height]
+        content.addSubview(frost)
+        webView.autoresizingMask = [.width,.height]
+        content.addSubview(webView)
+        window.contentView = content
         guard let url = Bundle.main.url(forResource:"BlotStudio",withExtension:"html") else {
             let alert = NSAlert(); alert.messageText = "找不到 BlotStudio 页面"; alert.informativeText = "应用包不完整，请重新解压下载的软件。"; alert.runModal()
             allowTermination = true; NSApplication.shared.terminate(nil); return

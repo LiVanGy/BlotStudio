@@ -93,7 +93,9 @@
     try{
       // Small, shared texture: no per-frame full-resolution screenshot/encoding.
       const ratio=Math.min(.8,1200/innerWidth),w=Math.max(1,Math.ceil(innerWidth*ratio)),h=Math.max(1,Math.ceil(innerHeight*ratio));canvas.width=w;canvas.height=h;ctx.setTransform(ratio,0,0,ratio,0,0);
-      const background=getComputedStyle(document.body).backgroundColor;ctx.fillStyle=noColor(background)?getComputedStyle(document.documentElement).backgroundColor:background;ctx.fillRect(0,0,innerWidth,innerHeight);
+      // The body is painted by collect(). Seed only the root canvas so a
+      // translucent body is not composited twice into the optical scene.
+      const background=getComputedStyle(document.documentElement).backgroundColor;ctx.fillStyle=noColor(background)?'rgba(0,0,0,0)':background;ctx.fillRect(0,0,innerWidth,innerHeight);
       const commands=collect();state.sourceElements=commands.length;
       for(const draw of commands){await draw();if(mine!==generation)return;}
       const url=canvas.toDataURL('image/png');lastPaint=performance.now();state.version=++version;state.paintMs=Math.round((lastPaint-start)*10)/10;state.lastError=null;

@@ -17,7 +17,7 @@ internal static class Program
 internal sealed class MainWindow : Form
 {
     private const string DocumentUrl = "https://blotstudio.local/BlotStudio.html";
-    private readonly WebView2 web = new() { Dock = DockStyle.Fill };
+    private readonly WebView2 web = new() { Dock = DockStyle.Fill, DefaultBackgroundColor = Color.Transparent };
     private bool saving, closing, canClose, ready;
     private string? workspacePath;
 
@@ -27,6 +27,9 @@ internal sealed class MainWindow : Form
         Width = 1440; Height = 930;
         MinimumSize = new Size(800, 600);
         StartPosition = FormStartPosition.CenterScreen;
+        // Transparent web content reveals this host; a normal WinForms window
+        // does not support desktop transparency through WebView2's child HWND.
+        BackColor = Color.White;
         Controls.Add(web);
         Shown += async (_, _) => await InitializeAsync();
         FormClosing += ClosingAsync;
