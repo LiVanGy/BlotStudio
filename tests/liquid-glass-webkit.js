@@ -37,9 +37,19 @@
   });
   await check('Chromatic glass preserves translucent source colour and coverage without grey halos',async()=>{
     const map=document.createElement('canvas');map.width=map.height=40;const m=map.getContext('2d');m.fillStyle='rgb(128,128,128)';m.fillRect(0,0,40,40);
-    const filter=LiquidGlassOptics.buildGlassFilter({id:'qa-alpha-glass',mapUrl:map.toDataURL(),scale:0,blur:0,chroma:.05,specular:0});B.preserveGlassAlpha(filter);
-    const svg='<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><defs>'+filter.outerHTML+'</defs><rect width="40" height="40" fill="rgb(200,160,100)" fill-opacity=".5" filter="url(#qa-alpha-glass)"/></svg>',image=await deadline(B.loadImage('data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)),'Translucent filter raster');
-    const output=document.createElement('canvas');output.width=output.height=40;const context=output.getContext('2d');context.drawImage(image,0,0);const pixel=Array.from(context.getImageData(20,20,1,1).data);observations.translucentFilter=pixel;assert(pixel.every((value,index)=>Math.abs(value-[200,160,100,128][index])<=2),'Glass changed translucent colour or alpha: '+pixel);
+    const raster=async(constantMap,preserve)=>{
+      const id='qa-alpha-'+constantMap+'-'+preserve,filter=LiquidGlassOptics.buildGlassFilter({id,mapUrl:map.toDataURL(),scale:0,blur:0,chroma:.05,specular:0});
+      // A zero-scale map cannot move pixels. Keep this colour/coverage test
+      // independent of nested PNG resource support in SVG-as-image renderers.
+      if(constantMap){const field=document.createElementNS('http://www.w3.org/2000/svg','feFlood');field.setAttribute('flood-color','rgb(128,128,128)');field.setAttribute('result','map');filter.querySelector('feImage').replaceWith(field);}
+      if(preserve)B.preserveGlassAlpha(filter);
+      const svg='<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><defs>'+filter.outerHTML+'</defs><rect width="40" height="40" fill="rgb(200,160,100)" fill-opacity=".5" filter="url(#'+id+')"/></svg>',image=await deadline(B.loadImage('data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)),'Translucent filter raster');await image.decode?.();
+      const output=document.createElement('canvas');output.width=output.height=40;const context=output.getContext('2d');context.drawImage(image,0,0);return Array.from(context.getImageData(20,20,1,1).data);
+    };
+    observations.nestedImageFilter=await raster(false,true);
+    const control=await raster(true,false),pixel=await raster(true,true);observations.unpreservedFilter=control;observations.translucentFilter=pixel;
+    assert(control.some((value,index)=>Math.abs(value-[200,160,100,128][index])>20),'Uncorrected channel merge did not reproduce the alpha regression: '+control);
+    assert(pixel.every((value,index)=>Math.abs(value-[200,160,100,128][index])<=2),'Glass changed translucent colour or alpha: '+pixel);
   });
   document.getElementById('app').append(marker);
   await check('Empty production app supplies a read-only live copy of actual visible DOM',async()=>{

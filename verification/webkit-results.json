@@ -52,7 +52,7 @@
         "name": "细胞蛋白.jpg"
       },
       {
-        "bytes": 145609,
+        "bytes": 145606,
         "mime": "application/zip",
         "name": "细胞蛋白.zip"
       },
@@ -67,7 +67,7 @@
         "name": "细胞蛋白.pptx"
       },
       {
-        "bytes": 392434,
+        "bytes": 392439,
         "mime": "application/json",
         "name": "WB 实验项目.wbproj"
       },
@@ -235,6 +235,12 @@
       "menuScrollTop": 265,
       "nativeReducedMotion": false,
       "navIsCurrent": true,
+      "nestedImageFilter": [
+        199,
+        159,
+        100,
+        128
+      ],
       "pointerNavConnected": true,
       "red": [
         255,
@@ -243,12 +249,18 @@
         255
       ],
       "sceneElements": 17,
-      "scenePaintMs": 6,
+      "scenePaintMs": 5,
       "translucentFilter": [
         199,
         159,
         100,
         128
+      ],
+      "unpreservedFilter": [
+        100,
+        80,
+        50,
+        255
       ]
     },
     "passed": 12,
