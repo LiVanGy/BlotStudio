@@ -2,6 +2,8 @@ name: Test, build and release
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
@@ -73,6 +75,7 @@ jobs:
           name: Windows-${{ matrix.arch }}
           path: release/*.zip
   publish:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: [test, mac, windows]
     runs-on: ubuntu-latest
     permissions:
