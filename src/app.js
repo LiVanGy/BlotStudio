@@ -13,7 +13,20 @@
   B.selectObject=(id,multi=false)=>{const {ui}=B.state,g=B.getGroup(),o=g.objects.find(v=>v.id===id);if(!o)return;let ids=o.groupId&&!multi?g.objects.filter(v=>v.groupId===o.groupId).map(v=>v.id):[id];ui.selected=multi?(ui.selected.includes(id)?ui.selected.filter(v=>!ids.includes(v)):[...new Set([...ui.selected,...ids])]):ids;ui.inspector='object';};
   B.editSelected=(label,fn)=>B.commit(label,(p,g)=>g.objects.filter(o=>B.state.ui.selected.includes(o.id)&&!o.locked).forEach(o=>fn(o,p,g)));
   B.fit=()=>{const v=document.getElementById('viewport'),g=B.getGroup();if(v){B.state.ui.zoom=B.clamp(Math.min((v.clientWidth-86)/g.canvas.width,(v.clientHeight-108)/g.canvas.height),.1,1.5);B.state.ui.scrollX=0;B.state.ui.scrollY=0;B.render();}};
-  B.performUndo=redo=>{const st=B.state,from=redo?st.future:st.past,to=redo?st.past:st.future;if(!from.length)return;to.push(st.p);st.p=from.pop();if(!st.p.groups.some(g=>g.id===st.ui.group))st.ui.group=st.p.groups[0].id;st.ui.selected=[];st.ui.checkedGroups=st.ui.checkedGroups.filter(id=>st.p.groups.some(g=>g.id===id));st.p.activeGroup=st.ui.group;B.validate(st.p);B.persist();B.render();};
+  B.performUndo=redo=>{
+    const st=B.state,from=redo?st.future:st.past,to=redo?st.past:st.future;
+    if(!from.length)return;
+    const previous=st.p;
+    to.push(previous);
+    st.p=from.pop();
+    if(previous.id!==st.p.id)projectEpoch++;
+    if(!st.p.groups.some(g=>g.id===st.ui.group))st.ui.group=st.p.groups[0].id;
+    st.ui.selected=[];
+    st.ui.checkedGroups=st.ui.checkedGroups.filter(id=>st.p.groups.some(g=>g.id===id));
+    st.p=B.validate({...st.p,activeGroup:st.ui.group});
+    B.persist();
+    B.render();
+  };
   B.cloneGroup=(g,name)=>{const out=JSON.parse(JSON.stringify(g)),ids=new Map(g.objects.map(o=>[o.id,B.uid()]));out.id=B.uid();out.name=name||g.name+' 副本';for(const o of out.objects){o.id=ids.get(o.id);o.referenceId=ids.get(o.referenceId)||'';o.controlId=ids.get(o.controlId)||'';o.totalId=ids.get(o.totalId)||'';if(o.groupId)o.groupId='clone'+out.id+o.groupId;for(const r of o.rois||[])r.id=B.uid();}return out;};
   B.importFiles=async files=>{
     const targetProject=B.state.p.id,targetGroup=B.getGroup().id,epoch=projectEpoch,successes=[],errors=[];B.toast('正在解码图像，原图会保留在项目内…');
