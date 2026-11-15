@@ -234,3 +234,24 @@ test('oversized project files are rejected before reading text or replacing the 
   await assert.rejects(()=>B.openProject({size:B.MAX_PROJECT_BYTES+1,text:async()=>{read=true;return serial(p);}}),/项目容量.*新建另一个项目/);
   assert.equal(read,false);assert.equal(serial(B.state.p),before);assert.equal(B.state.past.length,0);
 });
+
+test('pending TIFF import is discarded after undo and redo switch away from its project', async t => {
+  const h = await harness();
+  t.after(() => h.dispose());
+  const {B} = h;
+  B.actions.newproject();
+  B.actions['create-project']();
+  const destination = B.state.p.id;
+  const gate = delayedTIFF();
+  const job = B.importFiles([gate.file]);
+  const rejected = assert.rejects(job, /项目已切换/);
+
+  B.performUndo(false);
+  assert.notEqual(B.state.p.id, destination);
+  B.performUndo(true);
+  assert.equal(B.state.p.id, destination);
+  gate.release();
+
+  await rejected;
+  assert.equal(B.state.p.sources.length, 0);
+});
