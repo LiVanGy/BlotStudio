@@ -110,10 +110,9 @@ try {
   console.log('PASS: normal Windows close saves pending edits and reopening restores the original and layout.');
 } finally {
   if (socket?.readyState === WebSocket.OPEN) socket.close();
-  if (child && child.exitCode === null) {
+  if (child?.pid && child.exitCode === null && child.signalCode === null) {
     const exited = once(child, 'exit');
-    child.kill();
-    await exited;
+    if (child.kill()) await Promise.race([exited, delay(5000)]);
   }
   await rm(profile, {recursive: true, force: true, maxRetries: 10, retryDelay: 250});
 }
