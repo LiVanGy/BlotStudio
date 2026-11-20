@@ -84,6 +84,8 @@ $record = Wait-Dialog 1
 $edit = [IntPtr]::Zero
 foreach ($control in [BlotDialog]::Controls($record.Window)) {
     if ([BlotDialog]::Class($control) -ne 'Edit' -or -not [BlotDialog]::IsWindowVisible($control)) { continue }
+    # Explorer's DirectUI file-name ComboBox has edit ID 1001. The address bar uses 41477.
+    if ([BlotDialog]::GetDlgCtrlID($control) -eq 1001 -and [BlotDialog]::Class([BlotDialog]::GetParent($control)) -eq 'ComboBox') { $edit=$control; break }
     $owner = $control
     while ($owner -ne [IntPtr]::Zero -and $owner -ne $record.Window) {
         if ([BlotDialog]::GetDlgCtrlID($owner) -in @(1148,1152)) { $edit=$control; break }
