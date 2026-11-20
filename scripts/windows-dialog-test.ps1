@@ -71,8 +71,17 @@ function Press-Button($record,[int]$id) {
     $hwnd = [IntPtr]$record.Button.Current.NativeWindowHandle
     Write-Output ("Select {0} in {1}" -f $id,[BlotDialog]::Title($record.Window))
     if ($id -eq 6) {
-        $action = $record.Button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-        $action.Invoke()
+        # Confirm Save As is a TaskDialog with windowless CCPushButton elements.
+        # TDM_CLICK_BUTTON delivers IDYES to the native task-dialog callback.
+        [void][BlotDialog]::PostMessage($record.Window,(0x400 + 102),[IntPtr]6,[IntPtr]::Zero)
+        Start-Sleep -Milliseconds 400
+        if ([BlotDialog]::IsWindowVisible($record.Window)) {
+            [void][BlotDialog]::PostMessage($record.Window,273,[IntPtr]6,$hwnd)
+            Start-Sleep -Milliseconds 400
+        }
+        if ([BlotDialog]::IsWindowVisible($record.Window)) {
+            throw 'The named overwrite confirmation remained open after activating Yes.'
+        }
         return
     }
     if (-not [BlotDialog]::PostMessage($record.Window,273,[IntPtr]$id,$hwnd)) { throw "Cannot activate dialog button $id" }
