@@ -4,6 +4,7 @@ param(
     [string]$TargetPath
 )
 $ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName WindowsBase
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type -ReferencedAssemblies @([System.Windows.Automation.AutomationElement].Assembly.Location, [System.Windows.Automation.AutomationIdentifier].Assembly.Location, [System.Windows.Rect].Assembly.Location) -TypeDefinition @'
