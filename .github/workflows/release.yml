@@ -53,11 +53,15 @@ jobs:
           path: release/*.zip
   windows:
     needs: test
-    runs-on: windows-2022
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        arch: [x64, arm64]
+        include:
+          - arch: x64
+            runner: windows-2022
+          - arch: arm64
+            runner: windows-11-arm
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -69,9 +73,13 @@ jobs:
       - run: npm run build
       - run: node --test tests/windows-save.test.cjs
       - run: dotnet publish native/windows/BlotStudio.csproj -c Release -r win-${{ matrix.arch }} --self-contained true -o dist/windows-${{ matrix.arch }}
-      - name: Check native Windows startup, TIFF import and recovery
-        if: matrix.arch == 'x64'
-        run: node scripts/test-webview2.mjs dist/windows-x64/BlotStudio.exe
+      - name: Verify Windows architecture and run the native application
+        shell: pwsh
+        run: |
+          $architecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
+          if ($architecture -ne '${{ matrix.arch }}') { throw "Unexpected Windows architecture: $architecture" }
+          Write-Host "Running BlotStudio on native Windows $architecture"
+          node scripts/test-webview2.mjs dist/windows-${{ matrix.arch }}/BlotStudio.exe
       - run: node scripts/package-release.mjs windows ${{ matrix.arch }}
       - uses: actions/upload-artifact@v4
         with:
