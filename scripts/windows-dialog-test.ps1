@@ -68,7 +68,9 @@ function Wait-Dialog([int]$ButtonId) {
     throw "Dialog for button $ButtonId unavailable; last observed: $script:seen"
 }
 function Press-Button($record,[int]$id) {
-    $hwnd = [IntPtr]$record.Button.Current.NativeWindowHandle
+    $nativeHandle = $record.Button.Current.NativeWindowHandle
+    $hwnd = [IntPtr]::Zero
+    if ($nativeHandle) { $hwnd = [IntPtr]$nativeHandle }
     Write-Output ("Select {0} in {1}" -f $id,[BlotDialog]::Title($record.Window))
     if ($id -eq 6) {
         # Confirm Save As is a TaskDialog with windowless CCPushButton elements.
@@ -141,6 +143,8 @@ if ($TargetPath -and $Action -in @('open', 'folder')) {
         if (!$selected) { Start-Sleep -Milliseconds 120 }
     } while (!$selected -and [DateTime]::UtcNow -lt $stop)
     if (!$selected) { throw "Shell item unavailable: $leaf; observed: $($lastNames -join ', ')" }
+    # Navigating folders reconstructs the picker buttons.
+    $record = Wait-Dialog 1
 }
 Press-Button $record 1
 if ($Action -eq 'overwrite') {
