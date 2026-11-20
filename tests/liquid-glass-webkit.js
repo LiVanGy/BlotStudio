@@ -11,7 +11,12 @@
     let frame=0,done=false;const finish=(error,value)=>{if(done)return;done=true;clearTimeout(timer);cancelAnimationFrame(frame);error?reject(error):resolve(value);};
     const timer=setTimeout(()=>finish(Error(label+' exceeded 600 ms')),600),poll=()=>{try{const result=predicate();if(result)finish(null,result);else if(!done)frame=requestAnimationFrame(poll);}catch(error){finish(error);}};poll();
   });
-  const twoFrames=()=>deadline(new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))),'Compositing two frames');
+  const twoFrames=async()=>{
+    const start=performance.now();
+    // Hosted GPU scheduling is independent of synchronous pointer dispatch.
+    await deadline(new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))),'Compositing two frames',3000);
+    observations.maxTwoFrameMs=Math.max(observations.maxTwoFrameMs||0,Math.round(performance.now()-start));
+  };
   const capture=()=>deadline(B.liveGlassSource.capture(),'Live scene capture');
   const observeIdle=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const sourceImage=()=>document.querySelector('.lq-refraction svg>g>image');
@@ -91,13 +96,24 @@
   });
   await check('Press feedback is transient and leaves ordinary actions intact',async()=>{
     await withMotionEnabled(async()=>{
-      const button=navigation().querySelector('button');try{
-        button.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0}));assert(navigation().dataset.glassPressed==='true','Press feedback missing');
-        button.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,button:0}));assert(!navigation().hasAttribute('data-glass-pressed'),'Press feedback stuck after release');
+      const oldTab=B.state.ui.tab;
+      const targetTab=oldTab==='analysis'?'edit':'analysis';
+      const button=navigation().querySelector('button[data-action="tab"][data-id="'+targetTab+'"]');
+      assert(button,'Target workflow control missing');
+      try{
+        button.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0}));
+        assert(navigation().dataset.glassPressed==='true','Press feedback missing at dispatch');
+        button.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,button:0}));
+        assert(!navigation().hasAttribute('data-glass-pressed'),'Press feedback stuck at release');
+        button.click();
+        assert(B.state.ui.tab===targetTab,'Released control did not open its workflow');
+        await twoFrames();
+        assert(!navigation().hasAttribute('data-glass-pressed'),'A later paint restored stale press feedback');
       }finally{
-        // Release through the document even if a failed assertion or repaint
-        // detached the original button; no test may leave input latched.
-        const target=button.isConnected?button:document;target.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,button:0}));target.dispatchEvent(new PointerEvent('pointercancel',{bubbles:true,button:0}));await twoFrames();
+        const target=button.isConnected?button:document;
+        target.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,button:0}));
+        target.dispatchEvent(new PointerEvent('pointercancel',{bubbles:true,button:0}));
+        if(B.state.ui.tab!==oldTab)navigation().querySelector('button[data-action="tab"][data-id="'+oldTab+'"]').click();
       }
     });
   });

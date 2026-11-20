@@ -99,11 +99,26 @@ function sdfRoundRect(
 
 
 /** Render the displacement map and return a PNG data URL (or null if no 2D ctx). */
-function generateDisplacementMap(
-  o                        ,
-)                {
-const _blotKey=JSON.stringify([o.width,o.height,o.radius,o.depth,o.dpr,o.specular,o.specularAngle,o.inset]);if(_blotMapCache.has(_blotKey))return _blotMapCache.get(_blotKey);
+function generateDisplacementMap(options) {
+  const key=JSON.stringify([options.width,options.height,options.radius,options.depth,options.dpr,options.specular,options.specularAngle,options.inset]);
+  if(_blotMapCache.has(key))return _blotMapCache.get(key);
+  const canvas=document.createElement('canvas');
+  try {
+    const url=renderDisplacementMap(options,canvas);
+    if(!url||url==='data:,')return null;
+    _blotMapCache.set(key,url);
+    if(_blotMapCache.size>32)_blotMapCache.delete(_blotMapCache.keys().next().value);
+    return url;
+  } catch(error) {
+    if(error instanceof RangeError||['QuotaExceededError','OutOfMemoryError','EncodingError'].includes(error?.name))return null;
+    throw error;
+  } finally {
+    canvas.width=0;
+    canvas.height=0;
+  }
+}
 
+function renderDisplacementMap(o,canvas) {
   const {
     width,
     height,
@@ -117,7 +132,6 @@ const _blotKey=JSON.stringify([o.width,o.height,o.radius,o.depth,o.dpr,o.specula
 
   const w = Math.max(1, Math.round(width * dpr));
   const h = Math.max(1, Math.round(height * dpr));
-  const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d");
@@ -185,7 +199,7 @@ const _blotKey=JSON.stringify([o.width,o.height,o.radius,o.depth,o.dpr,o.specula
   }
 
   ctx.putImageData(img, 0, 0);
-  const _blotURL=canvas.toDataURL("image/png");_blotMapCache.set(_blotKey,_blotURL);if(_blotMapCache.size>32)_blotMapCache.delete(_blotMapCache.keys().next().value);return _blotURL;
+  return canvas.toDataURL("image/png");
 }
 
 /* One shared off-screen <svg> holds every generated <filter>. */

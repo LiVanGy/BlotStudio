@@ -88,6 +88,22 @@
       const error=Math.abs(Number(image.getAttribute('x'))+layer.getBoundingClientRect().left);observations.settledNavigationAlignment=error;assert(error<.5,'Settled capsule retained an old scene coordinate: '+error);
     });assert(JSON.stringify(B.state.p)===original,'Navigation material changed the project');
   });
+  await check('Replaced controls release shading buffers and remain usable without a canvas context',async()=>{
+    const previous=Array.from(document.querySelectorAll('.button-glass-shading'));
+    assert(previous.some(node=>node.width&&node.height),'Fixture has no allocated shading buffers');
+    const getContext=HTMLCanvasElement.prototype.getContext;
+    try{
+      HTMLCanvasElement.prototype.getContext=function(...args){
+        return this.classList.contains('button-glass-shading')?null:getContext.apply(this,args);
+      };
+      B.render();await ready();
+      assert(previous.every(node=>!node.isConnected&&node.width===0&&node.height===0),'Discarded shading kept its backing store');
+      const active=Array.from(document.querySelectorAll('.button-glass-shading'));
+      assert(active.length>0&&active.every(node=>node.width===0&&node.height===0),'Unavailable decorative context retained a buffer');
+      document.querySelector('[data-action="tab"][data-id="design"]').click();
+      assert(B.state.ui.tab==='design','Decorative canvas availability blocked navigation');
+    }finally{HTMLCanvasElement.prototype.getContext=getContext;B.render();await ready();}
+  });
   await check('Scientific objects remain outside all control and border filters',async()=>{
     B.state.ui.tab='edit';B.render();await ready();const figure=document.querySelector('#figure');assert(figure&&!figure.closest('.button-glass-optics,.button-glass-shading'),'Scientific figure is inside optical decoration');assert(getComputedStyle(figure).filter==='none','Scientific figure has an optical filter');assert(JSON.stringify(B.state.p)===original,'Scientific model changed during controls checks');assert(!B.liveGlassDiagnostics.lastError&&!B.liquidOptics.lastError,'Live scene renderer reported an error');
   });

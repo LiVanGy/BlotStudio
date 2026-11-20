@@ -61,7 +61,9 @@ final class RendererTestHost: NSObject, WKScriptMessageHandler, WKNavigationDele
         window?.ignoresMouseEvents = true
         window?.orderFrontRegardless()
         view.navigationDelegate = self
-        view.loadHTMLString(try String(contentsOfFile:path,encoding:.utf8), baseURL:nil)
+        // Match the shipped app's file origin and confine access to this self-contained page.
+        let page = URL(fileURLWithPath:path)
+        view.loadFileURL(page,allowingReadAccessTo:page)
     }
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.name == "qaResult", message.frameInfo.isMainFrame else { return }
@@ -98,10 +100,13 @@ final class RendererTestHost: NSObject, WKScriptMessageHandler, WKNavigationDele
         idleGeneration += 1
         do {
             var result = body
-            if snapshotPath != nil, var payload = body as? [String:Any] {
-                payload["nativeWindowOpaque"] = window?.isOpaque ?? true
-                payload["nativeViewOpaque"] = view.isOpaque
-                payload["nativeWindowBackgroundAlpha"] = window?.backgroundColor.alphaComponent ?? 1
+            if var payload = body as? [String:Any] {
+                if payload["fatal"] != nil { payload["lastProgress"] = lastProgress }
+                if snapshotPath != nil {
+                    payload["nativeWindowOpaque"] = window?.isOpaque ?? true
+                    payload["nativeViewOpaque"] = view.isOpaque
+                    payload["nativeWindowBackgroundAlpha"] = window?.backgroundColor.alphaComponent ?? 1
+                }
                 result = payload
             }
             let data = try JSONSerialization.data(withJSONObject:result,options:[.sortedKeys])

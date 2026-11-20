@@ -20,7 +20,7 @@ async function harness(options={}){
     webkit:{messageHandlers:{saveFile:{postMessage:body=>messages.push(body)}}}
   };
   context.window=context;const sandbox=vm.createContext(context);
-  for(const module of ['core','science','tiff','scene','io','pptx','ui'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../src',module+'.js'),'utf8'),sandbox,{filename:module+'.js'});
+  for(const module of ['core','analysis-engine','science','tiff','scene','io','pptx','ui'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../src',module+'.js'),'utf8'),sandbox,{filename:module+'.js'});
   vm.runInContext(fs.readFileSync(path.join(__dirname,'support/synthetic.js'),'utf8'),sandbox,{filename:'synthetic-fixture.js'});
   const B=sandbox.BS;let saved;
   B.db={read:async()=>saved,write:async p=>{saved=JSON.parse(JSON.stringify(p));writes.push(saved);}};
@@ -233,4 +233,37 @@ test('oversized project files are rejected before reading text or replacing the 
   const h=await harness();t.after(()=>h.dispose());const {B}=h,{p}=makeImage(B);h.reset(p);B.MAX_PROJECT_BYTES=Buffer.byteLength(serial(p),'utf8');let read=false;const before=serial(B.state.p);
   await assert.rejects(()=>B.openProject({size:B.MAX_PROJECT_BYTES+1,text:async()=>{read=true;return serial(p);}}),/项目容量.*新建另一个项目/);
   assert.equal(read,false);assert.equal(serial(B.state.p),before);assert.equal(B.state.past.length,0);
+});
+
+test('pending TIFF import is discarded after undo and redo switch away from its project', async t => {
+  const h = await harness();
+  t.after(() => h.dispose());
+  const {B} = h;
+  B.actions.newproject();
+  B.actions['create-project']();
+  const destination = B.state.p.id;
+  const gate = delayedTIFF();
+  const job = B.importFiles([gate.file]);
+  const rejected = assert.rejects(job, /项目已切换/);
+
+  B.performUndo(false);
+  assert.notEqual(B.state.p.id, destination);
+  B.performUndo(true);
+  assert.equal(B.state.p.id, destination);
+  gate.release();
+
+  await rejected;
+  assert.equal(B.state.p.sources.length, 0);
+});
+test('original downloads distinguish stored original bytes from a legacy display preview', async t=>{
+  const h=await harness();t.after(()=>h.dispose());
+  const {B}=h,{source}=makeImage(B);
+  const preview=B.sourceDownload({...source,name:'旧项目.tiff'});
+  assert.equal(preview.original,false);
+  assert.equal(preview.name,'旧项目-预览.png');
+  assert.equal(preview.mime,'image/png');
+  const original=B.sourceDownload({...source,originalName:'Input / 01.tif',original:'data:image/tiff;base64,AQID'});
+  assert.equal(original.original,true);
+  assert.equal(original.name,'Input _ 01.tif');
+  assert.deepEqual(Array.from(original.bytes),[1,2,3]);
 });

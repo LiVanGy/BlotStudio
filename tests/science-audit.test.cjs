@@ -72,10 +72,43 @@ test('multiple exposures of one sample cannot inflate biological n', () => {
   r[1].include = false;assert.equal(B.statData(r, 'P', 'corrected', 'C', true).groups[0].n, 1);
 });
 test('all invalid observations and invalid metric are reported without synthetic values', () => {
-  const rows = [null, NaN, Infinity, 0, -1].map(corrected => ({ protein: 'P', include: true, group: 'C', corrected }));
+  const rows = [null, NaN, Infinity].map(corrected => ({ protein: 'P', include: true, group: 'C', corrected }));
   assert.match(B.statData(rows, 'P', 'corrected', 'C', true).error, /对照/);
   assert.equal(B.statData(rows, 'P', 'corrected', 'C', false).groups.length, 0);
   assert.match(B.statData(rows, 'P', '__proto__', 'C', false).error, /指标/);
+});
+test('zero and below-background targets retain their signed ratios and count toward biological n', () => {
+  const { p, g, s, target, reference } = setup();
+  s.pixels = B.base64(Uint8Array.from([100, 110, 50, 80, 100, 100]));
+  target.background = reference.background = { x: 4, y: 0, w: 1, h: 1 };
+  target.controlId = target.totalId = reference.id;
+  for (const sample of g.samples) sample.group = 'treated';
+  const measured = B.records(p, g).filter(r => r.objectId === target.id);
+  assert.deepEqual(measured.map(r => r.corrected), [0, -10]);
+  for (const metric of ['ratio', 'controlRatio', 'totalRatio']) {
+    assert.deepEqual(measured.map(r => r[metric]), [0, -0.5]);
+    const d = B.statData(measured, 'target', metric, 'treated', false);
+    assert.equal(d.groups[0].n, 2);
+    assert.equal(d.groups[0].mean, -0.25);
+  }
+  reference.rois[0].x = 4;
+  reference.rois[1].x = 1;
+  const invalid = B.records(p, g).filter(r => r.objectId === target.id);
+  assert.ok(invalid.every(r => r.ratio === null && /分母/.test(r.issue)));
+  assert.equal(B.statData(invalid, 'target', 'corrected', 'treated', false).groups[0].n, 2);
+});
+test('control normalization uses every finite included value and requires a positive control mean', () => {
+  const records = [0, -2, 8, 4, null, NaN, Infinity].map((corrected, index) =>
+    ({ protein: 'P', sampleId: 'S' + index, include: true, group: index < 3 ? 'control' : 'treated', corrected }));
+  const d = B.statData(records, 'P', 'corrected', 'control', true);
+  assert.equal(d.base, 2);
+  assert.deepEqual(d.rows.map(r => r.value), [0, -1, 4, 2]);
+  assert.deepEqual(d.groups.map(g => g.n), [3, 1]);
+  assert.equal(B.statData(records, 'P', 'corrected', 'control', false).groups[0].mean, 2);
+  for (const value of [2, 1]) {
+    records[2].corrected = value;
+    assert.match(B.statData(records, 'P', 'corrected', 'control', true).error, /均值必须大于 0/);
+  }
 });
 test('Holm correction identifies comparisons by index, including repeated group labels', () => {
   const r = B.holm([{ group: 'same label', p: .001 }, { group: 'same label', p: .4 }, { group: 'invalid', p: -1 }]);

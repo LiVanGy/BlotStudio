@@ -91,7 +91,7 @@
         if(o.type==='image'){
           const s=sources.get(o.sourceId);if(!s)throw Error('图像来源缺失。');if(o.analysis){if(!B.validateAnalysis)throw Error('缺少灰度方法模块。');B.validateAnalysis(o.analysis);}for(const field of ['controlId','totalId'])if(o[field]&&(o[field]===o.id||!imageIds.has(o[field])))throw Error('内参或总蛋白对应关系无效。');B.assertRect(s,o.crop,'裁剪范围');
           if(!Array.isArray(o.rois)||o.rois.length>g.samples.length||new Set(o.rois.map(r=>r?.id)).size!==o.rois.length||new Set(o.rois.map(r=>r?.sampleIndex)).size!==o.rois.length)throw Error('ROI 参数无效或同一泳道有重复 ROI。');
-          for(const r of o.rois){if(!r||!id(r.id)||!Number.isInteger(r.sampleIndex)||r.sampleIndex<0||r.sampleIndex>=g.samples.length)throw Error('ROI 样本对应关系无效。');B.assertRect(s,r,'条带 ROI');if(r.shape&&!['rect','ellipse','profile'].includes(r.shape))throw Error('ROI 形状无效。');for(const f of ['baselineStart','baselineEnd'])if(r[f]!==undefined&&(!Number.isFinite(r[f])||r[f]<0))throw Error('峰图基线无效。');}
+          for(const r of o.rois){if(!r||!id(r.id)||!Number.isInteger(r.sampleIndex)||r.sampleIndex<0||r.sampleIndex>=g.samples.length)throw Error('ROI 样本对应关系无效。');B.assertRect(s,r,'条带 ROI');if(r.shape&&!['rect','ellipse','profile'].includes(r.shape))throw Error('ROI 形状无效。');for(const f of ['baselineStart','baselineEnd'])if(r[f]!==undefined&&!Number.isFinite(r[f]))throw Error('峰图基线无效。');}
           if(o.background)B.assertRect(s,o.background,'背景 ROI');
           if(o.referenceId&&(o.referenceId===o.id||!imageIds.has(o.referenceId)))throw Error('参照蛋白缺失或不能引用自身。');
           for(const key of ['brightness','contrast'])if(!Number.isFinite(o[key])||o[key]<0||o[key]>200)throw Error('图像显示参数无效。');
@@ -110,6 +110,63 @@
     B.assertProjectSize(p);
     return p;
   };
-  B.bounds = objects => {if(!objects.length)return {x:0,y:0,w:0,h:0};let x=Math.min(...objects.map(o=>o.x)),y=Math.min(...objects.map(o=>o.y));return{x,y,w:Math.max(...objects.map(o=>o.x+o.w))-x,h:Math.max(...objects.map(o=>o.y+o.h))-y};};
-  B.alignObjects=(objects,mode)=>{const b=B.bounds(objects),axis=mode==='distributeY'?'y':'x',dim=axis==='x'?'w':'h';if(mode.startsWith('distribute')){if(objects.length<3)return;const a=objects.slice().sort((a,b)=>a[axis]-b[axis]),gap=(b[dim]-a.reduce((s,o)=>s+o[dim],0))/(a.length-1);let n=b[axis];for(const o of a){o[axis]=n;n+=o[dim]+gap;}return;}for(const o of objects){if(mode==='left')o.x=b.x;if(mode==='center')o.x=b.x+(b.w-o.w)/2;if(mode==='right')o.x=b.x+b.w-o.w;if(mode==='top')o.y=b.y;if(mode==='middle')o.y=b.y+(b.h-o.h)/2;if(mode==='bottom')o.y=b.y+b.h-o.h;if(mode==='width')o.w=objects[0].w;if(mode==='height')o.h=objects[0].h;}};
+  B.objectBounds=o=>{
+    const radians=(o.rotation||0)*Math.PI/180;
+    const cos=Math.abs(Math.cos(radians)),sin=Math.abs(Math.sin(radians));
+    const w=o.w*cos+o.h*sin,h=o.w*sin+o.h*cos;
+    return {x:o.x+(o.w-w)/2,y:o.y+(o.h-h)/2,w,h};
+  };
+  B.bounds=objects=>{
+    if(!objects.length)return {x:0,y:0,w:0,h:0};
+    const boxes=objects.map(B.objectBounds);
+    const x=Math.min(...boxes.map(b=>b.x)),y=Math.min(...boxes.map(b=>b.y));
+    return {x,y,w:Math.max(...boxes.map(b=>b.x+b.w))-x,h:Math.max(...boxes.map(b=>b.y+b.h))-y};
+  };
+  B.alignObjects=(objects,mode)=>{
+    if(!objects.length)return;
+    if(mode==='width'||mode==='height'){
+      const dimension=mode==='width'?'w':'h';
+      for(const o of objects)o[dimension]=objects[0][dimension];
+      return;
+    }
+    const bounds=B.bounds(objects);
+    const entries=objects.map(object=>({object,box:B.objectBounds(object)}));
+    if(mode.startsWith('distribute')){
+      if(entries.length<3)return;
+      const axis=mode==='distributeY'?'y':'x',size=axis==='x'?'w':'h';
+      entries.sort((a,b)=>a.box[axis]-b.box[axis]);
+      const gap=(bounds[size]-entries.reduce((sum,{box})=>sum+box[size],0))/(entries.length-1);
+      let edge=bounds[axis];
+      for(const {object,box} of entries){
+        object[axis]+=edge-box[axis];
+        edge+=box[size]+gap;
+      }
+      return;
+    }
+    const horizontal=['left','center','right'].indexOf(mode);
+    const vertical=['top','middle','bottom'].indexOf(mode);
+    if(horizontal<0&&vertical<0)return;
+    const axis=horizontal>=0?'x':'y',size=horizontal>=0?'w':'h';
+    const fraction=Math.max(horizontal,vertical)/2;
+    for(const {object,box} of entries)object[axis]+=bounds[axis]-box[axis]+(bounds[size]-box[size])*fraction;
+  };
+  // Resize in the object's local axes, anchoring the opposite edge or corner.
+  B.resizeFrame=(frame,handle,dx,dy,keepRatio)=>{
+    const horizontal=handle.includes('w')?-1:handle.includes('e')?1:0;
+    const vertical=handle.includes('n')?-1:handle.includes('s')?1:0;
+    const radians=(frame.rotation||0)*Math.PI/180,cos=Math.cos(radians),sin=Math.sin(radians);
+    const localX=dx*cos+dy*sin,localY=-dx*sin+dy*cos;
+    let w=Math.max(Math.min(2,frame.w),frame.w+horizontal*localX);
+    let h=Math.max(Math.min(2,frame.h),frame.h+vertical*localY);
+    if(keepRatio){
+      const scaleX=w/frame.w,scaleY=h/frame.h;
+      const useX=horizontal!==0&&(vertical===0||Math.abs(scaleX-1)>=Math.abs(scaleY-1));
+      const scale=Math.max(useX?scaleX:scaleY,Math.min(1,2/Math.max(frame.w,frame.h)));
+      w=frame.w*scale;
+      h=frame.h*scale;
+    }
+    const shiftX=horizontal*(w-frame.w)/2,shiftY=vertical*(h-frame.h)/2;
+    return {x:frame.x+(frame.w-w)/2+cos*shiftX-sin*shiftY,
+      y:frame.y+(frame.h-h)/2+sin*shiftX+cos*shiftY,w,h};
+  };
 })(globalThis.BS ||= {});

@@ -39,13 +39,40 @@
     return out;
   };
   B.analysisPixels=(source,settings)=>{
-    const a=B.validateAnalysis(settings),key=JSON.stringify(a),existing=cache.get(source);if(existing?.key===key)return existing;
-    const native=B.pixels(source);let values=Float64Array.from(native),depth=source.bitDepth;
+    const a=B.validateAnalysis(settings),key=JSON.stringify(a),existing=cache.get(source),native=B.pixels(source);
+    if(existing?.key===key&&existing.native===native&&existing.rgbPayload===source.rgbPixels&&existing.sourceInfo===source.info)return existing;
+    let values=Float64Array.from(native),depth=source.bitDepth,range8=null;
     if(a.rgb==='mean'&&!source.rgbPixels&&/RGB/i.test(source.info||''))throw Error('旧彩色图像未保存原始 RGB 通道；请重新上传原图后使用 ImageJ 等权平均。');
     if(a.rgb==='mean'&&source.rgbPixels){const rgb=B.unbase64(source.rgbPixels);if(rgb.length!==native.length*3)throw Error('原始 RGB 像素损坏。');values=Float64Array.from(native,(_,i)=>Math.floor((rgb[i*3]+rgb[i*3+1]+rgb[i*3+2])/3+.5));}
-    if(a.convert8&&depth===16){let lo=Infinity,hi=-Infinity;for(const v of values){lo=Math.min(lo,v);hi=Math.max(hi,v);}const scale=hi>lo?256/(hi-lo+1):0;values=Float64Array.from(values,v=>B.clamp(Math.floor((v-lo)*scale+.5),0,255));depth=8;}
-    if(a.rotation){const radians=a.rotation*Math.PI/180,cos=Math.cos(radians),sin=Math.sin(radians),cx=(source.width-1)/2,cy=(source.height-1)/2,original=values,fill=a.polarity==='light'?0:2**depth-1;values=new Float64Array(original.length);for(let y=0;y<source.height;y++)for(let x=0;x<source.width;x++){const sx=cos*(x-cx)+sin*(y-cy)+cx,sy=-sin*(x-cx)+cos*(y-cy)+cy;if(sx<0||sy<0||sx>source.width-1||sy>source.height-1){values[y*source.width+x]=fill;continue;}const xx=Math.floor(sx),yy=Math.floor(sy),x1=Math.min(source.width-1,xx+1),y1=Math.min(source.height-1,yy+1),fx=sx-xx,fy=sy-yy;values[y*source.width+x]=Math.round((1-fy)*((1-fx)*original[yy*source.width+xx]+fx*original[yy*source.width+x1])+fy*((1-fx)*original[y1*source.width+xx]+fx*original[y1*source.width+x1]));}}
-    const result={key,values,depth,max:2**depth-1};cache.set(source,result);return result;
+    if(a.convert8&&depth===16){let lo=Infinity,hi=-Infinity;for(const v of values){lo=Math.min(lo,v);hi=Math.max(hi,v);}range8=[lo,hi];const scale=hi>lo?256/(hi-lo+1):0;values=Float64Array.from(values,v=>B.clamp(Math.floor((v-lo)*scale+.5),0,255));depth=8;}
+    let rotatedClipping=null;
+    if(a.rotation){
+      const angle=a.rotation*Math.PI/180,quarterTurn=a.rotation%90===0;
+      const cos=quarterTurn?Math.round(Math.cos(angle)):Math.cos(angle);
+      const sin=quarterTurn?Math.round(Math.sin(angle)):Math.sin(angle);
+      const {width,height}=source,cx=(width-1)/2,cy=(height-1)/2;
+      const original=values,fill=a.polarity==='light'?0:2**depth-1;
+      const nativeMax=2**source.bitDepth-1;
+      const clipped=i=>native[i]===0||native[i]===nativeMax;
+      if(native.some(v=>v===0||v===nativeMax))rotatedClipping=new Uint8Array(original.length);
+      values=new Float64Array(original.length);
+      for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+        const sx=cos*(x-cx)+sin*(y-cy)+cx,sy=-sin*(x-cx)+cos*(y-cy)+cy;
+        const i=y*width+x;
+        if(sx<0||sy<0||sx>width-1||sy>height-1){values[i]=fill;continue;}
+        const left=Math.floor(sx),top=Math.floor(sy),right=Math.min(width-1,left+1),bottom=Math.min(height-1,top+1);
+        const tl=top*width+left,tr=top*width+right,bl=bottom*width+left,br=bottom*width+right;
+        const dx=sx-left,dy=sy-top;
+        values[i]=Math.round((1-dy)*((1-dx)*original[tl]+dx*original[tr])+dy*((1-dx)*original[bl]+dx*original[br]));
+        if(rotatedClipping){
+          // A rotated ROI pixel is flagged if a contributing source intensity reached an endpoint.
+          rotatedClipping[i]=Number(clipped(tl)||(dx>0&&clipped(tr))||(dy>0&&clipped(bl))||(dx>0&&dy>0&&clipped(br)));
+        }
+      }
+    }
+    const result={key,values,depth,max:2**depth-1,native,rotatedClipping,range8,rgbPayload:source.rgbPixels,sourceInfo:source.info};
+    cache.set(source,result);
+    return result;
   };
   B.preparedSignal=(source,settings,polarity)=>{
     const prepared=B.analysisPixels(source,{...settings,polarity}),key=polarity+'Signal';if(prepared[key])return prepared[key];
@@ -62,15 +89,37 @@
     return{values,baseline,signal,area};
   };
   B.quantify=(source,roi,background,polarity,settings)=>{
-    const {values,corrected,max,depth}=B.preparedSignal(source,settings,polarity),r=B.rectPixels(source,roi),method=roi.shape||settings.method;
+    const {values,corrected,max,depth,native,rotatedClipping,range8}=B.preparedSignal(source,settings,polarity),r=B.rectPixels(source,roi),method=roi.shape||settings.method;
     const indices=[];for(let y=r.y;y<r.y+r.h;y++)for(let x=r.x;x<r.x+r.w;x++)if(method!=='ellipse'||((x+.5-(roi.x+roi.w/2))/(roi.w/2))**2+((y+.5-(roi.y+roi.h/2))/(roi.h/2))**2<=1)indices.push(y*source.width+x);
     if(!indices.length)throw Error('选区不包含像素。');
-    let sum=0,raw=0,total=0,sat=0,lo=Infinity,hi=-Infinity;for(const i of indices){const v=values[i];sum+=v;raw+=polarity==='dark'?max-v:v;total+=corrected[i];sat+=Number(v===0||v===max);lo=Math.min(lo,v);hi=Math.max(hi,v);}
+    const nativeMax=2**source.bitDepth-1;
+    let sum=0,raw=0,total=0,sat=0,lo=Infinity,hi=-Infinity;for(const i of indices){const v=values[i];sum+=v;raw+=polarity==='dark'?max-v:v;total+=corrected[i];sat+=rotatedClipping?rotatedClipping[i]:Number(native[i]===0||native[i]===nativeMax);lo=Math.min(lo,v);hi=Math.max(hi,v);}
     let bg=null,bgRect=null;if(settings.background==='roi'&&background){bgRect=B.rectPixels(source,background);let n=0,v=0;for(let y=bgRect.y;y<bgRect.y+bgRect.h;y++)for(let x=bgRect.x;x<bgRect.x+bgRect.w;x++){v+=values[y*source.width+x];n++;}bg=v/n;total=polarity==='dark'?bg*indices.length-sum:sum-bg*indices.length;}
-    let profile=null;if(method==='profile'){const axis=settings.profileAxis||'y',length=axis==='x'?r.w:r.h,rows=Array(length).fill(0),divisor=axis==='x'?r.h:r.w;for(let y=0;y<r.h;y++)for(let x=0;x<r.w;x++)rows[axis==='x'?x:y]+=corrected[(r.y+y)*source.width+r.x+x];for(let i=0;i<rows.length;i++)rows[i]/=divisor;
-      profile={...B.profileArea(rows,roi.baselineStart??Math.min(...rows),roi.baselineEnd??Math.min(...rows)),axis};total=profile.area;
+    const missingBackground=settings.background==='roi'&&bg===null;
+    let profile=null;
+    if(missingBackground){
+      total=null;
+    }else if(method==='profile'){
+      const axis=settings.profileAxis||'y';
+      const length=axis==='x'?r.w:r.h,divisor=axis==='x'?r.h:r.w;
+      const rows=Array(length).fill(0);
+      for(let y=0;y<r.h;y++){
+        for(let x=0;x<r.w;x++){
+          const index=(r.y+y)*source.width+r.x+x;
+          let signal=corrected[index];
+          if(bg!==null)signal=polarity==='dark'?bg-values[index]:values[index]-bg;
+          rows[axis==='x'?x:y]+=signal;
+        }
+      }
+      let minimum=Infinity;
+      for(let i=0;i<rows.length;i++){
+        rows[i]/=divisor;
+        minimum=Math.min(minimum,rows[i]);
+      }
+      profile={...B.profileArea(rows,roi.baselineStart??minimum,roi.baselineEnd??minimum),axis};
+      total=profile.area;
     }
-    return{area:indices.length,mean:sum/indices.length,min:lo,max:hi,raw,rawIntDen:sum,corrected:total,backgroundMean:bg,saturation:sat/indices.length,rect:r,backgroundRect:bgRect,clipped:roi.x<0||roi.y<0||roi.x+roi.w>source.width||roi.y+roi.h>source.height,backgroundClipped:!!background&&(background.x<0||background.y<0||background.x+background.w>source.width||background.y+background.h>source.height),analysisBitDepth:depth,method,profile,coordinateFrame:settings.rotation?'校正旋转 '+settings.rotation+'° 副本':'原图',analysisSettings:{...settings},units:method==='profile'?'mean intensity × profile pixel':'gray level × pixel'};
+    return{area:indices.length,mean:sum/indices.length,min:lo,max:hi,raw,rawIntDen:sum,corrected:total,backgroundMean:bg,saturation:sat/indices.length,rect:r,backgroundRect:bgRect,clipped:roi.x<0||roi.y<0||roi.x+roi.w>source.width||roi.y+roi.h>source.height,backgroundClipped:!!background&&(background.x<0||background.y<0||background.x+background.w>source.width||background.y+background.h>source.height),analysisBitDepth:depth,method,profile,coordinateFrame:settings.rotation?'校正旋转 '+settings.rotation+'° 副本':'原图',range8,analysisSettings:range8?{...settings,range8}:{...settings},units:method==='profile'?'mean intensity × profile pixel':'gray level × pixel'};
   };
   B.detectBandROIs=(source,crop,count,settings=B.analysisDefaults(),polarity='dark')=>{
     const signal=B.preparedSignal(source,settings,polarity).corrected,rois=B.autoROIs(crop,count);

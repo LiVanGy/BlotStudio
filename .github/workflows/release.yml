@@ -2,11 +2,13 @@ name: Test, build and release
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: release-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   test:
@@ -21,7 +23,27 @@ jobs:
           python-version: '3.11'
       - run: python -m pip install numpy pillow scipy openpyxl
       - run: node scripts/test-ci.mjs
+      - name: Generate and verify the downloadable synthetic project
+        if: github.event_name == 'pull_request'
+        env:
+          BLOTSTUDIO_EXAMPLE_DIR: ${{ runner.temp }}/Synthetic-WB-verification
+        run: |
+          python tests/generate-workflow-fixtures.py
+          node scripts/generate-test-project.cjs
+          node --test tests/verification-project.test.cjs
+      - name: Upload synthetic WB verification data
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Synthetic-WB-verification
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/Synthetic-WB-verification/SYNTHETIC-WB-workflow.wbproj
+            ${{ runner.temp }}/Synthetic-WB-verification/*-SYNTHETIC-16bit.tif
+            ${{ runner.temp }}/Synthetic-WB-verification/expected-independent-numpy.csv
       - run: npm run build
+      - name: Verify the downloadable HTML matches the tested build
+        run: git diff --exit-code --stat -- BlotStudio.html
       - run: node scripts/package-release.mjs web x64
       - uses: actions/upload-artifact@v4
         with:
@@ -29,21 +51,39 @@ jobs:
           path: release/*.zip
   mac:
     needs: test
-    runs-on: macos-15
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        arch: [arm64, x64]
+        include:
+          - arch: arm64
+            runner: macos-15
+            machine: arm64
+          - arch: x64
+            runner: macos-15-intel
+            machine: x86_64
+    env:
+      EXPECTED_MAC_MACHINE: ${{ matrix.machine }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Verify the native macOS runner architecture
+        run: |
+          machine=$(uname -m)
+          echo "macOS runner architecture: $machine"
+          test "$machine" = "$EXPECTED_MAC_MACHINE"
       - run: node --test native/tests/*.test.cjs
       - run: node scripts/test-webkit.mjs
       - run: npm run build:mac
         env:
           BLOTSTUDIO_MAC_ARCH: ${{ matrix.arch }}
+      - name: Verify the application binary architecture
+        run: |
+          binary_archs=$(lipo -archs dist/BlotStudio.app/Contents/MacOS/BlotStudio)
+          echo "BlotStudio binary architecture: $binary_archs"
+          test "$binary_archs" = "$EXPECTED_MAC_MACHINE"
       - run: node scripts/package-release.mjs mac ${{ matrix.arch }}
       - uses: actions/upload-artifact@v4
         with:
@@ -51,11 +91,15 @@ jobs:
           path: release/*.zip
   windows:
     needs: test
-    runs-on: windows-2022
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        arch: [x64, arm64]
+        include:
+          - arch: x64
+            runner: windows-2022
+          - arch: arm64
+            runner: windows-11-arm
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -67,12 +111,47 @@ jobs:
       - run: npm run build
       - run: node --test tests/windows-save.test.cjs
       - run: dotnet publish native/windows/BlotStudio.csproj -c Release -r win-${{ matrix.arch }} --self-contained true -o dist/windows-${{ matrix.arch }}
+      - name: Check the WebView2 Runtime for desktop acceptance
+        shell: pwsh
+        run: |
+          $client = '{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $keys = @("HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\$client", "HKCU:\SOFTWARE\Microsoft\EdgeUpdate\Clients\$client", "HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\$client")
+          function Get-WebViewVersion {
+            foreach ($key in $keys) {
+              $version = Get-ItemPropertyValue $key -Name pv -ErrorAction SilentlyContinue
+              if ($version -and [version]$version -gt [version]'0.0.0.0') { return $version }
+            }
+          }
+          $version = Get-WebViewVersion
+          if (!$version) {
+            $bootstrapper = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebView2Setup.exe'
+            Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $bootstrapper
+            $signature = Get-AuthenticodeSignature $bootstrapper
+            if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') { throw 'Invalid Microsoft bootstrapper signature' }
+            $install = Start-Process $bootstrapper -ArgumentList '/silent','/install' -PassThru -Wait
+            $version = Get-WebViewVersion
+            if (!$version) { throw "WebView2 Runtime installation failed (exit $($install.ExitCode))" }
+          }
+          Write-Host "Installed WebView2 Runtime: $version"
+      - name: Verify Windows architecture
+        shell: pwsh
+        run: |
+          $architecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
+          if ($architecture -ne '${{ matrix.arch }}') { throw "Unexpected Windows architecture: $architecture" }
+          Write-Host "Running BlotStudio on native Windows $architecture"
+      - name: Exercise x64 WebView2, native dialogs and scale
+        if: matrix.arch == 'x64'
+        run: node scripts/test-webview2.mjs dist/windows-x64/BlotStudio.exe
+      - name: Verify ARM64 native startup, 16-bit TIFF and close/restore through UI Automation
+        if: matrix.arch == 'arm64'
+        run: node scripts/test-windows-arm.mjs dist/windows-arm64/BlotStudio.exe
       - run: node scripts/package-release.mjs windows ${{ matrix.arch }}
       - uses: actions/upload-artifact@v4
         with:
           name: Windows-${{ matrix.arch }}
           path: release/*.zip
   publish:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: [test, mac, windows]
     runs-on: ubuntu-latest
     permissions:

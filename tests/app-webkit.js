@@ -1,10 +1,34 @@
 (async()=>{
   const B=BS,tests=[],errors=window.testErrors||[],saved=[];let onSave=null;
+  // Preserve callback exceptions with a JS stack when WebKit reports an anonymous global error.
+  const reportAsync=(kind,callback)=>function(...args){
+    try{return callback.apply(this,args);}
+    catch(error){
+      webkit.messageHandlers.qaResult.postMessage({fatal:String(error),callback:kind,stack:error?.stack||''});
+      throw error;
+    }
+  };
+  const nativeFrame=window.requestAnimationFrame.bind(window);
+  window.requestAnimationFrame=callback=>nativeFrame(reportAsync('animation frame',callback));
+  for(const name of ['ResizeObserver','MutationObserver']){
+    const Observer=window[name];
+    window[name]=class extends Observer{
+      constructor(callback){super(reportAsync(name,callback));}
+    };
+  }
   const assert=(value,message)=>{if(!value)throw Error(message);};
   const one=selector=>{const elements=document.querySelectorAll(selector);assert(elements.length===1,selector+' matched '+elements.length+' elements');return elements[0];};
   const click=action=>{if(!document.querySelector('[data-action="'+action+'"]')&&['wizard','export-scope','workspace'].includes(action))one('[data-action="project-menu"]').click();if(!document.querySelector('[data-action="'+action+'"]')&&action==='recover-groups')one('[data-action="glass-menu"][data-id="project"]').click();one('[data-action="'+action+'"]').click();};
   const change=(scope,field,value)=>{const element=one('[data-scope="'+scope+'"][data-field="'+field+'"]');if(element.type==='checkbox')element.checked=!!value;else element.value=String(value);element.dispatchEvent(new Event('change',{bubbles:true}));};
-  const check=async(name,job)=>{webkit.messageHandlers.qaResult.postMessage({progress:'START '+name});try{await job();tests.push({name,pass:true});webkit.messageHandlers.qaResult.postMessage({progress:'PASS '+name});}catch(error){tests.push({name,pass:false,error:error.message});}};
+  const check=async(name,job)=>{
+    webkit.messageHandlers.qaResult.postMessage({progress:'START '+name});
+    // Independent user actions happen on separate event-loop turns in a painted window.
+    await new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,0)));
+    try{
+      await job();tests.push({name,pass:true});
+      webkit.messageHandlers.qaResult.postMessage({progress:'PASS '+name});
+    }catch(error){tests.push({name,pass:false,error:error.message,stack:error.stack});}
+  };
   B.saveFile=async(name,data,mime)=>{const bytes=typeof data==='string'?B.utf8(data):data;const item={name,bytes:Array.from(bytes),mime};saved.push(item);webkit.messageHandlers.qaResult.postMessage({progress:'SAVED '+name+' '+Date.now()});onSave?.(item);return{status:'saved'};};
   const exportFile=async(format)=>{webkit.messageHandlers.qaResult.postMessage({progress:'EXPORT '+format+' '+Date.now()});click('export');change('modal','format',format);const pending=new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(Error('Export did not complete')),10000);onSave=item=>{clearTimeout(timeout);onSave=null;resolve(item);};});click('do-export');const result=await pending;await Promise.resolve();await Promise.resolve();return result;};
   webkit.messageHandlers.qaResult.postMessage({progress:'APP SCRIPT LOADED'});await B.ready;
@@ -20,6 +44,33 @@
   await check('Cloned graphs remap both denominators; duplicate IDs cannot inflate n',()=>{B.commit('Configure synthetic denominators',(_project,group)=>{const images=group.objects.filter(v=>v.type==='image');images[0].controlId=images[1].id;images[0].totalId=images[2].id;});const original=B.getGroup();B.state.ui.modal={type:'group-menu',id:original.id};B.render();click('clonegroup');const copy=B.getGroup(),clones=copy.objects.filter(v=>v.type==='image');assert(clones[0].controlId===clones[1].id,'Control reference points to old group');assert(clones[0].totalId===clones[2].id,'Total reference points to old group');B.state.ui.checkedGroups=[original.id,copy.id];B.state.ui.tab='stats';B.state.ui.statsProtein='p-Akt';B.state.ui.metric='corrected';B.render();assert(B.currentStats().error.includes('重复样本'),'Duplicate sample pooling not rejected');});
   await check('Deleted graphs appear in recovery and restore with their source relationships',()=>{B.state.ui.tab='edit';const id=B.getGroup().id;B.state.ui.modal={type:'group-menu',id};B.render();click('deletegroup');assert(B.state.p.deletedGroups.some(v=>v.group.id===id),'Not archived');click('recover-groups');one('[data-action="restore-group"][data-id="'+id+'"]').click();assert(B.state.p.groups.some(v=>v.id===id),'Not restored');B.validate(B.state.p);});
   await check('Statistical name editing preserves original sample annotations',()=>{B.state.ui.tab='stats';B.state.ui.checkedGroups=[];B.render();const original=B.getGroup().samples[0].group;click('statistics-settings');change('modal','groups',original+'=Control renamed');click('apply-statistics-settings');assert(B.currentStats().records[0].group==='Control renamed','Alias not applied');assert(B.getGroup().samples[0].group===original,'Raw sample group changed');click('clear-statistics-settings');assert(!B.state.p.statisticsSettings,'Mapping not cleared');});
+  await check('Statistical chart styles, editable captions and native SVG persist across a project round trip',async()=>{
+    reset();
+    Object.assign(B.state.ui,{tab:'stats',statsProtein:'p-Akt',metric:'corrected',normalize:false});
+    B.render();
+    const count=B.currentStats().rows.length;
+    assert(count>0,'Fixture has no measurements');
+    click('chart-options');
+    change('modal','mode','points');change('modal','error','sem');
+    change('modal','title','Synthetic <summary>');change('modal','axisLabel','Custom & units');
+    click('apply-chart-options');
+    const rendered=one('.chart-panel svg');
+    assert(rendered.textContent.includes('Synthetic <summary>')&&rendered.textContent.includes('Custom & units'),'Custom captions missing');
+    assert(rendered.textContent.includes('Error bars = SEM'),'Uncertainty caption does not reflect SEM');
+    assert(rendered.querySelectorAll('circle').length===count,'A displayed sample is missing');
+    assert(rendered.querySelectorAll('rect').length===1,'Bars remain in points-only mode');
+    const exported=new Promise(resolve=>onSave=item=>{onSave=null;resolve(item);});
+    click('chart-export');
+    const file=await exported;
+    assert(new TextDecoder().decode(Uint8Array.from(file.bytes))===B.statsChartSVG(),'Exported chart differs from preview');
+    const projectFile=new File([JSON.stringify(B.state.p)],'SYNTHETIC-chart.wbproj',{type:'application/json'});
+    await B.openProject(projectFile);
+    assert(one('.chart-panel svg').textContent.includes('Custom & units'),'Opening the saved project lost its chart style');
+    change('ui','metric','raw');
+    assert(!one('.chart-panel svg').textContent.includes('Custom & units'),'Axis from another metric leaked into this chart');
+    reset();
+  });
+
   await check('Real JPG, linked SVG, XLSX, PPTX and project exports complete',async()=>{reset();B.state.ui.tab='edit';B.render();for(const format of ['jpg','svg-linked','xlsx','pptx','project']){const file=await exportFile(format);assert(file.bytes.length>100,'Empty '+format);if(format==='jpg')assert(file.bytes[0]===255&&file.bytes[1]===216,'Invalid JPEG');else if(format!=='project')assert(file.bytes[0]===80&&file.bytes[1]===75,'Invalid ZIP package '+format);else{const project=B.validate(JSON.parse(new TextDecoder().decode(Uint8Array.from(file.bytes))));assert(project.sources.length===3,'Sources lost');}}});
   await check('Topic-scoped Excel supports more than thirty graphs',async()=>{reset();for(let i=0;i<31;i++)B.state.p.groups.push(B.blankGroup('SYNTHETIC scope '+i));B.render();click('export-scope');change('modal','scope','topic');const pending=new Promise(resolve=>onSave=item=>{onSave=null;resolve(item);});click('export-scoped');const file=await pending;assert(file.bytes[0]===80&&file.bytes[1]===75,'Invalid workbook');await Promise.resolve();await Promise.resolve();});
   await check('Modular insert and arrange menus dispatch existing editing actions',()=>{
@@ -39,5 +90,74 @@
     key('z');assert(B.getGroup().objects.length===0&&B.state.p.sources.length===0,'Keyboard undo did not restore the empty destination');key('z',true);image=B.getGroup().objects.find(v=>v.type==='image');assert(image&&B.state.p.sources.find(v=>v.id===image.sourceId)?.pixels===pixels,'Keyboard redo lost the pasted original');B.validate(B.state.p);reset();
   });
   await check('Optical refraction stays isolated from analytical pixels and export nodes',async()=>{reset();B.state.ui.tab='edit';B.render();await B.opticsReady;const original=JSON.stringify(B.state.p),surfaces=B.liquidOptics.count;assert(surfaces>=4,'Optical surfaces missing');assert(document.querySelector('feDisplacementMap'),'No refraction primitive');assert(!document.querySelector('#figure').closest('.lq-refraction'),'Scientific figure entered optical layer');assert(getComputedStyle(document.querySelector('#figure')).filter==='none','Scientific figure was filtered');const filterCount=document.querySelectorAll('svg defs filter').length;B.render();await B.opticsReady;assert(JSON.stringify(B.state.p)===original,'Optics changed project data');assert(document.querySelectorAll('svg defs filter').length===filterCount,'Optical filters leaked after repaint');});
+  await check('All eight resize handles and live drag previews use their displayed geometry',()=>{
+    reset();
+    const pointer=(node,type,x,y)=>{
+      const event=new PointerEvent(type,{bubbles:true,cancelable:true,button:0,buttons:type==='pointerup'?0:1,clientX:x,clientY:y});
+      node.dispatchEvent(event);
+    };
+    const screenPoint=(svg,x,y)=>new DOMPoint(x,y).matrixTransform(svg.getScreenCTM());
+    B.state.ui.tab='edit';
+    const shape=B.getGroup().objects.find(o=>o.type==='image');
+    B.state.ui.selected=[shape.id];
+    B.render();
+    const handles=Array.from(document.querySelectorAll('#figure [data-resize]'),node=>node.dataset.handle).sort();
+    assert(handles.join(',')==='e,n,ne,nw,s,se,sw,w','Missing active resize handles: '+handles);
+    const old={x:shape.x,y:shape.y,w:shape.w,h:shape.h};
+    const handle=one('#figure [data-handle="nw"]');
+    const start=screenPoint(one('#figure'),old.x,old.y);
+    const end=screenPoint(one('#figure'),old.x-15,old.y-15*old.h/old.w);
+    pointer(handle,'pointerdown',start.x,start.y);
+    pointer(document,'pointermove',end.x,end.y);
+    pointer(document,'pointerup',end.x,end.y);
+    const edited=B.getGroup().objects.find(o=>o.id===shape.id);
+    assert(edited.w>old.w+10&&Math.abs(edited.x+edited.w-old.x-old.w)<1,'Northwest handle moved the opposite edge');
+    B.performUndo(false);
+    assert(Math.abs(B.getGroup().objects.find(o=>o.id===shape.id).w-old.w)<.001,'Undo failed');
+
+    B.state.ui.tab='analysis';
+    B.state.ui.analysisId=shape.id;
+    B.state.ui.analysisTool='background';
+    B.render();
+    const svg=one('#analysis-image');
+    const a=screenPoint(svg,10,10),b=screenPoint(svg,50,25);
+    pointer(svg,'pointerdown',a.x,a.y);
+    pointer(document,'pointermove',b.x,b.y);
+    const preview=one('#analysis-image .live-rect').getBBox();
+    assert(Math.abs(preview.width-40)<2&&Math.abs(preview.height-15)<2,'Live ROI preview did not match the drag');
+    pointer(document,'pointerup',b.x,b.y);
+    const bg=B.getAnalysis().background;
+    assert(Math.abs(bg.w-40)<3&&Math.abs(bg.h-15)<3,'Committed rectangle differs from preview');
+    B.commit('SYNTHETIC rotate analysis',(_project,group)=>{
+      const obj=group.objects.find(o=>o.id===shape.id);
+      obj.analysis={...B.analysisDefaults(),method:'ellipse',rotation:30};
+    });
+    B.state.ui.analysisTool='crop';
+    B.render();
+    const crop=one('#analysis-image');
+    assert(crop.hasAttribute('data-display-crop')&&!crop.hasAttribute('data-analysis-rotation'),'Crop uses the corrected frame');
+    assert(crop.querySelector('[data-roi]')===null,'Rotated ROIs overlaid on original image');
+    assert(crop.querySelector('g[transform*="rotate(0 "]'),'Displayed source still rotated');
+    B.state.ui.analysisTool='roi';
+    B.render();
+    assert(one('#analysis-image').getAttribute('data-analysis-rotation')==='30','Analysis rotation was lost');
+    assert(document.querySelector('#analysis-image [data-roi] ellipse'),'ROI overlay was lost on return');
+    B.commit('SYNTHETIC mixed legacy ROI shapes',(_project,group)=>{
+      const obj=group.objects.find(o=>o.id===shape.id);
+      obj.analysis.method='rect';
+      obj.rois[0].shape='ellipse';
+      obj.rois[1].shape='profile';
+    });
+    const mixed=B.getAnalysis();
+    B.state.ui.roiId=mixed.rois[1].id;
+    B.render();
+    const rows=B.records(B.state.p,B.getGroup()).filter(r=>r.objectId===shape.id);
+    assert(rows[0].method==='ellipse'&&rows[1].method==='profile','Measurement lost individual ROI methods');
+    assert(one('#analysis-image [data-roi="'+mixed.rois[0].id+'"]').querySelector('ellipse'),'Individual ellipse drawn as a rectangle');
+    assert(one('#analysis-image [data-roi="'+mixed.rois[1].id+'"]').querySelector('rect'),'Profile bounds drawn as an ellipse');
+    assert(document.querySelector('.profile-panel'),'Individual profile has no plot or baseline controls');
+
+    reset();
+  });
   webkit.messageHandlers.qaResult.postMessage({suite:'real WebKit app components',passed:tests.filter(v=>v.pass).length,total:tests.length,tests,errors,exports:saved.map(v=>({name:v.name,bytes:v.bytes.length,mime:v.mime}))});
 })().catch(error=>webkit.messageHandlers.qaResult.postMessage({fatal:String(error),stack:error.stack}));

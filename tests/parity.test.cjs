@@ -29,3 +29,130 @@ test('replacing a source preserves original provenance and resets geometry only 
 test('statistical mappings retain original names and never resolve inherited prototype keys',()=>{const records=[{group:'toString',protein:'P'}],mapped=B.statisticsRecords(records,{groups:{},proteins:{P:'Akt'}});assert.equal(mapped[0].group,'toString');assert.equal(mapped[0].protein,'Akt');assert.equal(mapped[0].originalProtein,'P');assert.equal(records[0].protein,'P');assert.throws(()=>B.aliasMap('A=B\nA=C'));});
 
 test('analysis rotation uses an independent coordinate frame and retains source bytes',()=>{const s=source([10,20,30,40],2),before=s.pixels,settings=config({rotation:90}),pixels=B.analysisPixels(s,settings).values;assert.deepEqual(Array.from(pixels),[30,10,40,20]);const result=B.quantify(s,{x:0,y:0,w:2,h:2},null,'dark',settings);assert.match(result.coordinateFrame,/90/);assert.equal(s.pixels,before);});
+
+test('ROI background corrects the signed lane profile before a manual baseline is integrated',()=>{
+  const s=source([10,20,30,40,50,60,70,80],4);
+  const roi={x:0,y:0,w:2,h:2,baselineStart:0,baselineEnd:0};
+  const a=config({method:'profile',background:'roi'});
+  const background=x=>({x,y:0,w:1,h:2});
+  const light=B.quantify(s,roi,background(2),'light',a);
+  assert.deepEqual(light.profile.values,[-35,5]);
+  assert.equal(light.corrected,2.5);
+  assert.equal(B.quantify(s,roi,background(3),'light',a).corrected,0);
+  assert.deepEqual(B.quantify(s,roi,background(2),'dark',a).profile.values,[35,-5]);
+  const horizontal=B.quantify(s,roi,background(2),'light',{...a,profileAxis:'x'});
+  assert.deepEqual(horizontal.profile.values,[-20,-10]);
+  const signed=B.quantify(s,{...roi,baselineStart:-35,baselineEnd:-35},background(2),'light',a);
+  assert.equal(signed.corrected,20);
+  const project=B.blankProject(),group=project.groups[0],object=B.imageObject(s);
+  project.sources=[s];
+  group.samples=B.testSamples();
+  object.rois=[{...roi,id:B.uid(),sampleIndex:0,baselineStart:-35}];
+  group.objects=[object];
+  assert.equal(B.validate(project),project);
+});
+
+function quantGroup(samples, measurements){
+  const group=B.testGroup();
+  group.samples=samples.map(([id,name])=>({id,group:name,replicate:1,include:true}));
+  group.objects=measurements.map(({s,protein,roi,settings, ...extra})=>({
+    ...B.imageObject(s),id:protein,name:protein,protein,polarity:'light',analysis:settings,
+    rois:group.samples.map((_,i)=>({id:B.uid(),x:i,y:0,w:1,h:1,...roi,sampleIndex:i})),...extra
+  }));
+  return B.records({sources:measurements.map(m=>m.s)},group);
+}
+
+test('explicit missing background leaves corrected data and ratios blank while preserving raw measurements',()=>{
+  const s=source([10,20,50,60],4);
+  const a=config({background:'roi'});
+  const [target]=quantGroup([['A','C']],[
+    {s,protein:'P',settings:a,controlId:'Ref'},
+    {s,protein:'Ref',settings:config()}
+  ]);
+  assert.equal(target.raw,10);
+  assert.equal(target.corrected,null);
+  assert.equal(target.controlRatio,null);
+  assert.match(target.issue,/框选背景/);
+  assert.equal(B.statData([target],'P','corrected').rows.length,0);
+  assert.equal(B.statData([target],'P','raw').rows[0].value,10);
+  assert.equal(B.quantify(s,{x:0,y:0,w:2,h:1},null,'light',{...a,method:'profile'}).profile,null);
+});
+
+test('ratio denominators must use compatible intensity scales and physical integration units',()=>{
+  const s=source([10,20,30,40,50,60,70,80],4);
+  const sixteen=source([1000,2000,3000,4000,5000,6000,7000,8000],4,16);
+  const roi={x:0,y:0,w:2,h:2,baselineStart:0,baselineEnd:0};
+  const [target]=quantGroup([['A','C']],[
+    {s,roi,protein:'P',settings:config(),referenceId:'peak',controlId:'peak',totalId:'total'},
+    {s,roi,protein:'peak',settings:config({method:'profile'})},
+    {s:sixteen,roi,protein:'total',settings:config({convert8:true})}
+  ]);
+  assert.equal(target.corrected,140);
+  assert.equal(target.ratio,null);
+  assert.equal(target.controlRatio,null);
+  assert.equal(target.totalRatio,null);
+  assert.match(target.issue,/积分单位、位深或缩放范围/);
+  assert.deepEqual(target.referenceProteins,{ratio:'peak',controlRatio:'peak',totalRatio:'total'});
+});
+
+test('a missing control lane never silently changes the default ratio to total protein',()=>{
+  const target=source([20,40],2),control=source([10,0],2),total=source([5,4],2);
+  const result=quantGroup([['A','C'],['B','T']],[
+    {s:target,protein:'P',settings:config(),controlId:'Ref',totalId:'Total'},
+    {s:control,protein:'Ref',settings:config()},
+    {s:total,protein:'Total',settings:config()}
+  ]).filter(r=>r.protein==='P');
+  assert.deepEqual(result.map(r=>[r.ratio,r.controlRatio,r.totalRatio]),[[2,2,4],[null,null,10]]);
+  assert.deepEqual(result.map(r=>r.referenceProteins.ratio),['Ref','Ref']);
+});
+
+test('statistics retain denominator identity and signal direction across image groups',()=>{
+  const s=source([20,10],2);
+  const rows=['Actin','GAPDH'].map((name,i)=>quantGroup([[String(i),'C']],[
+    {s,protein:'P',settings:config(),controlId:name},
+    {s,protein:name,settings:config()}
+  ])[0]);
+  assert.match(B.statData(rows,'P','ratio').error,/参照蛋白/);
+  assert.equal(B.statData(rows,'P','corrected').rows.length,2);
+  assert.match(B.statData([rows[0],{...rows[1],polarity:'dark'}],'P','corrected').error,/方向/);
+});
+
+test('saturation uses original endpoints even after range scaling and rotational padding',()=>{
+  const s=source([1000,1100,1200,1300],4,16);
+  const roi={x:0,y:0,w:4,h:1};
+  assert.equal(B.quantify(s,roi,null,'dark',config({convert8:true})).saturation,0);
+  const clipped=source([0,1100,1200,65535],4,16);
+  assert.equal(B.quantify(clipped,roi,null,'dark',config({convert8:true})).saturation,.5);
+  const flat=source([30,40,50,60,70,80,90,100,110],3);
+  assert.equal(B.quantify(flat,{x:0,y:0,w:3,h:3},null,'dark',config({rotation:30})).saturation,0);
+  const corner=source([0,10,20,30,40,50,60,70,80],3);
+  assert.equal(B.quantify(corner,{x:2,y:2,w:1,h:1},null,'dark',config({rotation:180})).saturation,1);
+});
+
+test('exact quarter turns do not replace image-edge pixels with background',()=>{
+  for(const [w,h] of [[3,3],[4,2],[2,4]]){
+    const values=Array.from({length:w*h},(_,i)=>50+i);
+    const s=source(values,w);
+    for(const angle of [-180,180]){
+      assert.deepEqual(Array.from(B.analysisPixels(s,config({rotation:angle})).values),values.slice().reverse());
+    }
+  }
+});
+
+test('different per-image 16-to-8 scaling ranges are traceable and cannot form a raw ratio',()=>{
+  const first=source([1000,2000,3000],3,16),second=source([1000,2000,16000],3,16);
+  const roi={x:1,y:0,w:1,h:1},settings=config({convert8:true});
+  const scaled=quantGroup([['A','C']],[
+    {s:first,roi,settings,protein:'P',controlId:'Ref'},
+    {s:second,roi,settings,protein:'Ref'}
+  ]);
+  assert.notEqual(scaled[0].corrected,scaled[1].corrected);
+  assert.deepEqual(scaled.map(r=>r.analysisSettings.range8),[[1000,3000],[1000,16000]]);
+  assert.equal(scaled[0].controlRatio,null);
+  assert.match(scaled[0].issue,/原生位深/);
+  const native=quantGroup([['A','C']],[
+    {s:first,roi,settings:config(),protein:'P',controlId:'Ref'},
+    {s:second,roi,settings:config(),protein:'Ref'}
+  ]);
+  assert.equal(native[0].controlRatio,1);
+});

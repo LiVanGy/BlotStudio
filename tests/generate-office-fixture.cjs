@@ -3,7 +3,7 @@
 // identity display settings. This deliberately does not test browser SVG /
 // Canvas rasterization; tests/export-browser.html covers that separate stage.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-for(const name of ['core','scene','pptx'])require('../src/'+name+'.js');
+for(const name of ['core','analysis-engine','scene','pptx'])require('../src/'+name+'.js');
 const B=globalThis.BS,root=path.join(__dirname,'../examples');
 const p=B.validate(JSON.parse(fs.readFileSync(path.join(root,'SYNTHETIC-WB-workflow.wbproj'),'utf8'))),g=p.groups[0];
 for(const o of g.objects.filter(o=>o.type==='image'))assert.ok(o.brightness===100&&o.contrast===100&&!o.invert,'fixture requires identity display filters');

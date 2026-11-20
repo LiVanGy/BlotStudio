@@ -10,6 +10,8 @@
     }else if(o.type==='text'){
       const fs=B.clamp(n(o.fontSize,22),6,300),anchor=o.align==='center'?'middle':o.align==='right'?'end':'start',tx=o.align==='center'?w/2:o.align==='right'?w:0;
       body='<text xml:space="preserve" x="'+tx+'" y="'+(fs*.90)+'" font-size="'+fs+'" font-family="'+e(o.fontFamily||'Arial')+'" font-weight="'+(o.fontWeight===700?700:400)+'" font-style="'+(o.italic?'italic':'normal')+'" text-anchor="'+anchor+'" fill="'+col+'">'+String(o.text||'').split('\n').map((t,i)=>'<tspan x="'+tx+'" dy="'+(i?fs*1.25:0)+'"'+(o.script==='super'?' baseline-shift="super" font-size="70%"':o.script==='sub'?' baseline-shift="sub" font-size="70%"':'')+'>'+e(t)+'</tspan>').join('')+'</text>';
+    }else if(o.type==='rect'&&o.geometry==='ellipse'){
+      body='<ellipse cx="'+w/2+'" cy="'+h/2+'" rx="'+w/2+'" ry="'+h/2+'" fill="'+col+'" stroke="'+stroke+'" stroke-width="'+sw+'"/>';
     }else if(o.type==='rect')body='<rect width="'+w+'" height="'+h+'" fill="'+col+'" stroke="'+stroke+'" stroke-width="'+sw+'"'+(o.dash==='dash'?' stroke-dasharray="8 5"':o.dash==='dot'?' stroke-dasharray="2 4"':'')+'/>';
     else body='<path d="'+B.shapeLines(o).map(points=>points.map(([x,y],i)=>(i?'L':'M')+x+' '+y).join('')).join(' ')+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'"'+(o.dash==='dash'?' stroke-dasharray="8 5"':o.dash==='dot'?' stroke-dasharray="2 4"':'')+'/>';
     return'<g transform="translate('+n(o.x)+' '+n(o.y)+') rotate('+n(o.rotation)+' '+w/2+' '+h/2+')" opacity="'+B.clamp(n(o.opacity,1),0,1)+'">'+body+'</g>';
@@ -25,6 +27,15 @@
       lines.push([[w-size*ux-size*uy, -size*uy+size*ux],[w,0],[w-size*ux+size*uy,-size*uy-size*ux]]);
     }
     return lines;
+  };
+  B.layoutCanvasSize=(group,objects,width,height)=>{
+    const manual=objects.filter(o=>o.visible!==false&&o.type!=='image'&&!o.autoLabel);
+    const arranged=objects.filter(o=>o.visible!==false&&(o.type==='image'||o.autoLabel));
+    const retained=B.bounds(manual),placed=B.bounds(arranged);
+    return {
+      width:Math.ceil(Math.max(width,placed.x+placed.w,Math.min(group.canvas.width,retained.x+retained.w))),
+      height:Math.ceil(Math.max(height,placed.y+placed.h,Math.min(group.canvas.height,retained.y+retained.h)))
+    };
   };
   B.quickLayout=(g,opts={})=>{
     const images=g.objects.filter(o=>o.type==='image'&&o.visible!==false),w=B.clamp(B.num(opts.width,640),100,5000),gap=B.clamp(B.num(opts.gap,36),0,500),x=180,y=180;
@@ -50,9 +61,10 @@
     }
     if(images.some(o=>o.demo))add('演示数据 · 非实验结果',220,rowY+22,600,16,'center');
     const objects=g.objects.filter(o=>!o.autoLabel).map(o=>moved.get(o.id)||o).concat(additions),height=Math.max(590,rowY+85);
-    if(height>10000||objects.length>3000)throw Error('排版结果超过项目尺寸或对象数量上限，请拆分为多个图组。');
+    const size=B.layoutCanvasSize(g,objects,Math.max(1000,x+w+170),height);
+    if(size.width>10000||size.height>10000||objects.length>3000)throw Error('排版结果超过项目尺寸或对象数量上限，请拆分为多个图组。');
     // Apply only after all checks pass, leaving the prior figure intact on failure.
-    g.objects=objects;g.canvas={...g.canvas,width:Math.max(1000,x+w+170),height};
+    g.objects=objects;g.canvas={...g.canvas,...size};
   };
   B.rasterize=async(svg,w,h)=>{
     if(![w,h].every(v=>Number.isFinite(v)&&v>0))throw Error('导出尺寸必须为正数。');
