@@ -6,13 +6,18 @@ param(
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -TypeDefinition @'
+Add-Type -ReferencedAssemblies @([System.Windows.Automation.AutomationElement].Assembly.Location, [System.Windows.Automation.AutomationIdentifier].Assembly.Location, [System.Windows.Rect].Assembly.Location) -TypeDefinition @'
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 public static class BlotDialog {
+    public static void Invoke(System.Windows.Automation.AutomationElement target) {
+        var action=(System.Windows.Automation.InvokePattern)target.GetCurrentPattern(System.Windows.Automation.InvokePattern.Pattern);
+        var thread=new System.Threading.Thread(()=> { try { action.Invoke(); } catch(Exception error) { Console.Error.WriteLine(error.Message); } });
+        thread.SetApartmentState(System.Threading.ApartmentState.MTA);
+        thread.Start();
+    }
     public delegate bool EnumProc(IntPtr window, IntPtr state);
     [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc callback, IntPtr state);
     [DllImport("user32.dll")] public static extern bool EnumChildWindows(IntPtr parent, EnumProc callback, IntPtr state);
@@ -97,17 +102,29 @@ foreach ($control in [BlotDialog]::Controls($record.Window)) {
     if ($edit -ne [IntPtr]::Zero) { break }
 }
 if ($edit -eq [IntPtr]::Zero) { throw "File name field unavailable: $script:seen" }
-[void][BlotDialog]::SetForegroundWindow($record.Window)
-$element = [System.Windows.Automation.AutomationElement]::FromHandle($edit)
-$element.SetFocus()
-[System.Windows.Forms.Clipboard]::SetText($TargetPath)
-[void][BlotDialog]::SendInt($edit,177,[IntPtr]::Zero,[IntPtr](-1))
-[void][BlotDialog]::SendInt($edit,770,[IntPtr]::Zero,[IntPtr]::Zero)
-$value = $element.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value
-if ($value -ne $TargetPath) { throw "File-name edit contains '$value', expected '$TargetPath'" }
-Write-Output ("Submit {0}: {1}" -f [BlotDialog]::Title($record.Window), $value)
-[System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+$root = [System.Windows.Automation.AutomationElement]::FromHandle($record.Window)
+$fields = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+$chosen = $null
+foreach ($field in $fields) {
+    $info = $field.Current
+    if ($info.ControlType -notin @([System.Windows.Automation.ControlType]::Edit, [System.Windows.Automation.ControlType]::ComboBox)) { continue }
+    $pattern = $null
+    if (-not $field.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern,[ref]$pattern)) { continue }
+    Write-Output ("Native edit id='{0}' name='{1}' value='{2}'" -f $info.AutomationId,$info.Name,$pattern.Current.Value)
+    if ($info.AutomationId -eq 'FileNameControlHost' -or $info.Name -match '^(File name|Folder):?$') {
+        if (-not $pattern.Current.IsReadOnly) { $chosen = $pattern }
+    }
+}
+if ($null -ne $chosen) {
+    $chosen.SetValue($TargetPath)
+    if ($chosen.Current.Value -ne $TargetPath) { throw "File-name provider did not accept requested path" }
+} else {
+    [void][BlotDialog]::SendInt($edit,177,[IntPtr]::Zero,[IntPtr](-1))
+    [void][BlotDialog]::SendMessage($edit,194,[IntPtr]1,$TargetPath)
+}
+Write-Output ("Invoke {0} with {1}" -f [BlotDialog]::Title($record.Window), $TargetPath)
+[BlotDialog]::Invoke($record.Button)
 if ($Action -eq 'overwrite') {
     $confirm = Wait-Dialog 6
-    Press-Button $confirm 6
+    [BlotDialog]::Invoke($confirm.Button)
 }
