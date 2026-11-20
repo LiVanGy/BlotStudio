@@ -20,8 +20,8 @@
     if(bytes.length!==source.width*source.height*(source.bitDepth/8))throw Error('原始像素长度不匹配，不能生成 ImageJ 复核包。');
     return bytes;
   }
-  function nativeTIFF(source,bytes){
-    const entries=[[256,4,source.width],[257,4,source.height],[258,3,source.bitDepth],[259,3,1],[262,3,1],[273,4,0],[274,3,1],[277,3,1],[278,4,source.height],[279,4,bytes.length],[284,3,1],[339,3,1]],offset=8+2+entries.length*12+4;
+  function nativeTIFF(source,bytes,whiteIsZero){
+    const entries=[[256,4,source.width],[257,4,source.height],[258,3,source.bitDepth],[259,3,1],[262,3,whiteIsZero?0:1],[273,4,0],[274,3,1],[277,3,1],[278,4,source.height],[279,4,bytes.length],[284,3,1],[339,3,1]],offset=8+2+entries.length*12+4;
     entries.find(e=>e[0]===273)[2]=offset;
     const out=new Uint8Array(offset+bytes.length),v=new DataView(out.buffer);out[0]=73;out[1]=73;v.setUint16(2,42,true);v.setUint32(4,8,true);v.setUint16(8,entries.length,true);
     entries.forEach(([tag,type,value],i)=>{const at=10+i*12;v.setUint16(at,tag,true);v.setUint16(at+2,type,true);v.setUint32(at+4,1,true);if(type===3)v.setUint16(at+8,value,true);else v.setUint32(at+8,value,true);});out.set(bytes,offset);return out;
@@ -57,9 +57,11 @@
       if(object.analysis?.rotation&&(object.rois.length||object.background))throw Error('ImageJ 复核需要原图坐标。请在原图坐标下重新确认分析旋转图层的 ROI。');
       const source=project.sources.find(s=>s.id===object.sourceId),bytes=sourcePixels(source),file='images/'+String(index+1).padStart(3,'0')+'.tif',max=2**source.bitDepth-1,polarity=object.polarity||'dark';
       if(!['dark','light'].includes(polarity)||!Array.isArray(object.rois))throw Error('ImageJ 复核遇到无效信号方向或 ROI 列表。');
-      files[file]=nativeTIFF(source,bytes);
+      const whiteIsZero=B.imagej.whiteIsZero(source),invertSignal=(polarity==='dark')!==whiteIsZero;
+      if(whiteIsZero)for(let i=0;i<bytes.length;i++)bytes[i]^=255;
+      files[file]=nativeTIFF(source,bytes,whiteIsZero);
       const bg=object.background?rect(source,object.background):null,bgStats=bg?stats(source,bytes,bg):null,protein=object.protein||object.name||'',records=[];
-      const image={index:index+1,file,objectId:object.id,sourceId:source.id,sourceName:source.name,sourceHash:source.hash||'',width:source.width,height:source.height,bitDepth:source.bitDepth,visible:object.visible!==false,polarity,demo:!!(object.demo||source.demo||group.demo||project.demo),displayCrop:object.crop||null,background:bg,originalBackground:object.background||null,rois:records};images.push(image);
+      const image={index:index+1,file,objectId:object.id,sourceId:source.id,sourceName:source.name,sourceHash:source.hash||'',width:source.width,height:source.height,bitDepth:source.bitDepth,photometricInterpretation:whiteIsZero?'WhiteIsZero':'BlackIsZero',visible:object.visible!==false,polarity,demo:!!(object.demo||source.demo||group.demo||project.demo),displayCrop:object.crop||null,background:bg,originalBackground:object.background||null,rois:records};images.push(image);
       macro.push('if (!File.exists(root + '+macroString(file)+')) exit("Missing bundle TIFF: '+file+'");');
       body.push('// Image '+(index+1)+': pixels and ROI coordinates are independent of display edits.',
         'beforeCount = nImages;',
@@ -77,10 +79,10 @@
       if(bg){measure(bg);body.push('backgroundMean = meanRaw;');const meta=fixed('background',null,bg);expected.push([...meta,bgStats.area,bgStats.mean,bgStats.sum,'',bgStats.mean,'']);write(meta,true);}
       object.rois.forEach((roi,roiIndex)=>{
         const sample=group.samples[roi.sampleIndex];if(!sample)throw Error('ROI 缺少有效的对应样本，无法生成可追溯的 ImageJ 复核包。');
-        const effective=rect(source,roi),measured=stats(source,bytes,effective),directional=polarity==='dark'?max*measured.area-measured.sum:measured.sum,corrected=bg?(polarity==='dark'?bgStats.mean*measured.area-measured.sum:measured.sum-bgStats.mean*measured.area):directional,meta=fixed('band',sample,effective);
+        const effective=rect(source,roi),measured=stats(source,bytes,effective),directional=invertSignal?max*measured.area-measured.sum:measured.sum,corrected=bg?(invertSignal?bgStats.mean*measured.area-measured.sum:measured.sum-bgStats.mean*measured.area):directional,meta=fixed('band',sample,effective);
         records.push({roiIndex:roiIndex+1,roiId:roi.id||'',sampleIndex:roi.sampleIndex,sampleId:sample.id,sampleGroup:sample.group,replicate:sample.replicate,include:sample.include!==false,original:{x:roi.x,y:roi.y,w:roi.w,h:roi.h},effective,areaPixels:measured.area,meanRaw:measured.mean,rawIntDen:measured.sum,directionalIntDen:directional,backgroundMeanRaw:bgStats?.mean??null,correctedIntDen:corrected});
         expected.push([...meta,measured.area,measured.mean,measured.sum,directional,bgStats?.mean??'',corrected]);measure(effective);
-        body.push('directional = '+(polarity==='dark'?max+'*areaPixels - rawIntDen':'rawIntDen')+';','corrected = '+(bg?(polarity==='dark'?'backgroundMean*areaPixels - rawIntDen':'rawIntDen - backgroundMean*areaPixels'):'directional')+';');write(meta,false);
+        body.push('directional = '+(invertSignal?max+'*areaPixels - rawIntDen':'rawIntDen')+';','corrected = '+(bg?(invertSignal?'backgroundMean*areaPixels - rawIntDen':'rawIntDen - backgroundMean*areaPixels'):'directional')+';');write(meta,false);
       });
       body.push('selectImage(ownedImage);','close();');
     });
@@ -89,7 +91,7 @@
       'function histogramSum(histogram) { sum=0; for (bin=0; bin<histogram.length; bin++) sum += bin*histogram[bin]; return sum; }',
       'function csvNumber(value, places) { return fromCharCode(34) + d2s(value,places) + fromCharCode(34); }',
       'function restoreImage(id) { if (id!=0 && isOpen(id)) selectImage(id); }','');
-    const manifest={format:'BlotStudio-ImageJ-verification',version:1,createdAt:new Date().toISOString(),projectId:project.id||'',projectName:project.name||'',groupId:group.id||'',groupName:group.name||'',demo:images.some(i=>i.demo),runtimeIncluded:false,macroRuntimeTested:false,measurement:'uncalibrated rectangular ROI; integer source pixels',coordinateRule:'x=max(0,floor(x)); y=max(0,floor(y)); right=min(width,ceil(x+w)); bottom=min(height,ceil(y+h))',tiff:{endianness:'little',sampleFormat:'unsigned integer',photometricInterpretation:'BlackIsZero (normalized source brightness)',spatialCalibration:'none',densityCalibration:'none',pagesPerFile:1},formulas:{rawIntDen:'sum of original unsigned pixel values',directionalDark:'(2^bitDepth-1)*AreaPixels-RawIntDen',directionalLight:'RawIntDen',correctedDark:'BackgroundMeanRaw*AreaPixels-RawIntDen',correctedLight:'RawIntDen-BackgroundMeanRaw*AreaPixels',withoutBackground:'CorrectedIntDen=DirectionalIntDen'},comparisonTolerance:{areaPixels:0,rawIntDen:0,directionalIntDen:0,meanRawAbsolute:1e-9,correctedAbsolute:1e-5,correctedRelative:1e-12},references,images};
+    const manifest={format:'BlotStudio-ImageJ-verification',version:2,createdAt:new Date().toISOString(),projectId:project.id||'',projectName:project.name||'',groupId:group.id||'',groupName:group.name||'',demo:images.some(i=>i.demo),runtimeIncluded:false,macroRuntimeTested:false,measurement:'uncalibrated rectangular ROI; integer source pixels',coordinateRule:'x=max(0,floor(x)); y=max(0,floor(y)); right=min(width,ceil(x+w)); bottom=min(height,ceil(y+h))',tiff:{endianness:'little',sampleFormat:'unsigned integer',photometricInterpretation:'See each image. Grayscale TIFF retains its original photometric interpretation; derived luminance is BlackIsZero.',spatialCalibration:'none',densityCalibration:'none',pagesPerFile:1},formulas:{rawIntDen:'sum of original unsigned pixel values',forWhiteIsZero:'Exchange the dark and light formulas. In a WhiteIsZero TIFF the stored value increases with darkness.',directionalDark:'(2^bitDepth-1)*AreaPixels-RawIntDen',directionalLight:'RawIntDen',correctedDark:'BackgroundMeanRaw*AreaPixels-RawIntDen',correctedLight:'RawIntDen-BackgroundMeanRaw*AreaPixels',withoutBackground:'CorrectedIntDen=DirectionalIntDen'},comparisonTolerance:{areaPixels:0,rawIntDen:0,directionalIntDen:0,meanRawAbsolute:1e-9,correctedAbsolute:1e-5,correctedRelative:1e-12},references,images};
     files['verify_imagej.ijm']=macro.join('\n');files['expected.csv']='\ufeff'+expected.map(csvRow).join('\r\n')+'\r\n';files['manifest.json']=JSON.stringify(manifest,null,2);
     files['README_zh-CN.txt']=[
       'BlotStudio：ImageJ 独立复核包',
@@ -106,13 +108,13 @@
       '5. 用支持 UTF-8 的表格软件比较 expected.csv 与 recomputed.csv，按 Role/ImageIndex/ObjectID/SampleID 对应行。',
       '',
       '数据和算法：',
-      '每个 image object 有独立单页 TIFF，从 source.pixels 直接编码，保留 8/16-bit 无符号灰度；不从屏幕预览、排版图或原始多页文件中取图。',
-      'TIFF 无空间/密度校准。WhiteIsZero 的输入已在导入时统一成亮度；此处写 BlackIsZero，禁止再因 LUT 或显示反相改变像素。',
+      '每个图层单独生成 8/16-bit 无符号灰度 TIFF，像素取自项目保存的分析平面。',
+      '灰度 TIFF 复核图保留输入文件的码值及 WhiteIsZero/BlackIsZero 方向，未做空间和密度校准。RGB 来源使用派生灰度。',
       'ROI 使用实际参与定量的原图整数像素范围：左/上向下取整，右/下向上取整并与原图相交。manifest 同时保留原始小数坐标。',
       '显示裁剪、旋转、翻转、亮度、对比度和透明度均不参与复核像素。隐藏图层及排除样本也会导出，并在 manifest/Include 中标记。',
       '宏使用 getRawStatistics 的未校准面积（像素数）、均值及单位宽度原始直方图。RawIntDen 为直方图 value×count 之和。',
-      '深色条带：DirectionalIntDen = 最大位深值×面积−RawIntDen；浅色条带：DirectionalIntDen = RawIntDen。',
-      '有背景时：深色 CorrectedIntDen = 背景均值×面积−RawIntDen；浅色为 RawIntDen−背景均值×面积。无背景时 CorrectedIntDen=DirectionalIntDen。',
+      '对于 BlackIsZero，深色条带：DirectionalIntDen = 最大位深值×面积−RawIntDen；浅色条带：DirectionalIntDen = RawIntDen。',
+      'WhiteIsZero 的码值随颜色变深而增大，使用下列公式时交换深色和浅色。BlackIsZero 有背景时：深色 CorrectedIntDen = 背景均值×面积−RawIntDen；浅色为 RawIntDen−背景均值×面积。无背景时 CorrectedIntDen=DirectionalIntDen。',
       '因此深色 DirectionalIntDen 不能误称 ImageJ RawIntDen。16-bit 最大值固定为 65535，不依赖 ImageJ 的 16-bit Invert 偏好。',
       '背景单独以 Role=background 输出；其方向积分/背景校正积分留空。负的背景校正值保留。',
       '此包只复核基础像素和背景扣除，不重新执行参照蛋白归一化、对照组折算、t 检验或 Gel Analyzer 峰面积分析。',

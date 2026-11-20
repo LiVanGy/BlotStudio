@@ -5,7 +5,7 @@ const fs=require('node:fs');
 const os=require('node:os');
 const path=require('node:path');
 const {spawnSync}=require('node:child_process');
-for(const name of ['core','science','imagej-interop'])require('../src/'+name+'.js');
+for(const name of ['core','science','imagej','imagej-interop'])require('../src/'+name+'.js');
 const B=globalThis.BS;
 require('./support/synthetic.js');
 function unpack(bytes){
@@ -61,4 +61,47 @@ test('ImageJ raw verification rejects ROIs from rotated analysis coordinates',()
   const {p,g}=fixture();
   g.objects.find(o=>o.type==='image').analysis={rotation:20};
   assert.throws(()=>B.imagejBundle(p,g),/原图坐标/);
+});
+
+test('WhiteIsZero grayscale exports use original TIFF codes, while dark and light signals follow displayed brightness',async()=>{
+  require('../src/tiff.js');
+  for(const depth of [8,16]){
+    const {p,g,a}=fixture(),max=2**depth-1,stored=[5,15,40,60];
+    const s=source(stored.map(value=>max-value),4,depth,'white.tif');
+    s.tiffWhiteIsZero=true;p.sources=[s];a.sourceId=s.id;g.objects=[a];
+    const roi={id:'band',x:0,y:0,w:2,h:1,sampleIndex:0},bg={x:2,y:0,w:2,h:1};
+    a.rois=[roi];a.background=bg;
+    for(const polarity of ['dark','light']){
+      a.polarity=polarity;
+      const m=B.imagej.measure(s,roi,{polarity,background:bg});
+      assert.deepEqual([m.Mean,m.RawIntDen,m.IntDen,m.BackgroundMean],[10,20,20,50]);
+      assert.deepEqual([m.DirectionalSignal,m.CorrectedSignal],polarity==='dark'?[20,-80]:[2*max-20,80]);
+      assert.deepEqual(B.imagej.profile(s,roi).values,[5,15]);
+      assert.deepEqual(B.imagej.profile(s,roi,{invert:true}).values,[max-5,max-15]);
+      assert.equal(B.measure(s,roi,bg,polarity).rawIntDen,2*max-20);
+      const files=unpack(B.imagejBundle(p,g)),tiff=files['images/001.tif'];
+      const view=new DataView(tiff.buffer,tiff.byteOffset,tiff.byteLength),count=view.getUint16(8,true);
+      const tag=code=>{for(let i=0;i<count;i++){const pos=10+i*12;if(view.getUint16(pos,true)===code)return pos;}throw Error('missing TIFF tag '+code);};
+      assert.equal(view.getUint16(tag(262)+8,true),0);
+      const offset=view.getUint32(tag(273)+8,true);
+      assert.deepEqual(stored.map((_,i)=>depth===8?tiff[offset+i]:view.getUint16(offset+i*2,true)),stored);
+      const [decoded]=await B.decodeTIFF(tiff);
+      assert.equal(decoded.whiteIsZero,true);
+      assert.deepEqual(Array.from(decoded.samples),stored.map(v=>max-v));
+      const row=JSON.parse(text(files['manifest.json'])).images[0].rois[0];
+      assert.deepEqual([row.rawIntDen,row.directionalIntDen,row.backgroundMeanRaw,row.correctedIntDen],[20,m.DirectionalSignal,50,m.CorrectedSignal]);
+      // Re-open a pre-metadata, two-page project with different photometry per page.
+      const directoryLength=2+count*12+4,stack=new Uint8Array(tiff.length+directoryLength),sv=new DataView(stack.buffer);
+      stack.set(tiff);stack.set(tiff.subarray(8,8+directoryLength),tiff.length);
+      sv.setUint16(tag(262)+8,1,true);sv.setUint32(8+directoryLength-4,tiff.length,true);
+      const old={...s,original:'data:image/tiff;base64,'+B.base64(stack),originalName:'stack.tif',name:'stack.tif · 第1页'};
+      delete old.tiffWhiteIsZero;
+      assert.equal(B.imagej.whiteIsZero(old),false);
+      old.name='stack.tif · 第2页';assert.equal(B.imagej.whiteIsZero(old),true);
+      assert.equal(B.imagej.measure(old,roi).RawIntDen,20);
+      old.name='stack.tif · 第3页';assert.throws(()=>B.imagej.measure(old,roi),/旧项目/);
+      delete old.original;old.info='TIFF 16-bit native grayscale';
+      assert.throws(()=>B.imagej.measure(old,roi),/缺少旧项目/);
+    }
+  }
 });
