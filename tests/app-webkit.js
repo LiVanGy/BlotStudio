@@ -1,10 +1,34 @@
 (async()=>{
   const B=BS,tests=[],errors=window.testErrors||[],saved=[];let onSave=null;
+  // Preserve callback exceptions with a JS stack when WebKit reports an anonymous global error.
+  const reportAsync=(kind,callback)=>function(...args){
+    try{return callback.apply(this,args);}
+    catch(error){
+      webkit.messageHandlers.qaResult.postMessage({fatal:String(error),callback:kind,stack:error?.stack||''});
+      throw error;
+    }
+  };
+  const nativeFrame=window.requestAnimationFrame.bind(window);
+  window.requestAnimationFrame=callback=>nativeFrame(reportAsync('animation frame',callback));
+  for(const name of ['ResizeObserver','MutationObserver']){
+    const Observer=window[name];
+    window[name]=class extends Observer{
+      constructor(callback){super(reportAsync(name,callback));}
+    };
+  }
   const assert=(value,message)=>{if(!value)throw Error(message);};
   const one=selector=>{const elements=document.querySelectorAll(selector);assert(elements.length===1,selector+' matched '+elements.length+' elements');return elements[0];};
   const click=action=>{if(!document.querySelector('[data-action="'+action+'"]')&&['wizard','export-scope','workspace'].includes(action))one('[data-action="project-menu"]').click();if(!document.querySelector('[data-action="'+action+'"]')&&action==='recover-groups')one('[data-action="glass-menu"][data-id="project"]').click();one('[data-action="'+action+'"]').click();};
   const change=(scope,field,value)=>{const element=one('[data-scope="'+scope+'"][data-field="'+field+'"]');if(element.type==='checkbox')element.checked=!!value;else element.value=String(value);element.dispatchEvent(new Event('change',{bubbles:true}));};
-  const check=async(name,job)=>{webkit.messageHandlers.qaResult.postMessage({progress:'START '+name});try{await job();tests.push({name,pass:true});webkit.messageHandlers.qaResult.postMessage({progress:'PASS '+name});}catch(error){tests.push({name,pass:false,error:error.message});}};
+  const check=async(name,job)=>{
+    webkit.messageHandlers.qaResult.postMessage({progress:'START '+name});
+    // Independent user actions happen on separate event-loop turns in a painted window.
+    await new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,0)));
+    try{
+      await job();tests.push({name,pass:true});
+      webkit.messageHandlers.qaResult.postMessage({progress:'PASS '+name});
+    }catch(error){tests.push({name,pass:false,error:error.message,stack:error.stack});}
+  };
   B.saveFile=async(name,data,mime)=>{const bytes=typeof data==='string'?B.utf8(data):data;const item={name,bytes:Array.from(bytes),mime};saved.push(item);webkit.messageHandlers.qaResult.postMessage({progress:'SAVED '+name+' '+Date.now()});onSave?.(item);return{status:'saved'};};
   const exportFile=async(format)=>{webkit.messageHandlers.qaResult.postMessage({progress:'EXPORT '+format+' '+Date.now()});click('export');change('modal','format',format);const pending=new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(Error('Export did not complete')),10000);onSave=item=>{clearTimeout(timeout);onSave=null;resolve(item);};});click('do-export');const result=await pending;await Promise.resolve();await Promise.resolve();return result;};
   webkit.messageHandlers.qaResult.postMessage({progress:'APP SCRIPT LOADED'});await B.ready;
