@@ -15,7 +15,8 @@ const fixture = await readFile('tests/fixtures/native16-raw.tif');
 const originalHash = 'sha256:' + createHash('sha256').update(fixture).digest('hex');
 const savedName = 'SYNTHETIC · Windows 关闭恢复';
 const appUrl = 'https://blotstudio.local/BlotStudio.html';
-const endpoint = 'http://127.0.0.1:9328/json/list';
+const isArmRunner = process.arch === 'arm64' || process.env.RUNNER_ARCH === 'ARM64';
+const debugPort = isArmRunner ? 0 : 9328;
 let child;
 let socket;
 let sequence = 0;
@@ -67,12 +68,21 @@ async function launch() {
     env: {
       ...process.env,
       WEBVIEW2_USER_DATA_FOLDER: profile,
-      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: '--remote-debugging-port=9328 --remote-debugging-address=127.0.0.1'
+      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: '--remote-debugging-port=' + debugPort + ' --remote-debugging-address=127.0.0.1'
     }
   });
   await once(child, 'spawn');
   const target = await until('BlotStudio WebView2 page', async () => {
-    const response = await fetch(endpoint, {signal: AbortSignal.timeout(1000)});
+    let port = debugPort;
+    if (port === 0) {
+      const discoveryFile = path.join(profile, 'EBWebView', 'DevToolsActivePort');
+      port = Number((await readFile(discoveryFile, 'utf8')).split(/\r?\n/, 1)[0]);
+      if (!Number.isInteger(port) || port < 1 || port > 65535) throw Error('WebView2 returned an invalid debug port.');
+    }
+    const endpoint = 'http://127.0.0.1:' + port + '/json/list';
+    const response = await fetch(endpoint, {signal: AbortSignal.timeout(1000)}).catch(error => {
+      throw Error(endpoint + ': ' + (error.cause?.message || error.message));
+    });
     return (await response.json()).find(page => page.url === appUrl && page.webSocketDebuggerUrl);
   }, 45000);
   socket = new WebSocket(target.webSocketDebuggerUrl);
