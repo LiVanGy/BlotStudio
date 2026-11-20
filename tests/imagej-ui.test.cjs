@@ -26,3 +26,13 @@ test('ImageJ exports preserve real profile values and Excel format with truthful
 test('ImageJ export cancellation cannot announce success and no-ROI profile is rejected clearly',async()=>{
   const {o}=setup();let announced=false;B.toast=()=>announced=true;B.saveFile=async()=>{throw Error('已取消保存');};await assert.rejects(()=>B.exportImagej('measure'),/取消/);assert.equal(announced,false);o.rois=[];assert.throws(()=>B.currentImagejProfile(),/框选条带 ROI/);assert.match(B.imagejPanel(B.state.p,B.getGroup(),o,B.state.p.sources[0]),/框选条带 ROI 后/);
 });
+test('ImageJ worksheet keeps native rectangular intensities when advanced analysis is enabled',()=>{
+  const {p,g,o,s}=setup();
+  o.analysis={convert8:true,method:'ellipse',background:'rolling',radius:50,presmooth:true,rgb:'mean',rotation:0};
+  const native=B.imagej.measure(s,o.rois[0],{background:o.background,polarity:o.polarity});
+  const row=B.imagejResultRows(p,g)[4];
+  assert.deepEqual(row.slice(4,11),[native.Area,native.Mean,native.RawIntDen,native.IntDen,native.DirectionalSignal,native.BackgroundMean,native.CorrectedSignal]);
+  o.analysis.rotation=15;
+  assert.throws(()=>B.imagejResultRows(p,g),/原图坐标/);
+  assert.throws(()=>B.currentImagejProfile(),/原图坐标/);
+});

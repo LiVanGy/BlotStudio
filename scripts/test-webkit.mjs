@@ -20,10 +20,17 @@ try{
   // Cache actual MediaQueryLists solely in the fixture so it can exercise the
   // JS preference-change listener; the operating system's CSS setting is intact.
   const mediaFixture='<script>window.__bsLiquidMedia=new Map();{const nativeMatchMedia=window.matchMedia.bind(window);window.matchMedia=query=>{if(!window.__bsLiquidMedia.has(query))window.__bsLiquidMedia.set(query,nativeMatchMedia(query));return window.__bsLiquidMedia.get(query);};}</script>';
+  const baseApp=app;
   const liquid=inject(app.replace('<head>','<head>'+mediaFixture),await fs.readFile('tests/liquid-glass-webkit.js','utf8'));
   const buttons=inject(app.replace('<head>','<head>'+mediaFixture),await fs.readFile('tests/button-glass-webkit.js','utf8'));
   app=inject(app,await fs.readFile('tests/support/synthetic.js','utf8'));
   app=inject(app,await fs.readFile('tests/app-webkit.js','utf8'));
+  const tiff=await fs.readFile('tests/fixtures/native16-raw.tif');
+  const fileTest=inject(baseApp, 'window.testTiff='+JSON.stringify(tiff.toString('base64'))+';\n'+await fs.readFile('tests/export-files-webkit.js','utf8'));
+  const filePage=path.join(temporary,'files.html'),fileResult=path.join(temporary,'exports.json');
+  await fs.writeFile(filePage,fileTest);
+  await fs.writeFile(fileResult,execFileSync(host,[filePage],{timeout:120000,maxBuffer:8*1024*1024}));
+  execFileSync('python3',['tests/inspect-export-files.py',fileResult],{stdio:'inherit',timeout:30000});
   const reports=[];
   // Native host exits on 90 s without a progress message, or 300 s total.
   // The shell guard is slightly longer so it cannot kill a healthy late suite.

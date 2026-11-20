@@ -77,5 +77,12 @@
     const tests=B.holm(groups.filter(g=>g.name!==control).map(g=>({group:g.name,...B.welch(g.values,a.filter(r=>r.group===control).map(r=>r.value))})));
     return {rows:a,groups,tests,base};
   };
-  B.resultRows=records=>[['蛋白','样本','分组','重复编号','泳道','位深','面积 px²','均值','原始积分信号','背景均值','校正积分信号','目的/参照','饱和比例','ROI x','ROI y','ROI w','ROI h','来源','原图哈希','提示','目的/内参','部分/总蛋白','计算位深','ROI方法','积分单位','预处理设置','ROI 坐标系'],...records.map(r=>[r.protein,r.sampleId,r.group,r.replicate,r.lane,r.bitDepth,r.area,r.mean,r.raw,r.backgroundMean??'',r.corrected,r.ratio??'',r.saturation,r.rect.x,r.rect.y,r.rect.w,r.rect.h,r.sourceName,r.hash,r.issue,r.controlRatio??'',r.totalRatio??'',r.analysisBitDepth||r.bitDepth,r.method||'rect',r.units||'gray level × pixel',JSON.stringify(r.analysisSettings||{background:'roi/native legacy'}),r.coordinateFrame||'原图'])];
+  B.resultRows=records=>[
+    ['蛋白','样本','分组','重复编号','泳道','位深','面积 px²','均值','方向积分信号','背景均值','校正信号','目的/参照','饱和比例','ROI x','ROI y','ROI w','ROI h','来源','原图哈希','提示','目的/内参','部分/总蛋白','计算位深','ROI方法','积分单位','预处理设置','ROI 坐标系',
+      '分析像素和 RawIntDen','信号方向','样本记录可纳入','记录有效','来源 ID','图层 ID','ROI ID','参照蛋白','内参蛋白','总蛋白','转 8-bit 输入下限','转 8-bit 输入上限'],
+    ...records.map(r=>[
+      r.protein,r.sampleId,r.group,r.replicate,r.lane,r.bitDepth,r.area,r.mean,r.raw,r.backgroundMean??'',r.corrected??'',r.ratio??'',r.saturation,r.rect.x,r.rect.y,r.rect.w,r.rect.h,r.sourceName,r.hash,r.issue,r.controlRatio??'',r.totalRatio??'',r.analysisBitDepth||r.bitDepth,r.method||'rect',r.units||'gray level × pixel',JSON.stringify(r.analysisSettings||{background:'roi/native legacy'}),r.coordinateFrame||'原图',
+      r.rawIntDen??'',r.polarity||'',r.include?'是':'否',r.valid?'是':'否',r.sourceId,r.objectId,r.roi.id||'',r.referenceProteins?.ratio||'',r.referenceProteins?.controlRatio||'',r.referenceProteins?.totalRatio||'',r.range8?.[0]??'',r.range8?.[1]??''
+    ])
+  ];
 })(globalThis.BS ||= {});

@@ -57,3 +57,8 @@ test('independent Pillow reads exact unsigned native 8/16-bit pixels, little-end
   const script='import json,sys\nfrom PIL import Image\nfrom pathlib import Path\nroot=Path(sys.argv[1])\nexpected=json.loads(sys.argv[2])\nfor i,values in enumerate(expected,1):\n path=root/"images"/(str(i).zfill(3)+".tif")\n assert path.read_bytes()[:4]==b"II\\x2a\\x00"\n with Image.open(path) as im:\n  assert list(im.getdata())==values,(i,list(im.getdata()),values)\n  assert im.n_frames==1\n  assert im.tag_v2[339]==(1,) or im.tag_v2[339]==1\n  assert im.tag_v2[262]==1\n  assert im.tag_v2[258]==((16,) if i==1 else (8,))\n  assert all(tag not in im.tag_v2 for tag in [282,283,296])\nprint("Pillow native unsigned pixel/calibration checks passed")\n';
   const result=spawnSync('python3',['-c',script,directory,JSON.stringify([pixels16,[20,30,40,50,200,210,220,230]])],{encoding:'utf8'});assert.equal(result.status,0,result.stderr||result.stdout);assert.match(result.stdout,/passed/);
 });
+test('ImageJ raw verification rejects ROIs from rotated analysis coordinates',()=>{
+  const {p,g}=fixture();
+  g.objects.find(o=>o.type==='image').analysis={rotation:20};
+  assert.throws(()=>B.imagejBundle(p,g),/原图坐标/);
+});

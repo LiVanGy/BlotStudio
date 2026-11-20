@@ -55,7 +55,17 @@
       else if(fmt==='pptx')result=await B.saveFile(name+'.pptx',await B.pptx(p,g),'application/vnd.openxmlformats-officedocument.presentationml.presentation');
       else if(fmt==='csv'||fmt==='xlsx')result=await B.saveFile(name+'.'+fmt,B.dataExport(fmt),fmt==='csv'?'text/csv':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       else if(fmt==='audit')result=await B.saveFile(name+'-操作记录.csv',B.csv([['时间 UTC','操作','说明'],...p.audit.map(r=>[r.time,r.action,r.detail])]),'text/csv');
-      else if(fmt==='originals'){const files={'project.wbproj':JSON.stringify(p),'audit.csv':B.csv([['时间 UTC','操作','说明'],...p.audit.map(r=>[r.time,r.action,r.detail])])};p.sources.forEach((s,i)=>{const original=s.original||s.url,ext=original.match(/^data:image\/(\w+)/)?.[1]||'png';files['originals/'+(i+1)+'-'+s.name.replace(/[\\/:*?"<>|]/g,'_')+'.'+ext]=B.unbase64(original.split(',')[1]);});result=await B.saveFile(name+'-原图与记录.zip',B.zip(files));}
+      else if(fmt==='originals'){
+        const files={'project.wbproj':JSON.stringify(p),'audit.csv':B.csv([['时间 UTC','操作','说明'],...p.audit.map(r=>[r.time,r.action,r.detail])])};
+        const manifest=p.sources.map((source,index)=>{
+          const file=B.sourceDownload(source);
+          const path=(file.original?'originals/':'previews/')+(index+1)+'-'+file.name;
+          files[path]=file.bytes;
+          return {sourceId:source.id,sourceName:source.name,path,kind:file.original?'original':'display-preview',recordedSourceHash:source.hash||null};
+        });
+        files['sources.json']=JSON.stringify(manifest,null,2);
+        result=await B.saveFile(name+'-原图与记录.zip',B.zip(files));
+      }
       else if(['png','tiff'].includes(fmt)){if(![1,2,3,4].includes(scale))throw Error('像素倍率无效。');const c=await B.rasterize(B.svg(p,g),g.canvas.width*scale,g.canvas.height*scale);if(fmt==='png')result=await B.saveFile(name+'.png',await B.pngDpi(c,g.canvas.dpi),'image/png');else result=await B.saveFile(name+'.tiff',B.encodeTIFF(c.getContext('2d').getImageData(0,0,c.width,c.height).data,c.width,c.height,Number(g.canvas.dpi)),'image/tiff');}
       else throw Error('不支持的导出格式。');
       if(ui.modal===m)ui.modal=null;B.render();B.toast(result.status==='saved'?'文件已保存。':'已请求浏览器下载，请在下载记录中确认文件。');
@@ -117,7 +127,13 @@
     'roi-select':el=>{B.state.ui.roiId=el.dataset.id;B.render();},
     'analysis-zoom-in':()=>{const o=B.getAnalysis(),s=B.state.p.sources.find(s=>s.id===o.sourceId);B.state.ui.analysisZoom=(B.state.ui.analysisZoom||Math.min(900/s.width,420/s.height))*1.25;B.render();},
     'analysis-zoom-out':()=>{const o=B.getAnalysis(),s=B.state.p.sources.find(s=>s.id===o.sourceId);B.state.ui.analysisZoom=(B.state.ui.analysisZoom||Math.min(900/s.width,420/s.height))/1.25;B.render();},
-    original:()=>{const o=B.getAnalysis(),s=B.state.p.sources.find(s=>s.id===o.sourceId),data=s.original||s.url;return B.saveFile(s.originalName||s.name+(s.original?'':'.png'),B.unbase64(data.split(',')[1]),data.split(';')[0].slice(5));},
+    original:async()=>{
+      const image=B.getAnalysis(),source=B.state.p.sources.find(s=>s.id===image.sourceId);
+      const file=B.sourceDownload(source);
+      const result=await B.saveFile(file.name,file.bytes,file.mime);
+      if(!file.original)B.toast('此项目仅保留了显示预览，本次导出为预览图。');
+      return result;
+    },
     'to-stats':()=>{B.state.ui.tab='stats';B.render();},'to-analysis':()=>{B.state.ui.tab='analysis';B.render();},
     'results-xlsx':()=>B.saveFile(B.getGroup().name+'-灰度数据.xlsx',B.dataExport('xlsx'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
     'imagej-measure-export':()=>B.exportImagej('measure'),

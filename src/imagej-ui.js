@@ -1,19 +1,32 @@
 (function(B){
   'use strict';
+  const assertOriginalFrame=o=>{
+    if(o.analysis?.rotation)throw Error('该图层的 ROI 位于分析旋转坐标系。请在原图坐标下重新确认 ROI 后再进行 ImageJ 复核。');
+  };
   B.currentImagejProfile=()=>{
     const {p,ui}=B.state,g=B.getGroup(),o=B.getAnalysis(),s=o&&p.sources.find(s=>s.id===o.sourceId),roi=o&&(o.rois.find(r=>r.id===ui.roiId)||o.rois[0]);
     if(!s||!roi)throw Error('请先为图像框选条带 ROI。');
+    assertOriginalFrame(o);
     return {g,o,s,roi,profile:B.imagej.profile(s,roi,{axis:ui.imagejAxis||'y',invert:!!ui.imagejInvert})};
   };
   B.imagejResultRows=(project,group)=>[
     ['方法','ImageJ1 未校准、无阈值矩形测量；背景框均值校正'],
     ['说明','RawIntDen 为原始像素和；方向积分为按信号方向计算的信号；不等于 Gel Analyzer 峰面积'],[],
     ['蛋白','样本','分组','位深','Area px²','Mean','RawIntDen','IntDen','方向积分','背景均值','背景校正信号','有效ROI x','有效ROI y','有效ROI w','有效ROI h','来源','原图哈希'],
-    ...B.records(project,group).map(r=>[r.protein,r.sampleId,r.group,r.bitDepth,r.area,r.mean,r.rawIntDen,r.area*r.mean,r.raw,r.backgroundMean??'',r.corrected,r.rect.x,r.rect.y,r.rect.w,r.rect.h,r.sourceName,r.hash])
+    ...group.objects.filter(o=>o.type==='image'&&o.rois.length).flatMap(o=>{
+      assertOriginalFrame(o);
+      const source=project.sources.find(s=>s.id===o.sourceId);
+      return o.rois.map((roi,index)=>{
+        const sample=group.samples[roi.sampleIndex??index];
+        const m=B.imagej.measure(source,roi,{background:o.background,polarity:o.polarity});
+        return [o.protein||o.name,sample.id,sample.group,source.bitDepth,m.Area,m.Mean,m.RawIntDen,m.IntDen,m.DirectionalSignal,m.BackgroundMean??'',m.CorrectedSignal,m.rect.x,m.rect.y,m.rect.w,m.rect.h,source.name,source.hash||''];
+      });
+    })
   ];
   B.imagejPanel=(project,group,o,s)=>{
     const {ui}=B.state,e=B.esc,roi=o.rois.find(r=>r.id===ui.roiId)||o.rois[0],buttons=B.btn('imagej-measure-export','测量 Excel','export')+B.btn('imagej-bundle','ImageJ 复核包','folder');
     const title='<div class="section-title"><div><h2>ImageJ 方法</h2><p class="hint">未校准、无阈值矩形测量 · 原始 '+s.bitDepth+' 位像素</p></div><div class="button-row">'+buttons+'</div></div>';
+    if(o.analysis?.rotation)return '<section class="imagej-panel"><h2>ImageJ 原图复核</h2><p class="hint">当前 ROI 位于分析旋转坐标系。请在原图坐标下重新确认 ROI 后再复核。</p></section>';
     if(!roi)return '<section class="imagej-panel">'+title+'<p class="hint">框选条带 ROI 后，显示 ImageJ 定义的测量与均值曲线。复核包可在原版 ImageJ 中重算。</p></section>';
     const m=B.imagej.measure(s,roi,{background:o.background,polarity:o.polarity}),profile=B.imagej.profile(s,roi,{axis:ui.imagejAxis||'y',invert:!!ui.imagejInvert}),sample=group.samples[roi.sampleIndex],w=640,h=180,left=64,right=20,top=20,bottom=36,lo=profile.values.reduce((a,v)=>Math.min(a,v),Infinity),hi=profile.values.reduce((a,v)=>Math.max(a,v),-Infinity),span=hi-lo||1;
     const px=i=>left+i/Math.max(1,profile.values.length-1)*(w-left-right),py=v=>top+(hi-v)/span*(h-top-bottom),step=Math.max(1,Math.ceil(profile.values.length/800)),indexes=Array.from({length:Math.ceil(profile.values.length/step)},(_,i)=>i*step),last=profile.values.length-1,points=[...new Set([...indexes,last])].map(i=>px(i).toFixed(2)+','+py(profile.values[i]).toFixed(2)).join(' '),f=v=>B.format(v),axis=profile.axis==='y'?'Y':'X';

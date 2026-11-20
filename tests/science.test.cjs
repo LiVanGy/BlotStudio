@@ -27,3 +27,17 @@ test('8-bit RGB TIFF encoder roundtrips without losing gray pixel values',async(
 for(const mode of ['raw','tiff_lzw','packbits','tiff_adobe_deflate','big-endian'])test('independent Pillow TIFF native 16-bit '+mode,async t=>{const f=path.join(fixtures,'native16-'+mode+'.tif');if(!fs.existsSync(f)){t.skip('Optional independently-generated Pillow fixture absent');return;}const b=fs.readFileSync(f),pages=await B.decodeTIFF(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength));assert.equal(pages[0].bitDepth,16);assert.equal(pages[0].width,73);assert.equal(pages[0].height,39);for(let i=0;i<73*39;i++)assert.equal(pages[0].samples[i],(i*79)%65536,'pixel '+i);});
 test('ZIP / XLSX exports have valid CRCs and UTF-8 local entries',()=>{const bytes=B.xlsx([['蛋白','灰度'],['Akt',123]]);assert.equal(new DataView(bytes.buffer).getUint32(0,true),0x04034b50);fs.writeFileSync(path.join(output,'fixture.xlsx'),bytes);assert.equal(B.crc32(B.utf8('123456789')),0xcbf43926);});
 test('PNG export replaces existing resolution metadata instead of duplicating pHYs',async()=>{const original=fs.readFileSync(path.join(fixtures,'dpi96.png')),encoded='data:image/png;base64,'+original.toString('base64'),bytes=await B.pngDpi({toDataURL:()=>encoded},300),dv=new DataView(bytes.buffer);let i=8,count=0;while(i<bytes.length){const len=dv.getUint32(i),type=String.fromCharCode(...bytes.subarray(i+4,i+8));if(type==='pHYs'){count++;assert.equal(dv.getUint32(i+8),11811);assert.equal(dv.getUint32(i+12),11811);assert.equal(bytes[i+16],1);}i+=len+12;}assert.equal(count,1);});
+test('standard export distinguishes analysis pixel sum, directional signal, missing values and inclusion',()=>{
+  const p=B.blankProject(),g=p.groups[0],s=source([1000,1001,60000,60001],16);
+  g.samples=[{id:'S1',group:'C',replicate:1,include:false}];
+  const o=B.imageObject(s);o.rois=[{x:0,y:0,w:2,h:1,sampleIndex:0,id:'test-roi'}];o.background={x:2,y:0,w:2,h:1};
+  g.objects=[o];p.sources=[s];
+  const [record]=B.records(p,g);
+  const [headers,row]=B.resultRows([record]);
+  assert.equal(row[headers.indexOf('分析像素和 RawIntDen')],2001);
+  assert.equal(row[headers.indexOf('方向积分信号')],129069);
+  assert.equal(row[headers.indexOf('校正信号')],118000);
+  assert.equal(row[headers.indexOf('样本记录可纳入')],'否');
+  assert.equal(row[headers.indexOf('ROI ID')],'test-roi');
+  assert.equal(B.resultRows([{...record,corrected:null}])[1][headers.indexOf('校正信号')],'');
+});

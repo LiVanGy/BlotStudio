@@ -255,3 +255,15 @@ test('pending TIFF import is discarded after undo and redo switch away from its 
   await rejected;
   assert.equal(B.state.p.sources.length, 0);
 });
+test('original downloads distinguish stored original bytes from a legacy display preview', async t=>{
+  const h=await harness();t.after(()=>h.dispose());
+  const {B}=h,{source}=makeImage(B);
+  const preview=B.sourceDownload({...source,name:'旧项目.tiff'});
+  assert.equal(preview.original,false);
+  assert.equal(preview.name,'旧项目-预览.png');
+  assert.equal(preview.mime,'image/png');
+  const original=B.sourceDownload({...source,originalName:'Input / 01.tif',original:'data:image/tiff;base64,AQID'});
+  assert.equal(original.original,true);
+  assert.equal(original.name,'Input _ 01.tif');
+  assert.deepEqual(Array.from(original.bytes),[1,2,3]);
+});

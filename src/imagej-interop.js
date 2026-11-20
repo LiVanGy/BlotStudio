@@ -54,6 +54,7 @@
     ];
     const body=[];
     objects.forEach((object,index)=>{
+      if(object.analysis?.rotation&&(object.rois.length||object.background))throw Error('ImageJ 复核需要原图坐标。请在原图坐标下重新确认分析旋转图层的 ROI。');
       const source=project.sources.find(s=>s.id===object.sourceId),bytes=sourcePixels(source),file='images/'+String(index+1).padStart(3,'0')+'.tif',max=2**source.bitDepth-1,polarity=object.polarity||'dark';
       if(!['dark','light'].includes(polarity)||!Array.isArray(object.rois))throw Error('ImageJ 复核遇到无效信号方向或 ROI 列表。');
       files[file]=nativeTIFF(source,bytes);

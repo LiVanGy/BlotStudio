@@ -18,6 +18,15 @@
     const s=B.sourceFromPixels(file.name,c.width,c.height,8,p,{...extra,info:'8-bit RGB luminance'});s.url=c.toDataURL('image/png');const rgb=new Uint8Array(p.length*3);for(let i=0;i<p.length;i++)rgb.set(data.subarray(i*4,i*4+3),i*3);s.rgbPixels=B.base64(rgb);return[s];
   };
   B.loadImage=url=>new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>reject(Error('图像解码失败。'));im.src=url;});
+  B.sourceDownload=source=>{
+    const original=!!source.original;
+    const url=source.original||source.url;
+    const mime=url.slice(5,url.indexOf(';'));
+    const extension=mime==='image/jpeg'?'jpg':mime.split('/')[1];
+    const displayName=String(source.originalName||source.name||'image').replace(/[\\/:*?"<>|\x00-\x1f]/g,'_');
+    const name=original?displayName:displayName.replace(/\.[^.]+$/,'')+'-预览.'+extension;
+    return {original,name,mime,bytes:B.unbase64(url.slice(url.indexOf(',')+1))};
+  };
   const nativeSaves=new Map();
   B.nativeSaveResult=(id,status,message='')=>{const request=nativeSaves.get(id);if(!request)return;nativeSaves.delete(id);clearTimeout(request.timer);if(status==='saved')request.resolve({status:'saved'});else request.reject(Error(status==='cancelled'?'已取消保存，文件没有写入。':message||'保存失败，请重试。'));};
   B.saveFile=async(name,data,mime='application/octet-stream')=>{
