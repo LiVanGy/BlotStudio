@@ -118,7 +118,7 @@ internal sealed class MainWindow : Form
             if (File.Exists(target)) File.Replace(tempFile, target, null);
             else File.Move(tempFile, target);
             tempFile = null;
-            await ReplyAsync(id, "saved");
+            await ReplyAsync(id, "saved", target);
         }
         catch (Exception error)
         {

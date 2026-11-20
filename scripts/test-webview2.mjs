@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {execFileSync, spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {once} from 'node:events';
-import {mkdir, mkdtemp, readFile, readdir, rm} from 'node:fs/promises';
+import {mkdtemp, readFile, readdir, rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
@@ -106,20 +106,23 @@ async function nativeDialog(operation, action, target) {
 }
 
 async function checkFiles() {
-  const projectFile = path.join(files, '定量 项目.wbproj');
-  const folder = path.join(files, '备份 目录');
-  await mkdir(folder);
-  const expectedName = path.parse(projectFile).name;
+  const expectedName = '定量 项目 ' + path.basename(files).split(' ').at(-1);
   const label = 'SYNTHETIC manual overwrite';
   await evaluate('BS.commit("SYNTHETIC file name", p => {p.name=' + JSON.stringify(expectedName) + ';})');
   const projectId = await evaluate('BS.state.p.id');
   const readProject = async filename => JSON.parse(await readFile(filename, 'utf8'));
+  // Observe the ordinary native acknowledgement to find the user's shell-selected destination.
+  await evaluate('(() => { const result = BS.nativeSaveResult; BS.nativeSaveResult = (id,status,message) => { if (status === "saved") globalThis.__qaSavedFile = message; return result(id,status,message); }; })()');
 
   const cancelled = await nativeDialog('BS.actions.save()', 'cancel');
   assert.equal(cancelled.ok, false);
   assert.match(cancelled.message, /取消/);
-  assert.deepEqual(await readdir(files), ['备份 目录']);
-  assert.deepEqual(await nativeDialog('BS.actions.save()', 'save', projectFile), {ok: true});
+  assert.deepEqual(await readdir(files), []);
+  assert.deepEqual(await nativeDialog('BS.actions.save()', 'save'), {ok: true});
+  const projectFile = await evaluate('globalThis.__qaSavedFile');
+  console.log('Windows Save As selected', projectFile);
+  assert.equal(path.basename(projectFile), expectedName + '.wbproj');
+  assert.ok(path.isAbsolute(projectFile));
   const manuallySaved = await readProject(projectFile);
   assert.equal(manuallySaved.sources[0].hash, originalHash);
   assert.deepEqual(Buffer.from(manuallySaved.sources[0].original.split(',')[1], 'base64'), fixture);
@@ -131,15 +134,25 @@ async function checkFiles() {
   driveDialog('open', projectFile);
   await until('Reopen native project file', () => evaluate('BS.state.p.name === ' + JSON.stringify(expectedName)));
   assert.deepEqual(await evaluate('({id:BS.state.p.id, hash:BS.state.p.sources[0].hash})'), {id:projectId, hash:originalHash});
+  await rm(projectFile);
   console.log('PASS: native Save cancellation, retry, overwrite confirmation, and Open preserve the project file on disk.');
 
-  assert.deepEqual(await nativeDialog('BS.chooseWorkspace()', 'folder', folder), {ok: true});
+}
+
+async function checkWorkspace() {
+  const projectId = await evaluate('BS.state.p.id');
+  const readProject = async filename => JSON.parse(await readFile(filename, 'utf8'));
+  assert.deepEqual(await nativeDialog('BS.chooseWorkspace()', 'folder'), {ok: true});
+  const folder = await evaluate('BS.workspaceState.path');
+  assert.ok(path.isAbsolute(folder));
+  console.log('Windows folder picker selected', folder);
   const folderCancel = await nativeDialog('BS.chooseWorkspace()', 'cancel');
   assert.equal(folderCancel.ok, false);
   assert.match(folderCancel.message, /取消/);
   const managed = path.join(folder, 'BlotStudio-' + projectId + '.wbproj');
   assert.equal(await evaluate('BS.syncWorkspace()'), true);
   const originalBackup = await readFile(managed);
+  const previousTemps = (await readdir(folder)).filter(file => /^\.blotstudio-.*\.tmp$/.test(file)).sort();
   const protectedName = 'SYNTHETIC backup retry';
   await evaluate('BS.commit("SYNTHETIC pending backup", p => {p.name=' + JSON.stringify(protectedName) + ';})');
 
@@ -154,7 +167,7 @@ async function checkFiles() {
     const failed = await evaluate('BS.syncWorkspace().then(() => false, () => BS.workspaceState.status.includes("失败"))');
     assert.equal(failed, true);
     assert.deepEqual(await readFile(managed), originalBackup, 'Failed backup must preserve every original byte.');
-    assert.deepEqual(await readdir(folder), [path.basename(managed)]);
+    assert.deepEqual((await readdir(folder)).filter(file => /^\.blotstudio-.*\.tmp$/.test(file)).sort(), previousTemps);
   } finally {
     locker.stdin.end('\n');
     await ended;
@@ -163,14 +176,15 @@ async function checkFiles() {
   const restored = await readProject(managed);
   assert.equal(restored.name, protectedName);
   assert.deepEqual(Buffer.from(restored.sources[0].original.split(',')[1], 'base64'),fixture);
+  await rm(managed);
   console.log('PASS: folder cancellation, failed overwrite preserving every previous byte, temporary-file cleanup and retry verified on disk.');
 }
 
 async function checkSmallWindow() {
   // The real host is resized once. Chromium zoom/DPR at 125% and 150% are emulated.
   const script = 'Add-Type -Name Native -Namespace BlotTest -MemberDefinition \'[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool SetWindowPos(System.IntPtr h, System.IntPtr after, int x, int y, int width, int height, uint flags);\';' +
-    '$h=(Get-Process -Id ' + child.pid + ').MainWindowHandle; if (-not [BlotTest.Native]::SetWindowPos($h,[IntPtr]::Zero,0,0,800,600,6)) { throw "Minimum window resize failed" }';
-  execFileSync('powershell.exe', ['-NoProfile', '-Command', script], {timeout:10000});
+    '$h=(Get-Process -Id ' + child.pid + ').MainWindowHandle; if (-not [BlotTest.Native]::SetWindowPos($h,[IntPtr]::Zero,0,0,800,600,16390)) { throw "Minimum window resize failed" }';
+  execFileSync('powershell.exe', ['-NoProfile', '-Command', script], {timeout:30000});
   const measured = await until('Native minimum-size viewport', () => evaluate('innerWidth <= 800 ? {w:innerWidth,h:innerHeight,dpr:devicePixelRatio} : null'));
   const width = Math.round(measured.w * measured.dpr), height = Math.round(measured.h * measured.dpr);
   for (const scale of [1,1.25,1.5]) {
@@ -249,10 +263,17 @@ try {
   assert.deepEqual(await evaluate('({name: BS.state.p.name, hash: BS.state.p.sources[0]?.hash, objects: BS.getGroup().objects.length})'),
     {name: savedName, hash: originalHash, objects: 1});
   console.log('PASS: normal Windows close saves pending edits and reopening restores the original and layout.');
-  await checkFiles();
+  const failures = layoutError ? [layoutError] : [];
+  for (const check of [checkFiles, checkWorkspace]) {
+    try { await check(); } catch (error) {
+      failures.push(error);
+      console.error(check.name + ':', error.message);
+      try { driveDialog('cancel'); } catch {}
+    }
+  }
   assert.equal(await evaluate('BS.flushSave()'), true);
   await close();
-  if (layoutError) throw layoutError;
+  if (failures.length) throw new AggregateError(failures, 'Windows desktop checks failed');
 } catch (error) {
   if (child?.pid && child.exitCode === null) {
     const diagnostic = 'Add-Type -AssemblyName UIAutomationClient; Add-Type -AssemblyName UIAutomationTypes; ' +

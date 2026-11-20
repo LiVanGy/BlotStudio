@@ -80,7 +80,7 @@ if ($Action -eq 'cancel') {
     return
 }
 $record = Wait-Dialog 1
-if ($Action -in @('open', 'folder')) {
+if ($TargetPath -and $Action -in @('open', 'folder')) {
     $leaf = [IO.Path]::GetFileName($TargetPath)
     $names = @($leaf, [IO.Path]::GetFileNameWithoutExtension($leaf))
     $root = [System.Windows.Automation.AutomationElement]::FromHandle($record.Window)
