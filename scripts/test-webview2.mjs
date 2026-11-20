@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {execFileSync, spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {once} from 'node:events';
-import {mkdtemp, readFile, rm} from 'node:fs/promises';
+import {mkdir, mkdtemp, readFile, readdir, rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
@@ -10,6 +10,7 @@ import {setTimeout as delay} from 'node:timers/promises';
 assert.equal(process.platform, 'win32', 'This check requires the native Windows app.');
 const executable = path.resolve(process.argv[2] ?? 'dist/windows-x64/BlotStudio.exe');
 const profile = await mkdtemp(path.join(tmpdir(), 'BlotStudio WebView2 '));
+const files = await mkdtemp(path.join(tmpdir(), 'BlotStudio 文件 验收 '));
 const fixture = await readFile('tests/fixtures/native16-raw.tif');
 const originalHash = 'sha256:' + createHash('sha256').update(fixture).digest('hex');
 const savedName = 'SYNTHETIC · Windows 关闭恢复';
@@ -51,7 +52,7 @@ function evaluate(expression) {
       reject(Error('WebView2 did not complete the requested check.'));
     }, 15000);
     socket.addEventListener('message', receive);
-    socket.send(JSON.stringify({id, method: 'Runtime.evaluate', params: {expression, awaitPromise: true, returnByValue: true}}));
+    socket.send(JSON.stringify({id, method: 'Runtime.evaluate', params: {expression, awaitPromise: true, returnByValue: true, userGesture: true}}));
   });
 }
 
@@ -72,6 +73,60 @@ async function launch() {
   socket = new WebSocket(target.webSocketDebuggerUrl);
   await once(socket, 'open', {signal: AbortSignal.timeout(10000)});
   await until('BlotStudio startup', () => evaluate('Boolean(globalThis.BS?.state?.p)'));
+}
+
+function driveDialog(action, target = '') {
+  const args = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
+    path.resolve('scripts/windows-dialog-test.ps1'), '-AppProcessId', String(child.pid), '-Action', action];
+  if (target) args.push('-TargetPath', target);
+  execFileSync('powershell.exe', args, {stdio: 'inherit', timeout: 45000});
+}
+
+async function nativeDialog(operation, action, target) {
+  await evaluate('globalThis.__qaDialog = null; Promise.resolve(' + operation +
+    ').then(() => { __qaDialog = {ok:true}; }, error => { __qaDialog = {ok:false, message:error.message}; }); true');
+  driveDialog(action, target);
+  return until('Native dialog completion: ' + action, () => evaluate('globalThis.__qaDialog'));
+}
+
+async function checkFiles() {
+  const projectFile = path.join(files, '定量 项目.wbproj');
+  const folder = path.join(files, '备份 目录');
+  await mkdir(folder);
+  const expectedName = 'SYNTHETIC manual overwrite';
+  const projectId = await evaluate('BS.state.p.id');
+  const readProject = async filename => JSON.parse(await readFile(filename, 'utf8'));
+
+  const cancelled = await nativeDialog('BS.actions.save()', 'cancel');
+  assert.equal(cancelled.ok, false);
+  assert.match(cancelled.message, /取消/);
+  assert.deepEqual(await readdir(files), ['备份 目录']);
+  assert.deepEqual(await nativeDialog('BS.actions.save()', 'save', projectFile), {ok: true});
+  assert.equal((await readProject(projectFile)).sources[0].hash, originalHash);
+  await evaluate('BS.commit("SYNTHETIC rename", p => {p.name=' + JSON.stringify(expectedName) + ';})');
+  assert.deepEqual(await nativeDialog('BS.actions.save()', 'overwrite', projectFile), {ok: true});
+  assert.equal((await readProject(projectFile)).name, expectedName);
+  await evaluate('BS.commit("SYNTHETIC unsaved edit", p => {p.name="discard this edit";})');
+  await evaluate('BS.actions.open(); true');
+  driveDialog('open', projectFile);
+  await until('Reopen native project file', () => evaluate('BS.state.p.name === ' + JSON.stringify(expectedName)));
+  assert.deepEqual(await evaluate('({id:BS.state.p.id, hash:BS.state.p.sources[0].hash})'), {id:projectId, hash:originalHash});
+  console.log('PASS: native Save cancellation, retry, overwrite confirmation, and Open preserve the project file on disk.');
+
+  assert.deepEqual(await nativeDialog('BS.chooseWorkspace()', 'folder', folder), {ok: true});
+  const folderCancel = await nativeDialog('BS.chooseWorkspace()', 'cancel');
+  assert.equal(folderCancel.ok, false);
+  assert.match(folderCancel.message, /取消/);
+  const managed = path.join(folder, 'BlotStudio-' + projectId + '.wbproj');
+  await mkdir(managed);
+  const failed = await evaluate('BS.syncWorkspace().then(() => false, () => BS.workspaceState.status.includes("失败"))');
+  assert.equal(failed, true);
+  assert.deepEqual(await readdir(managed), []);
+  assert.deepEqual(await readdir(folder), [path.basename(managed)]);
+  await rm(managed, {recursive: true});
+  assert.equal(await evaluate('BS.syncWorkspace()'), true);
+  assert.deepEqual([(await readProject(managed)).name, (await readProject(managed)).sources[0].hash], [expectedName,originalHash]);
+  console.log('PASS: native folder selection, cancellation, write failure, cleanup and retry yield a readable disk backup.');
 }
 
 async function close() {
@@ -99,6 +154,9 @@ try {
   assert.equal(await evaluate('BS.flushSave()'), true);
   console.log('PASS: WebView2 decodes the original TIFF and matches the expected native-depth measurement and SHA-256.');
 
+  await checkFiles();
+  assert.equal(await evaluate('BS.flushSave()'), true);
+
   // Delay the usual debounce so only the native close path can save this edit.
   await evaluate('(() => { const persist = BS.persist; BS.persist = () => {}; try { BS.commit("SYNTHETIC close test", project => { project.name = ' +
     JSON.stringify(savedName) + '; }); } finally { BS.persist = persist; } })()');
@@ -114,5 +172,6 @@ try {
     const exited = once(child, 'exit');
     if (child.kill()) await Promise.race([exited, delay(5000)]);
   }
+  await rm(files, {recursive: true, force: true, maxRetries: 10, retryDelay: 250});
   await rm(profile, {recursive: true, force: true, maxRetries: 10, retryDelay: 250});
 }
