@@ -56,6 +56,10 @@ function Wait-Dialog([int]$ButtonId) {
             $root = [System.Windows.Automation.AutomationElement]::FromHandle($dialog)
             $id = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, [string]$ButtonId)
             $button = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $id)
+            if (!$button -and $ButtonId -eq 6 -and [BlotDialog]::Title($dialog) -eq 'Confirm Save As') {
+                $yes = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty, 'Yes')
+                $button = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $yes)
+            }
             $script:seen = [BlotDialog]::Title($dialog) + ' ' + (([BlotDialog]::Controls($dialog) | ForEach-Object { [BlotDialog]::Class($_) + ':' + [BlotDialog]::GetDlgCtrlID($_) }) -join ',')
             if ($button) { return [PSCustomObject]@{ Window=$dialog; Button=$button } }
         }
@@ -66,6 +70,11 @@ function Wait-Dialog([int]$ButtonId) {
 function Press-Button($record,[int]$id) {
     $hwnd = [IntPtr]$record.Button.Current.NativeWindowHandle
     Write-Output ("Select {0} in {1}" -f $id,[BlotDialog]::Title($record.Window))
+    if ($id -eq 6) {
+        $action = $record.Button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+        $action.Invoke()
+        return
+    }
     if (-not [BlotDialog]::PostMessage($record.Window,273,[IntPtr]$id,$hwnd)) { throw "Cannot activate dialog button $id" }
     if ($id -eq 2) {
         Start-Sleep -Milliseconds 400
@@ -86,6 +95,7 @@ if ($TargetPath -and $Action -in @('open', 'folder')) {
     $root = [System.Windows.Automation.AutomationElement]::FromHandle($record.Window)
     $stop = [DateTime]::UtcNow.AddSeconds(6)
     $lastNames = @()
+    $navigated = $false
     do {
         $items = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
         $selected = $false
@@ -101,6 +111,19 @@ if ($TargetPath -and $Action -in @('open', 'folder')) {
             Write-Output "Selected shell item: $($item.Current.Name)"
             $selected = $true
             break
+        }
+        if (!$selected -and !$navigated -and $Action -eq 'open') {
+            $folderName = [IO.Path]::GetFileName([IO.Path]::GetDirectoryName($TargetPath))
+            foreach ($item in $items) {
+                if ($item.Current.ControlType -ne [System.Windows.Automation.ControlType]::TreeItem -or $item.Current.Name -ne $folderName) { continue }
+                $pattern = $null
+                if ($item.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern,[ref]$pattern)) {
+                    $pattern.Select()
+                    $navigated = $true
+                    Write-Output "Navigated to shell location: $folderName"
+                    break
+                }
+            }
         }
         if (!$selected) { Start-Sleep -Milliseconds 120 }
     } while (!$selected -and [DateTime]::UtcNow -lt $stop)

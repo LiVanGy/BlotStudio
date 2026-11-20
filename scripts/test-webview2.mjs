@@ -126,9 +126,11 @@ async function checkFiles() {
   const manuallySaved = await readProject(projectFile);
   assert.equal(manuallySaved.sources[0].hash, originalHash);
   assert.deepEqual(Buffer.from(manuallySaved.sources[0].original.split(',')[1], 'base64'), fixture);
+  console.log('PASS: cancelled Save As, retried and verified the original TIFF bytes at the actual saved path.');
   await evaluate('BS.commit("SYNTHETIC overwrite", p => {p.groups[0].name=' + JSON.stringify(label) + ';})');
   assert.deepEqual(await nativeDialog('BS.actions.save()', 'overwrite', projectFile), {ok: true});
   assert.equal((await readProject(projectFile)).groups[0].name, label);
+  console.log('PASS: confirmed the native overwrite and verified the replacement on disk.');
   await evaluate('BS.commit("SYNTHETIC unsaved edit", p => {p.name="discard this edit";})');
   await evaluate('BS.actions.open(); true');
   driveDialog('open', projectFile);
@@ -264,7 +266,7 @@ try {
     {name: savedName, hash: originalHash, objects: 1});
   console.log('PASS: normal Windows close saves pending edits and reopening restores the original and layout.');
   const failures = layoutError ? [layoutError] : [];
-  for (const check of [checkFiles, checkWorkspace]) {
+  for (const check of [checkWorkspace, checkFiles]) {
     try { await check(); } catch (error) {
       failures.push(error);
       console.error(check.name + ':', error.message);
