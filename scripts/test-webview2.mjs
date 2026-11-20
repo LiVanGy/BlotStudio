@@ -35,7 +35,7 @@ async function until(label, callback, timeout = 30000) {
   throw Error(label + ' timed out' + detail);
 }
 
-function evaluate(expression) {
+function devtools(method, params) {
   const id = ++sequence;
   return new Promise((resolve, reject) => {
     const receive = event => {
@@ -43,17 +43,22 @@ function evaluate(expression) {
       if (reply.id !== id) return;
       clearTimeout(timer);
       socket.removeEventListener('message', receive);
-      const error = reply.error?.message ?? reply.result?.exceptionDetails?.exception?.description ?? reply.result?.exceptionDetails?.text;
-      if (error) reject(Error(error));
-      else resolve(reply.result?.result?.value);
+      if (reply.error) reject(Error(reply.error.message));
+      else resolve(reply.result);
     };
     const timer = setTimeout(() => {
       socket.removeEventListener('message', receive);
       reject(Error('WebView2 did not complete the requested check.'));
     }, 15000);
     socket.addEventListener('message', receive);
-    socket.send(JSON.stringify({id, method: 'Runtime.evaluate', params: {expression, awaitPromise: true, returnByValue: true, userGesture: true}}));
+    socket.send(JSON.stringify({id, method, params}));
   });
+}
+
+async function evaluate(expression) {
+  const result = await devtools('Runtime.evaluate', {expression, awaitPromise:true, returnByValue:true, userGesture:true});
+  if (result.exceptionDetails) throw Error(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text);
+  return result.result?.value;
 }
 
 async function launch() {
@@ -76,7 +81,7 @@ async function launch() {
 }
 
 function driveDialog(action, target = '') {
-  const args = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
+  const args = ['-NoProfile', '-NonInteractive', '-File',
     path.resolve('scripts/windows-dialog-test.ps1'), '-AppProcessId', String(child.pid), '-Action', action];
   if (target) args.push('-TargetPath', target);
   execFileSync('powershell.exe', args, {stdio: 'inherit', timeout: 45000});
@@ -129,6 +134,49 @@ async function checkFiles() {
   console.log('PASS: native folder selection, cancellation, write failure, cleanup and retry yield a readable disk backup.');
 }
 
+async function checkSmallWindow() {
+  // The real host is resized once. Chromium zoom/DPR at 125% and 150% are emulated.
+  const script = 'Add-Type -Name Native -Namespace BlotTest -MemberDefinition \'[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool SetWindowPos(System.IntPtr h, System.IntPtr after, int x, int y, int width, int height, uint flags);\';' +
+    '$h=(Get-Process -Id ' + child.pid + ').MainWindowHandle; if (-not [BlotTest.Native]::SetWindowPos($h,[IntPtr]::Zero,0,0,800,600,6)) { throw "Minimum window resize failed" }';
+  execFileSync('powershell.exe', ['-NoProfile', '-Command', script], {timeout:10000});
+  const measured = await until('Native minimum-size viewport', () => evaluate('innerWidth <= 800 ? {w:innerWidth,h:innerHeight,dpr:devicePixelRatio} : null'));
+  const width = Math.round(measured.w * measured.dpr), height = Math.round(measured.h * measured.dpr);
+  for (const scale of [1,1.25,1.5]) {
+    const viewportWidth = Math.floor(width / scale), viewportHeight = Math.floor(height / scale);
+    await devtools('Emulation.setDeviceMetricsOverride', {width:viewportWidth,height:viewportHeight,deviceScaleFactor:scale,mobile:false});
+    const report = await evaluate('(' + inspectControls.toString() + ')()');
+    assert.deepEqual(report.hidden, [], 'Control unreachable at ' + scale + 'x: ' + JSON.stringify(report));
+    assert.equal(report.dpr, scale);
+    console.log('PASS: WebView2 control hit tests at ' + JSON.stringify(report));
+  }
+  await devtools('Emulation.clearDeviceMetricsOverride', {});
+}
+
+async function inspectControls() {
+  const hidden = [];
+  function check(button, name) {
+    const box = button?.getBoundingClientRect();
+    const x = box && (box.left + box.width / 2), y = box && (box.top + box.height / 2);
+    if (!box?.width || !box.height || x < 0 || x >= innerWidth || y < 0 || y >= innerHeight ||
+        !button.contains(document.elementFromPoint(x,y))) hidden.push(name);
+  }
+  const frame = () => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)));
+  for (const id of ['design','analysis','edit','stats']) {
+    const button = document.querySelector('[data-action="tab"][data-id="' + id + '"]');
+    check(button, id);
+    button.click();
+    await frame();
+    if (BS.state.ui.tab !== id) hidden.push('switch to ' + id);
+    for (const action of ['save','export','project-menu']) check(document.querySelector('header [data-action="' + action + '"]'), id + '/' + action);
+  }
+  document.querySelector('header [data-action="export"]').click();
+  await frame();
+  const dialog = document.querySelector('[role="dialog"]');
+  for (const action of ['close-modal','do-export']) check(dialog?.querySelector('[data-action="' + action + '"]'), 'export/' + action);
+  BS.actions['close-modal']();
+  return {width:innerWidth,height:innerHeight,dpr:devicePixelRatio,hidden};
+}
+
 async function close() {
   const processId = child.pid;
   const closed = execFileSync('powershell.exe', ['-NoProfile', '-Command',
@@ -155,6 +203,7 @@ try {
   console.log('PASS: WebView2 decodes the original TIFF and matches the expected native-depth measurement and SHA-256.');
 
   await checkFiles();
+  await checkSmallWindow();
   assert.equal(await evaluate('BS.flushSave()'), true);
 
   // Delay the usual debounce so only the native close path can save this edit.
@@ -166,6 +215,14 @@ try {
     {name: savedName, hash: originalHash, objects: 1});
   await close();
   console.log('PASS: normal Windows close saves pending edits and reopening restores the original and layout.');
+} catch (error) {
+  if (child?.pid && child.exitCode === null) {
+    const diagnostic = 'Add-Type -AssemblyName UIAutomationClient; Add-Type -AssemblyName UIAutomationTypes; ' +
+      '$root=[System.Windows.Automation.AutomationElement]::RootElement; $condition=[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ProcessIdProperty,[int]' + child.pid + '); ' +
+      '$windows=$root.FindAll([System.Windows.Automation.TreeScope]::Children,$condition); foreach($win in $windows){Write-Output ("BlotStudio HWND: "+$win.Current.Name); $win.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition) | Select-Object -First 20 | ForEach-Object {Write-Output ($_.Current.ClassName+" | "+$_.Current.Name)}}';
+    try { execFileSync('powershell.exe', ['-NoProfile','-Command',diagnostic], {stdio:'inherit',timeout:7000}); } catch {}
+  }
+  throw error;
 } finally {
   if (socket?.readyState === WebSocket.OPEN) socket.close();
   if (child?.pid && child.exitCode === null && child.signalCode === null) {
