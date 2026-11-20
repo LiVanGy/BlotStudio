@@ -64,6 +64,7 @@ async function evaluate(expression) {
 
 async function launch() {
   child = spawn(executable, [], {
+    cwd: files,
     stdio: 'ignore',
     env: {
       ...process.env,
@@ -108,7 +109,9 @@ async function checkFiles() {
   const projectFile = path.join(files, '定量 项目.wbproj');
   const folder = path.join(files, '备份 目录');
   await mkdir(folder);
-  const expectedName = 'SYNTHETIC manual overwrite';
+  const expectedName = path.parse(projectFile).name;
+  const label = 'SYNTHETIC manual overwrite';
+  await evaluate('BS.commit("SYNTHETIC file name", p => {p.name=' + JSON.stringify(expectedName) + ';})');
   const projectId = await evaluate('BS.state.p.id');
   const readProject = async filename => JSON.parse(await readFile(filename, 'utf8'));
 
@@ -120,9 +123,9 @@ async function checkFiles() {
   const manuallySaved = await readProject(projectFile);
   assert.equal(manuallySaved.sources[0].hash, originalHash);
   assert.deepEqual(Buffer.from(manuallySaved.sources[0].original.split(',')[1], 'base64'), fixture);
-  await evaluate('BS.commit("SYNTHETIC rename", p => {p.name=' + JSON.stringify(expectedName) + ';})');
+  await evaluate('BS.commit("SYNTHETIC overwrite", p => {p.groups[0].name=' + JSON.stringify(label) + ';})');
   assert.deepEqual(await nativeDialog('BS.actions.save()', 'overwrite', projectFile), {ok: true});
-  assert.equal((await readProject(projectFile)).name, expectedName);
+  assert.equal((await readProject(projectFile)).groups[0].name, label);
   await evaluate('BS.commit("SYNTHETIC unsaved edit", p => {p.name="discard this edit";})');
   await evaluate('BS.actions.open(); true');
   driveDialog('open', projectFile);
@@ -231,9 +234,12 @@ try {
   assert.equal(await evaluate('BS.flushSave()'), true);
   console.log('PASS: WebView2 decodes the original TIFF and matches the expected native-depth measurement and SHA-256.');
 
-  await checkFiles();
-  await checkSmallWindow();
-  assert.equal(await evaluate('BS.flushSave()'), true);
+  let layoutError;
+  try { await checkSmallWindow(); } catch (error) {
+    layoutError = error;
+    console.error('Small-window diagnostic:', error.message);
+    await devtools('Emulation.clearDeviceMetricsOverride', {});
+  }
 
   // Delay the usual debounce so only the native close path can save this edit.
   await evaluate('(() => { const persist = BS.persist; BS.persist = () => {}; try { BS.commit("SYNTHETIC close test", project => { project.name = ' +
@@ -242,8 +248,11 @@ try {
   await launch();
   assert.deepEqual(await evaluate('({name: BS.state.p.name, hash: BS.state.p.sources[0]?.hash, objects: BS.getGroup().objects.length})'),
     {name: savedName, hash: originalHash, objects: 1});
-  await close();
   console.log('PASS: normal Windows close saves pending edits and reopening restores the original and layout.');
+  await checkFiles();
+  assert.equal(await evaluate('BS.flushSave()'), true);
+  await close();
+  if (layoutError) throw layoutError;
 } catch (error) {
   if (child?.pid && child.exitCode === null) {
     const diagnostic = 'Add-Type -AssemblyName UIAutomationClient; Add-Type -AssemblyName UIAutomationTypes; ' +
