@@ -11,6 +11,9 @@
 .imagej-panel{border:1px solid var(--line);border-radius:6px;padding:0 18px 18px;margin:20px 0;background:#fff}.imagej-panel .section-title{margin-top:18px}.imagej-panel .hint{margin-top:7px}.imagej-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.imagej-metrics>div{background:#f1f7f5;padding:12px;border-radius:4px;min-width:0}.imagej-metrics span{display:block;font-size:11px;color:#647c79}.imagej-metrics strong{display:block;margin-top:6px;font-size:17px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}.imagej-profile-controls{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-top:18px}.imagej-profile-controls .field{margin-bottom:12px;min-width:210px}.imagej-profile{display:block;width:100%;max-width:850px;height:auto;margin-top:6px}@media(max-width:700px){.imagej-panel{padding:0 12px 14px}.imagej-panel .section-title{flex-direction:column}.imagej-metrics{grid-template-columns:1fr 1fr}.imagej-profile-controls{gap:10px}}
 
 .condition-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;padding:16px 0}.condition-fields details{grid-column:1/-1;border:1px solid #d7e2df;padding:12px}.profile-panel{background:white;padding:20px}.profile-panel svg{width:100%;max-height:240px}
+.stats-grid>.chart-panel{min-width:0}
+.chart-preview{max-width:100%;overflow-x:auto}
+.chart-preview svg{display:block;width:100%;height:auto}
 
 /* Liquid-glass inspired navigation; neutral, opaque scientific content. */
 :root{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Microsoft YaHei",sans-serif;font-size:13px;--ink:#25333d;--muted:#76838b;--teal:#287d89;--teal-dark:#1c626e;--soft:#e9f3f5;--line:rgba(75,105,120,.12);--surface:#fff;--glass:rgba(255,255,255,.72);--glass-edge:rgba(255,255,255,.95);--glass-shadow:0 8px 30px rgba(38,68,83,.055),inset 0 1px 0 rgba(255,255,255,.9);color:var(--ink);background:#eaf0f2}
@@ -307,7 +310,7 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
         if(o.type==='image'){
           const s=sources.get(o.sourceId);if(!s)throw Error('图像来源缺失。');if(o.analysis){if(!B.validateAnalysis)throw Error('缺少灰度方法模块。');B.validateAnalysis(o.analysis);}for(const field of ['controlId','totalId'])if(o[field]&&(o[field]===o.id||!imageIds.has(o[field])))throw Error('内参或总蛋白对应关系无效。');B.assertRect(s,o.crop,'裁剪范围');
           if(!Array.isArray(o.rois)||o.rois.length>g.samples.length||new Set(o.rois.map(r=>r?.id)).size!==o.rois.length||new Set(o.rois.map(r=>r?.sampleIndex)).size!==o.rois.length)throw Error('ROI 参数无效或同一泳道有重复 ROI。');
-          for(const r of o.rois){if(!r||!id(r.id)||!Number.isInteger(r.sampleIndex)||r.sampleIndex<0||r.sampleIndex>=g.samples.length)throw Error('ROI 样本对应关系无效。');B.assertRect(s,r,'条带 ROI');if(r.shape&&!['rect','ellipse','profile'].includes(r.shape))throw Error('ROI 形状无效。');for(const f of ['baselineStart','baselineEnd'])if(r[f]!==undefined&&(!Number.isFinite(r[f])||r[f]<0))throw Error('峰图基线无效。');}
+          for(const r of o.rois){if(!r||!id(r.id)||!Number.isInteger(r.sampleIndex)||r.sampleIndex<0||r.sampleIndex>=g.samples.length)throw Error('ROI 样本对应关系无效。');B.assertRect(s,r,'条带 ROI');if(r.shape&&!['rect','ellipse','profile'].includes(r.shape))throw Error('ROI 形状无效。');for(const f of ['baselineStart','baselineEnd'])if(r[f]!==undefined&&!Number.isFinite(r[f]))throw Error('峰图基线无效。');}
           if(o.background)B.assertRect(s,o.background,'背景 ROI');
           if(o.referenceId&&(o.referenceId===o.id||!imageIds.has(o.referenceId)))throw Error('参照蛋白缺失或不能引用自身。');
           for(const key of ['brightness','contrast'])if(!Number.isFinite(o[key])||o[key]<0||o[key]>200)throw Error('图像显示参数无效。');
@@ -326,8 +329,65 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
     B.assertProjectSize(p);
     return p;
   };
-  B.bounds = objects => {if(!objects.length)return {x:0,y:0,w:0,h:0};let x=Math.min(...objects.map(o=>o.x)),y=Math.min(...objects.map(o=>o.y));return{x,y,w:Math.max(...objects.map(o=>o.x+o.w))-x,h:Math.max(...objects.map(o=>o.y+o.h))-y};};
-  B.alignObjects=(objects,mode)=>{const b=B.bounds(objects),axis=mode==='distributeY'?'y':'x',dim=axis==='x'?'w':'h';if(mode.startsWith('distribute')){if(objects.length<3)return;const a=objects.slice().sort((a,b)=>a[axis]-b[axis]),gap=(b[dim]-a.reduce((s,o)=>s+o[dim],0))/(a.length-1);let n=b[axis];for(const o of a){o[axis]=n;n+=o[dim]+gap;}return;}for(const o of objects){if(mode==='left')o.x=b.x;if(mode==='center')o.x=b.x+(b.w-o.w)/2;if(mode==='right')o.x=b.x+b.w-o.w;if(mode==='top')o.y=b.y;if(mode==='middle')o.y=b.y+(b.h-o.h)/2;if(mode==='bottom')o.y=b.y+b.h-o.h;if(mode==='width')o.w=objects[0].w;if(mode==='height')o.h=objects[0].h;}};
+  B.objectBounds=o=>{
+    const radians=(o.rotation||0)*Math.PI/180;
+    const cos=Math.abs(Math.cos(radians)),sin=Math.abs(Math.sin(radians));
+    const w=o.w*cos+o.h*sin,h=o.w*sin+o.h*cos;
+    return {x:o.x+(o.w-w)/2,y:o.y+(o.h-h)/2,w,h};
+  };
+  B.bounds=objects=>{
+    if(!objects.length)return {x:0,y:0,w:0,h:0};
+    const boxes=objects.map(B.objectBounds);
+    const x=Math.min(...boxes.map(b=>b.x)),y=Math.min(...boxes.map(b=>b.y));
+    return {x,y,w:Math.max(...boxes.map(b=>b.x+b.w))-x,h:Math.max(...boxes.map(b=>b.y+b.h))-y};
+  };
+  B.alignObjects=(objects,mode)=>{
+    if(!objects.length)return;
+    if(mode==='width'||mode==='height'){
+      const dimension=mode==='width'?'w':'h';
+      for(const o of objects)o[dimension]=objects[0][dimension];
+      return;
+    }
+    const bounds=B.bounds(objects);
+    const entries=objects.map(object=>({object,box:B.objectBounds(object)}));
+    if(mode.startsWith('distribute')){
+      if(entries.length<3)return;
+      const axis=mode==='distributeY'?'y':'x',size=axis==='x'?'w':'h';
+      entries.sort((a,b)=>a.box[axis]-b.box[axis]);
+      const gap=(bounds[size]-entries.reduce((sum,{box})=>sum+box[size],0))/(entries.length-1);
+      let edge=bounds[axis];
+      for(const {object,box} of entries){
+        object[axis]+=edge-box[axis];
+        edge+=box[size]+gap;
+      }
+      return;
+    }
+    const horizontal=['left','center','right'].indexOf(mode);
+    const vertical=['top','middle','bottom'].indexOf(mode);
+    if(horizontal<0&&vertical<0)return;
+    const axis=horizontal>=0?'x':'y',size=horizontal>=0?'w':'h';
+    const fraction=Math.max(horizontal,vertical)/2;
+    for(const {object,box} of entries)object[axis]+=bounds[axis]-box[axis]+(bounds[size]-box[size])*fraction;
+  };
+  // Resize in the object's local axes, anchoring the opposite edge or corner.
+  B.resizeFrame=(frame,handle,dx,dy,keepRatio)=>{
+    const horizontal=handle.includes('w')?-1:handle.includes('e')?1:0;
+    const vertical=handle.includes('n')?-1:handle.includes('s')?1:0;
+    const radians=(frame.rotation||0)*Math.PI/180,cos=Math.cos(radians),sin=Math.sin(radians);
+    const localX=dx*cos+dy*sin,localY=-dx*sin+dy*cos;
+    let w=Math.max(Math.min(2,frame.w),frame.w+horizontal*localX);
+    let h=Math.max(Math.min(2,frame.h),frame.h+vertical*localY);
+    if(keepRatio){
+      const scaleX=w/frame.w,scaleY=h/frame.h;
+      const useX=horizontal!==0&&(vertical===0||Math.abs(scaleX-1)>=Math.abs(scaleY-1));
+      const scale=Math.max(useX?scaleX:scaleY,Math.min(1,2/Math.max(frame.w,frame.h)));
+      w=frame.w*scale;
+      h=frame.h*scale;
+    }
+    const shiftX=horizontal*(w-frame.w)/2,shiftY=vertical*(h-frame.h)/2;
+    return {x:frame.x+(frame.w-w)/2+cos*shiftX-sin*shiftY,
+      y:frame.y+(frame.h-h)/2+sin*shiftX+cos*shiftY,w,h};
+  };
 })(globalThis.BS ||= {});
 
 (function(B){
@@ -371,13 +431,40 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
     return out;
   };
   B.analysisPixels=(source,settings)=>{
-    const a=B.validateAnalysis(settings),key=JSON.stringify(a),existing=cache.get(source);if(existing?.key===key)return existing;
-    const native=B.pixels(source);let values=Float64Array.from(native),depth=source.bitDepth;
+    const a=B.validateAnalysis(settings),key=JSON.stringify(a),existing=cache.get(source),native=B.pixels(source);
+    if(existing?.key===key&&existing.native===native&&existing.rgbPayload===source.rgbPixels&&existing.sourceInfo===source.info)return existing;
+    let values=Float64Array.from(native),depth=source.bitDepth,range8=null;
     if(a.rgb==='mean'&&!source.rgbPixels&&/RGB/i.test(source.info||''))throw Error('旧彩色图像未保存原始 RGB 通道；请重新上传原图后使用 ImageJ 等权平均。');
     if(a.rgb==='mean'&&source.rgbPixels){const rgb=B.unbase64(source.rgbPixels);if(rgb.length!==native.length*3)throw Error('原始 RGB 像素损坏。');values=Float64Array.from(native,(_,i)=>Math.floor((rgb[i*3]+rgb[i*3+1]+rgb[i*3+2])/3+.5));}
-    if(a.convert8&&depth===16){let lo=Infinity,hi=-Infinity;for(const v of values){lo=Math.min(lo,v);hi=Math.max(hi,v);}const scale=hi>lo?256/(hi-lo+1):0;values=Float64Array.from(values,v=>B.clamp(Math.floor((v-lo)*scale+.5),0,255));depth=8;}
-    if(a.rotation){const radians=a.rotation*Math.PI/180,cos=Math.cos(radians),sin=Math.sin(radians),cx=(source.width-1)/2,cy=(source.height-1)/2,original=values,fill=a.polarity==='light'?0:2**depth-1;values=new Float64Array(original.length);for(let y=0;y<source.height;y++)for(let x=0;x<source.width;x++){const sx=cos*(x-cx)+sin*(y-cy)+cx,sy=-sin*(x-cx)+cos*(y-cy)+cy;if(sx<0||sy<0||sx>source.width-1||sy>source.height-1){values[y*source.width+x]=fill;continue;}const xx=Math.floor(sx),yy=Math.floor(sy),x1=Math.min(source.width-1,xx+1),y1=Math.min(source.height-1,yy+1),fx=sx-xx,fy=sy-yy;values[y*source.width+x]=Math.round((1-fy)*((1-fx)*original[yy*source.width+xx]+fx*original[yy*source.width+x1])+fy*((1-fx)*original[y1*source.width+xx]+fx*original[y1*source.width+x1]));}}
-    const result={key,values,depth,max:2**depth-1};cache.set(source,result);return result;
+    if(a.convert8&&depth===16){let lo=Infinity,hi=-Infinity;for(const v of values){lo=Math.min(lo,v);hi=Math.max(hi,v);}range8=[lo,hi];const scale=hi>lo?256/(hi-lo+1):0;values=Float64Array.from(values,v=>B.clamp(Math.floor((v-lo)*scale+.5),0,255));depth=8;}
+    let rotatedClipping=null;
+    if(a.rotation){
+      const angle=a.rotation*Math.PI/180,quarterTurn=a.rotation%90===0;
+      const cos=quarterTurn?Math.round(Math.cos(angle)):Math.cos(angle);
+      const sin=quarterTurn?Math.round(Math.sin(angle)):Math.sin(angle);
+      const {width,height}=source,cx=(width-1)/2,cy=(height-1)/2;
+      const original=values,fill=a.polarity==='light'?0:2**depth-1;
+      const nativeMax=2**source.bitDepth-1;
+      const clipped=i=>native[i]===0||native[i]===nativeMax;
+      if(native.some(v=>v===0||v===nativeMax))rotatedClipping=new Uint8Array(original.length);
+      values=new Float64Array(original.length);
+      for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+        const sx=cos*(x-cx)+sin*(y-cy)+cx,sy=-sin*(x-cx)+cos*(y-cy)+cy;
+        const i=y*width+x;
+        if(sx<0||sy<0||sx>width-1||sy>height-1){values[i]=fill;continue;}
+        const left=Math.floor(sx),top=Math.floor(sy),right=Math.min(width-1,left+1),bottom=Math.min(height-1,top+1);
+        const tl=top*width+left,tr=top*width+right,bl=bottom*width+left,br=bottom*width+right;
+        const dx=sx-left,dy=sy-top;
+        values[i]=Math.round((1-dy)*((1-dx)*original[tl]+dx*original[tr])+dy*((1-dx)*original[bl]+dx*original[br]));
+        if(rotatedClipping){
+          // A rotated ROI pixel is flagged if a contributing source intensity reached an endpoint.
+          rotatedClipping[i]=Number(clipped(tl)||(dx>0&&clipped(tr))||(dy>0&&clipped(bl))||(dx>0&&dy>0&&clipped(br)));
+        }
+      }
+    }
+    const result={key,values,depth,max:2**depth-1,native,rotatedClipping,range8,rgbPayload:source.rgbPixels,sourceInfo:source.info};
+    cache.set(source,result);
+    return result;
   };
   B.preparedSignal=(source,settings,polarity)=>{
     const prepared=B.analysisPixels(source,{...settings,polarity}),key=polarity+'Signal';if(prepared[key])return prepared[key];
@@ -394,15 +481,37 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
     return{values,baseline,signal,area};
   };
   B.quantify=(source,roi,background,polarity,settings)=>{
-    const {values,corrected,max,depth}=B.preparedSignal(source,settings,polarity),r=B.rectPixels(source,roi),method=roi.shape||settings.method;
+    const {values,corrected,max,depth,native,rotatedClipping,range8}=B.preparedSignal(source,settings,polarity),r=B.rectPixels(source,roi),method=roi.shape||settings.method;
     const indices=[];for(let y=r.y;y<r.y+r.h;y++)for(let x=r.x;x<r.x+r.w;x++)if(method!=='ellipse'||((x+.5-(roi.x+roi.w/2))/(roi.w/2))**2+((y+.5-(roi.y+roi.h/2))/(roi.h/2))**2<=1)indices.push(y*source.width+x);
     if(!indices.length)throw Error('选区不包含像素。');
-    let sum=0,raw=0,total=0,sat=0,lo=Infinity,hi=-Infinity;for(const i of indices){const v=values[i];sum+=v;raw+=polarity==='dark'?max-v:v;total+=corrected[i];sat+=Number(v===0||v===max);lo=Math.min(lo,v);hi=Math.max(hi,v);}
+    const nativeMax=2**source.bitDepth-1;
+    let sum=0,raw=0,total=0,sat=0,lo=Infinity,hi=-Infinity;for(const i of indices){const v=values[i];sum+=v;raw+=polarity==='dark'?max-v:v;total+=corrected[i];sat+=rotatedClipping?rotatedClipping[i]:Number(native[i]===0||native[i]===nativeMax);lo=Math.min(lo,v);hi=Math.max(hi,v);}
     let bg=null,bgRect=null;if(settings.background==='roi'&&background){bgRect=B.rectPixels(source,background);let n=0,v=0;for(let y=bgRect.y;y<bgRect.y+bgRect.h;y++)for(let x=bgRect.x;x<bgRect.x+bgRect.w;x++){v+=values[y*source.width+x];n++;}bg=v/n;total=polarity==='dark'?bg*indices.length-sum:sum-bg*indices.length;}
-    let profile=null;if(method==='profile'){const axis=settings.profileAxis||'y',length=axis==='x'?r.w:r.h,rows=Array(length).fill(0),divisor=axis==='x'?r.h:r.w;for(let y=0;y<r.h;y++)for(let x=0;x<r.w;x++)rows[axis==='x'?x:y]+=corrected[(r.y+y)*source.width+r.x+x];for(let i=0;i<rows.length;i++)rows[i]/=divisor;
-      profile={...B.profileArea(rows,roi.baselineStart??Math.min(...rows),roi.baselineEnd??Math.min(...rows)),axis};total=profile.area;
+    const missingBackground=settings.background==='roi'&&bg===null;
+    let profile=null;
+    if(missingBackground){
+      total=null;
+    }else if(method==='profile'){
+      const axis=settings.profileAxis||'y';
+      const length=axis==='x'?r.w:r.h,divisor=axis==='x'?r.h:r.w;
+      const rows=Array(length).fill(0);
+      for(let y=0;y<r.h;y++){
+        for(let x=0;x<r.w;x++){
+          const index=(r.y+y)*source.width+r.x+x;
+          let signal=corrected[index];
+          if(bg!==null)signal=polarity==='dark'?bg-values[index]:values[index]-bg;
+          rows[axis==='x'?x:y]+=signal;
+        }
+      }
+      let minimum=Infinity;
+      for(let i=0;i<rows.length;i++){
+        rows[i]/=divisor;
+        minimum=Math.min(minimum,rows[i]);
+      }
+      profile={...B.profileArea(rows,roi.baselineStart??minimum,roi.baselineEnd??minimum),axis};
+      total=profile.area;
     }
-    return{area:indices.length,mean:sum/indices.length,min:lo,max:hi,raw,rawIntDen:sum,corrected:total,backgroundMean:bg,saturation:sat/indices.length,rect:r,backgroundRect:bgRect,clipped:roi.x<0||roi.y<0||roi.x+roi.w>source.width||roi.y+roi.h>source.height,backgroundClipped:!!background&&(background.x<0||background.y<0||background.x+background.w>source.width||background.y+background.h>source.height),analysisBitDepth:depth,method,profile,coordinateFrame:settings.rotation?'校正旋转 '+settings.rotation+'° 副本':'原图',analysisSettings:{...settings},units:method==='profile'?'mean intensity × profile pixel':'gray level × pixel'};
+    return{area:indices.length,mean:sum/indices.length,min:lo,max:hi,raw,rawIntDen:sum,corrected:total,backgroundMean:bg,saturation:sat/indices.length,rect:r,backgroundRect:bgRect,clipped:roi.x<0||roi.y<0||roi.x+roi.w>source.width||roi.y+roi.h>source.height,backgroundClipped:!!background&&(background.x<0||background.y<0||background.x+background.w>source.width||background.y+background.h>source.height),analysisBitDepth:depth,method,profile,coordinateFrame:settings.rotation?'校正旋转 '+settings.rotation+'° 副本':'原图',range8,analysisSettings:range8?{...settings,range8}:{...settings},units:method==='profile'?'mean intensity × profile pixel':'gray level × pixel'};
   };
   B.detectBandROIs=(source,crop,count,settings=B.analysisDefaults(),polarity='dark')=>{
     const signal=B.preparedSignal(source,settings,polarity).corrected,rois=B.autoROIs(crop,count);
@@ -434,6 +543,11 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
   B.autoROIs=(crop,count)=>{if(!crop||![crop.x,crop.y,crop.w,crop.h].every(Number.isFinite)||crop.w<=0||crop.h<=0||!Number.isInteger(count)||count<1||count>200||crop.w/count<1)throw Error('自动 ROI 需要有效裁剪范围及 1–200 条泳道，每条泳道至少占 1 个原图像素。');return Array.from({length:count},(_,i)=>({id:B.uid(),x:crop.x+(i+.15)*crop.w/count,y:crop.y+crop.h*.22,w:crop.w/count*.7,h:crop.h*.56,sampleIndex:i}));};
   B.mean=a=>{if(!a.length||!a.every(Number.isFinite))return NaN;const scale=a.reduce((s,v)=>Math.max(s,Math.abs(v)),0);return scale===0?0:a.reduce((s,v)=>s+v/scale,0)/a.length*scale;};
   B.summary=a=>{const mean=B.mean(a),scale=a.reduce((s,v)=>Math.max(s,Math.abs(v)),0),m=scale?mean/scale:0,sd=a.length>1&&Number.isFinite(mean)?(scale?Math.sqrt(a.reduce((s,v)=>s+(v/scale-m)**2,0)/(a.length-1))*scale:0):NaN;return{n:a.length,mean,sd,sem:sd/Math.sqrt(a.length)};};
+  function measurementScale(record){
+    const unit=record.units||(record.method==='profile'?'mean intensity × profile pixel':'gray level × pixel');
+    const nativeDepth=record.bitDepth;
+    return JSON.stringify([unit,nativeDepth,record.analysisBitDepth||nativeDepth,record.range8||null]);
+  }
   B.records=(project,group)=>{
     const images=group.objects.filter(o=>o.type==='image'),all=[],sampleCounts=new Map();
     for(const s of group.samples)sampleCounts.set(s.id,(sampleCounts.get(s.id)||0)+1);
@@ -445,22 +559,48 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
         const m=o.analysis?B.quantify(s,roi,o.background,o.polarity,o.analysis):B.measure(s,roi,o.background,o.polarity),issues=[];let valid=true;
         if(sampleCounts.get(sample.id)!==1||!String(sample.id??'').trim()){issues.push('样本 ID 缺失或重复');valid=false;}
         if(roiCounts.get(idx)!==1){issues.push('同一样本重复分配 ROI');valid=false;}
-        if(m.corrected<=0)issues.push('背景校正后信号 ≤ 0');if(m.saturation>.01)issues.push('饱和像素 > 1%');if(m.clipped)issues.push('ROI 超出原图，按图内像素计算');if(m.backgroundClipped)issues.push('背景框超出原图，按图内像素计算');
+        if(m.corrected===null)issues.push('请框选背景 ROI 后计算校正信号');else if(m.corrected<=0)issues.push('背景校正后信号 ≤ 0');if(m.saturation>.01)issues.push('饱和像素 > 1%');if(m.clipped)issues.push('ROI 超出原图，按图内像素计算');if(m.backgroundClipped)issues.push('背景框超出原图，按图内像素计算');
         if(m.backgroundRect){const b=m.backgroundRect,r=m.rect;if(r.x<b.x+b.w&&r.x+r.w>b.x&&r.y<b.y+b.h&&r.y+r.h>b.y)issues.push('背景框与条带 ROI 重叠');}
-        all.push({objectId:o.id,protein:o.protein||o.name,sourceName:s.name,sourceId:s.id,hash:s.hash||'',bitDepth:s.bitDepth,sampleId:sample.id,group:sample.group,replicate:sample.replicate,lane:idx+1,include:sample.include!==false&&valid,valid,...m,roi,referenceId:o.referenceId,ratio:null,controlRatio:null,totalRatio:null,fold:null,issue:issues.join('；')});
+        all.push({objectId:o.id,protein:o.protein||o.name,sourceName:s.name,sourceId:s.id,hash:s.hash||'',bitDepth:s.bitDepth,polarity:o.polarity||'dark',sampleId:sample.id,group:sample.group,replicate:sample.replicate,lane:idx+1,include:sample.include!==false&&valid,valid,...m,roi,referenceId:o.referenceId,ratio:null,controlRatio:null,totalRatio:null,fold:null,issue:issues.join('；')});
       }
     }
     for(const r of all){
       if(all.some(v=>v!==r&&v.objectId===r.objectId&&r.rect.x<v.rect.x+v.rect.w&&r.rect.x+r.rect.w>v.rect.x&&r.rect.y<v.rect.y+v.rect.h&&r.rect.y+r.rect.h>v.rect.y))r.issue=[r.issue,'条带 ROI 之间重叠'].filter(Boolean).join('；');
     }
     const ownIssues=new Map(all.map(r=>[r,r.issue]));
-    for(const r of all){if(r.referenceId){
-      const matches=all.filter(v=>v.objectId===r.referenceId&&v.sampleId===r.sampleId);
-      if(r.referenceId!==r.objectId&&matches.length===1&&matches[0].valid&&r.valid&&matches[0].corrected>0&&r.corrected>0){r.ratio=r.corrected/matches[0].corrected;if(ownIssues.get(matches[0]))r.issue=[r.issue,'参照：'+ownIssues.get(matches[0])].filter(Boolean).join('；');}
-      else r.issue=[r.issue,r.referenceId===r.objectId?'不能将蛋白自身设为参照':'参照蛋白缺失、重复或信号 ≤ 0'].filter(Boolean).join('；');
-    }}
-    for(const r of all){const object=images.find(o=>o.id===r.objectId);for(const [field,target] of [['controlRatio',object.controlId],['totalRatio',object.totalId]]){if(!target)continue;const matches=all.filter(v=>v.objectId===target&&v.sampleId===r.sampleId);if(matches.length===1&&matches[0].valid&&r.valid&&matches[0].corrected>0&&r.corrected>0)r[field]=r.corrected/matches[0].corrected;else r.issue=[r.issue,field==='totalRatio'?'总蛋白缺失或信号无效':'内参缺失或信号无效'].filter(Boolean).join('；');}}
-    for(const r of all)if(!r.referenceId)r.ratio=r.controlRatio??r.totalRatio;
+    for(const r of all){
+      const image=images.find(o=>o.id===r.objectId);
+      const links=[['ratio',image.referenceId,'参照'],['controlRatio',image.controlId,'内参'],['totalRatio',image.totalId,'总蛋白']];
+      const warnings=new Set();
+      r.referenceProteins={};
+      for(const [field,target,label] of links){
+        if(!target)continue;
+        const matches=all.filter(other=>other.objectId===target&&other.sampleId===r.sampleId);
+        const ref=matches[0];
+        const denominator=images.find(o=>o.id===target);
+        if(denominator)r.referenceProteins[field]=denominator.protein||denominator.name;
+        if(target===r.objectId){
+          warnings.add('不能将蛋白自身设为'+label);
+        }else if(matches.length!==1||!ref.valid||!r.valid){
+          warnings.add(label+'缺失、重复或样本无效');
+        }else if(!Number.isFinite(ref.corrected)||ref.corrected<=0){
+          warnings.add(label+'校正信号缺失或 ≤ 0，无法作为分母');
+        }else if(!Number.isFinite(r.corrected)){
+          warnings.add('目的蛋白校正信号缺失，无法计算比值');
+        }else if(measurementScale(r)!==measurementScale(ref)){
+          warnings.add(label+'与目的蛋白的积分单位、位深或缩放范围不同，请使用相同计算尺度（16-bit 可选原生位深）');
+        }else{
+          r[field]=r.corrected/ref.corrected;
+          if(ownIssues.get(ref))warnings.add(label+'：'+ownIssues.get(ref));
+        }
+      }
+      if(!image.referenceId){
+        const field=image.controlId?'controlRatio':'totalRatio';
+        r.ratio=r[field];
+        r.referenceProteins.ratio=r.referenceProteins[field];
+      }
+      r.issue=[r.issue,...warnings].filter(Boolean).join('；');
+    }
     return all;
   };
   // Continued fraction for regularized incomplete beta, used for Student t probabilities.
@@ -480,16 +620,24 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
   };
   B.statData=(records,protein,metric='corrected',control='',normalize=false)=>{
     if(!['corrected','raw','ratio','controlRatio','totalRatio'].includes(metric))return {rows:[],groups:[],tests:[],error:'统计指标无效。'};
-    const a=records.filter(r=>r.protein===protein&&r.include&&r.valid!==false&&Number.isFinite(r[metric])&&r[metric]>0).map(r=>({...r,value:r[metric]}));
-    if(new Set(a.map(r=>JSON.stringify([r.method||'rect',r.analysisBitDepth||r.bitDepth,r.analysisSettings?[r.analysisSettings.convert8,r.analysisSettings.rgb,r.analysisSettings.background,r.analysisSettings.radius,r.analysisSettings.presmooth,r.analysisSettings.method,r.analysisSettings.rotation||0,r.analysisSettings.profileAxis||'y']:null]))).size>1)return {rows:[],groups:[],tests:[],error:'分析方法、位深或预处理设置不一致，请统一方法后再合并统计。'};
+    const a=records.filter(r=>r.protein===protein&&r.include&&r.valid!==false&&Number.isFinite(r[metric])).map(r=>({...r,value:r[metric]}));
+    if(new Set(a.map(r=>JSON.stringify([r.method||'rect',measurementScale(r),r.polarity||'dark',r.referenceProteins?.[metric]||'',
+      r.analysisSettings?[r.analysisSettings.convert8,r.analysisSettings.rgb,r.analysisSettings.background,r.analysisSettings.radius,r.analysisSettings.presmooth,r.analysisSettings.method,r.analysisSettings.rotation||0,r.analysisSettings.profileAxis||'y']:[r.backgroundRect?'roi':'none']]))).size>1)return {rows:[],groups:[],tests:[],error:'分析方法、位深、缩放范围、信号方向或参照蛋白不一致，请统一后再合并统计。'};
     const seen=new Set(),duplicates=new Set();for(const r of a){if(typeof r.sampleId!=='string'||!r.sampleId)continue;if(seen.has(r.sampleId))duplicates.add(r.sampleId);seen.add(r.sampleId);}
     if(duplicates.size)return {rows:[],groups:[],tests:[],error:'同一蛋白存在重复样本 ID（'+[...duplicates].slice(0,8).join('、')+'）。请区分独立样本；重复曝光或技术重复不能重复计入 n。'};
-    const base=B.mean(a.filter(r=>r.group===control).map(r=>r.value));if(normalize){if(!(base>0))return {rows:[],groups:[],tests:[],error:'对照组没有有效正值，不能归一化。'};for(const r of a)r.value/=base;}
+    const base=B.mean(a.filter(r=>r.group===control).map(r=>r.value));if(normalize){if(!Number.isFinite(base)||base<=0)return {rows:[],groups:[],tests:[],error:'对照组有效样本的均值必须大于 0 才能归一化。'};for(const r of a)r.value/=base;}
     const groups=[...new Set(a.map(r=>r.group))].map(name=>({name,...B.summary(a.filter(r=>r.group===name).map(r=>r.value)),values:a.filter(r=>r.group===name).map(r=>r.value)}));
     const tests=B.holm(groups.filter(g=>g.name!==control).map(g=>({group:g.name,...B.welch(g.values,a.filter(r=>r.group===control).map(r=>r.value))})));
     return {rows:a,groups,tests,base};
   };
-  B.resultRows=records=>[['蛋白','样本','分组','重复编号','泳道','位深','面积 px²','均值','原始积分信号','背景均值','校正积分信号','目的/参照','饱和比例','ROI x','ROI y','ROI w','ROI h','来源','原图哈希','提示','目的/内参','部分/总蛋白','计算位深','ROI方法','积分单位','预处理设置','ROI 坐标系'],...records.map(r=>[r.protein,r.sampleId,r.group,r.replicate,r.lane,r.bitDepth,r.area,r.mean,r.raw,r.backgroundMean??'',r.corrected,r.ratio??'',r.saturation,r.rect.x,r.rect.y,r.rect.w,r.rect.h,r.sourceName,r.hash,r.issue,r.controlRatio??'',r.totalRatio??'',r.analysisBitDepth||r.bitDepth,r.method||'rect',r.units||'gray level × pixel',JSON.stringify(r.analysisSettings||{background:'roi/native legacy'}),r.coordinateFrame||'原图'])];
+  B.resultRows=records=>[
+    ['蛋白','样本','分组','重复编号','泳道','位深','面积 px²','均值','方向积分信号','背景均值','校正信号','目的/参照','饱和比例','ROI x','ROI y','ROI w','ROI h','来源','原图哈希','提示','目的/内参','部分/总蛋白','计算位深','ROI方法','积分单位','预处理设置','ROI 坐标系',
+      '分析像素和 RawIntDen','信号方向','样本记录可纳入','记录有效','来源 ID','图层 ID','ROI ID','参照蛋白','内参蛋白','总蛋白','转 8-bit 输入下限','转 8-bit 输入上限'],
+    ...records.map(r=>[
+      r.protein,r.sampleId,r.group,r.replicate,r.lane,r.bitDepth,r.area,r.mean,r.raw,r.backgroundMean??'',r.corrected??'',r.ratio??'',r.saturation,r.rect.x,r.rect.y,r.rect.w,r.rect.h,r.sourceName,r.hash,r.issue,r.controlRatio??'',r.totalRatio??'',r.analysisBitDepth||r.bitDepth,r.method||'rect',r.units||'gray level × pixel',JSON.stringify(r.analysisSettings||{background:'roi/native legacy'}),r.coordinateFrame||'原图',
+      r.rawIntDen??'',r.polarity||'',r.include?'是':'否',r.valid?'是':'否',r.sourceId,r.objectId,r.roi.id||'',r.referenceProteins?.ratio||'',r.referenceProteins?.controlRatio||'',r.referenceProteins?.totalRatio||'',r.range8?.[0]??'',r.range8?.[1]??''
+    ])
+  ];
 })(globalThis.BS ||= {});
 
 (function(B){
@@ -506,15 +654,58 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
     return value;
   }
   const imagej={scope,upstream:{
+    grayscaleLut:'https://wsr.imagej.net/ij/developer/source/ij/io/FileOpener.java.html',
     measurement:'https://imagej.net/ij/developer/source/ij/plugin/filter/Analyzer.java.html',
     profiles:'https://imagej.net/ij/developer/source/ij/gui/ProfilePlot.java.html'
   }};
+  // Projects predating tiffWhiteIsZero retain the exact TIFF as a data URL.
+  // Read only its header and the selected IFD instead of decoding all pixels.
+  const legacyPhotometry=new WeakMap();
+  imagej.whiteIsZero=source=>{
+    if(typeof source.tiffWhiteIsZero==='boolean')return source.tiffWhiteIsZero;
+    const original=source.original, prefix='data:image/tiff;base64,';
+    if(!original?.startsWith(prefix)){
+      if(!original&&!source.demo&&(source.info?.startsWith('TIFF ')||/\.tiff?(?: · 第\d+页)?$/i.test(source.originalName||source.name)))throw Error('缺少旧项目的 TIFF 原件，无法核对原始码值方向。请重新导入原图后进行 ImageJ 复核。');
+      return false;
+    }
+    const page=source.name===source.originalName?1:Number(/ · 第(\d+)页$/.exec(source.name)?.[1]||1);
+    const cached=legacyPhotometry.get(source);
+    if(cached?.original===original&&cached.page===page)return cached.whiteIsZero;
+    const read=(offset,length)=>{
+      const first=Math.floor(offset/3),skip=offset-first*3;
+      const bytes=B.unbase64(original.slice(prefix.length+4*first,prefix.length+4*Math.ceil((offset+length)/3)));
+      return new DataView(bytes.buffer,bytes.byteOffset+skip,length);
+    };
+    try{
+      const header=read(0,8),order=header.getUint16(0),le=order===0x4949;
+      if((!le&&order!==0x4d4d)||header.getUint16(2,le)!==42||page<1||page>32)throw Error();
+      let offset=header.getUint32(4,le);
+      for(let index=1;index<=page;index++){
+        if(offset<8)throw Error();
+        const count=read(offset,2).getUint16(0,le);
+        if(index<page){offset=read(offset+2+count*12,4).getUint32(0,le);continue;}
+        const entries=read(offset+2,count*12);let whiteIsZero=false;
+        for(let at=0;at<count*12;at+=12){
+          if(entries.getUint16(at,le)!==262)continue;
+          const type=entries.getUint16(at+2,le);
+          if(entries.getUint32(at+4,le)!==1||![1,3,4].includes(type))throw Error();
+          const photometric=type===3?entries.getUint16(at+8,le):type===4?entries.getUint32(at+8,le):entries.getUint8(at+8);
+          if(![0,1,2].includes(photometric))throw Error();
+          whiteIsZero=photometric===0;break;
+        }
+        legacyPhotometry.set(source,{original,page,whiteIsZero});return whiteIsZero;
+      }
+    }catch{throw Error('旧项目的 TIFF 原件或页号无法核对。请重新导入原图后进行 ImageJ 复核。');}
+  };
   imagej.measure=(source,rect,config={})=>{
     const {polarity='dark',background=null}=options(config,['polarity','background']);
     const m=B.measure(source,rect,background,polarity);
+    const whiteIsZero=imagej.whiteIsZero(source),max=2**source.bitDepth-1;
+    const sum=whiteIsZero?max*m.area-m.rawIntDen:m.rawIntDen;
+    const backgroundMean=whiteIsZero&&m.backgroundMean!==null?max-m.backgroundMean:m.backgroundMean;
     return {
-      Area:m.area,Mean:m.mean,RawIntDen:m.rawIntDen,IntDen:m.area*m.mean,
-      DirectionalSignal:m.raw,CorrectedSignal:m.corrected,BackgroundMean:m.backgroundMean,
+      Area:m.area,Mean:sum/m.area,RawIntDen:sum,IntDen:sum,
+      DirectionalSignal:m.raw,CorrectedSignal:m.corrected,BackgroundMean:backgroundMean,
       rect:{...m.rect},backgroundRect:m.backgroundRect?{...m.backgroundRect}:null,
       Clipped:m.clipped,BackgroundClipped:m.backgroundClipped,Polarity:polarity,BitDepth:source.bitDepth
     };
@@ -522,9 +713,10 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
   imagej.profile=(source,rect,config={})=>{
     const {axis='x',invert=false}=options(config,['axis','invert']);
     if(!['x','y'].includes(axis)||typeof invert!=='boolean')throw Error('曲线方向必须为 x 或 y，反相选项必须为布尔值。');
+    const invertBrightness=imagej.whiteIsZero(source)!==invert;
     const pixels=B.pixels(source),r=B.rectPixels(source,rect),length=axis==='x'?r.w:r.h,denominator=axis==='x'?r.h:r.w,values=Array(length).fill(0),max=2**source.bitDepth-1;
     for(let y=r.y;y<r.y+r.h;y++)for(let x=r.x;x<r.x+r.w;x++){
-      const value=pixels[y*source.width+x];values[axis==='x'?x-r.x:y-r.y]+=invert?max-value:value;
+      const value=pixels[y*source.width+x];values[axis==='x'?x-r.x:y-r.y]+=invertBrightness?max-value:value;
     }
     for(let i=0;i<length;i++)values[i]/=denominator;
     // coords are absolute original-image positions, not plot distances or
@@ -591,7 +783,7 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
       const samples=depth===16?new Uint16Array(w*h):new Uint8Array(w*h),dv=new DataView(data.buffer),max=2**depth-1;
       if(predictor===2){for(let y=0;y<h;y++)for(let x=channels;x<w*channels;x++){const p=(y*w*channels+x)*(depth/8),q=p-channels*(depth/8);if(depth===16)dv.setUint16(p,(dv.getUint16(p,le)+dv.getUint16(q,le))&65535,le);else data[p]=(data[p]+data[q])&255;}}
       for(let i=0;i<w*h;i++){let z=channels===3?Math.round(.299*data[i*3]+.587*data[i*3+1]+.114*data[i*3+2]):depth===16?dv.getUint16(i*2,le):data[i];samples[i]=photo===0?max-z:z;}
-      pages.push({width:w,height:h,bitDepth:depth,samples,...(channels===3?{rgbSamples:data.slice()}:{}),info:'TIFF '+depth+'-bit'+(channels===3?' RGB luminance':' native grayscale')});off=d.getUint32(off+2+12*n,le);
+      pages.push({width:w,height:h,bitDepth:depth,whiteIsZero:photo===0,samples,...(channels===3?{rgbSamples:data.slice()}:{}),info:'TIFF '+depth+'-bit'+(channels===3?' RGB luminance':' native grayscale')});off=d.getUint32(off+2+12*n,le);
     }
     if(!pages.length)throw Error('TIFF 不含可解码的图像页。');return pages;
   };
@@ -645,10 +837,17 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
       ctx.save();ctx.globalAlpha*=val(node,'opacity',1);
       for(const match of (node.getAttribute('transform')||'').matchAll(/(translate|scale|rotate)\(([^)]+)\)/g)){const a=match[2].trim().split(/[ ,]+/).map(Number);if(match[1]==='translate')ctx.translate(a[0],a[1]||0);else if(match[1]==='scale')ctx.scale(a[0],a[1]??a[0]);else{ctx.translate(a[1]||0,a[2]||0);ctx.rotate(a[0]*Math.PI/180);ctx.translate(-(a[1]||0),-(a[2]||0));}}
       const clip=node.getAttribute('clip-path')?.match(/url\(#([^)]*)\)/);if(clip){const r=doc.getElementById(clip[1])?.querySelector('rect');if(r){ctx.beginPath();ctx.rect(val(r,'x'),val(r,'y'),val(r,'width'),val(r,'height'));ctx.clip();}}
+      const strokes=node.hasAttribute('stroke')&&node.getAttribute('stroke')!=='none'&&val(node,'stroke-width',1)>0;
       ctx.strokeStyle=node.getAttribute('stroke')||'#000';ctx.fillStyle=node.getAttribute('fill')||'#000';ctx.lineWidth=val(node,'stroke-width',1);ctx.setLineDash((node.getAttribute('stroke-dasharray')||'').split(/[ ,]+/).filter(Boolean).map(Number));
       if(node.localName==='image'){let url=node.getAttribute('href');if(node.hasAttribute('data-bs-display'))url=await B.displayURL(url,JSON.parse(node.getAttribute('data-bs-display')));const image=await B.loadImage(url);if(image.decode)await image.decode();ctx.drawImage(image,val(node,'x'),val(node,'y'),val(node,'width'),val(node,'height'));}
-      else if(node.localName==='rect'){if(node.getAttribute('fill')!=='none')ctx.fillRect(val(node,'x'),val(node,'y'),val(node,'width'),val(node,'height'));if(node.hasAttribute('stroke')&&node.getAttribute('stroke')!=='none'&&ctx.lineWidth>0)ctx.strokeRect(val(node,'x'),val(node,'y'),val(node,'width'),val(node,'height'));}
-      else if(node.localName==='path'){const path=new Path2D(node.getAttribute('d'));if(node.getAttribute('fill')!=='none')ctx.fill(path);if(node.getAttribute('stroke')!=='none')ctx.stroke(path);}
+      else if(node.localName==='ellipse'){
+        ctx.beginPath();
+        ctx.ellipse(val(node,'cx'),val(node,'cy'),val(node,'rx'),val(node,'ry'),0,0,2*Math.PI);
+        if(node.getAttribute('fill')!=='none')ctx.fill();
+        if(strokes)ctx.stroke();
+      }
+      else if(node.localName==='rect'){if(node.getAttribute('fill')!=='none')ctx.fillRect(val(node,'x'),val(node,'y'),val(node,'width'),val(node,'height'));if(strokes)ctx.strokeRect(val(node,'x'),val(node,'y'),val(node,'width'),val(node,'height'));}
+      else if(node.localName==='path'){const path=new Path2D(node.getAttribute('d'));if(node.getAttribute('fill')!=='none')ctx.fill(path);if(strokes)ctx.stroke(path);}
       else if(node.localName==='text'){const size=val(node,'font-size',22),anchor=node.getAttribute('text-anchor');ctx.textAlign=anchor==='middle'?'center':anchor==='end'?'right':'left';let y=val(node,'y');for(const span of node.querySelectorAll('tspan')){y+=val(span,'dy');const shift=span.getAttribute('baseline-shift'),small=shift==='super'||shift==='sub';ctx.font=(node.getAttribute('font-style')||'normal')+' '+(node.getAttribute('font-weight')||'400')+' '+size*(small?.7:1)+'px '+(node.getAttribute('font-family')||'Arial');ctx.fillText(span.textContent,val(span,'x',val(node,'x')),y+(shift==='super'?-size*.35:shift==='sub'?size*.2:0));}}
       else for(const child of node.children)await draw(child);
       ctx.restore();
@@ -669,6 +868,8 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
     }else if(o.type==='text'){
       const fs=B.clamp(n(o.fontSize,22),6,300),anchor=o.align==='center'?'middle':o.align==='right'?'end':'start',tx=o.align==='center'?w/2:o.align==='right'?w:0;
       body='<text xml:space="preserve" x="'+tx+'" y="'+(fs*.90)+'" font-size="'+fs+'" font-family="'+e(o.fontFamily||'Arial')+'" font-weight="'+(o.fontWeight===700?700:400)+'" font-style="'+(o.italic?'italic':'normal')+'" text-anchor="'+anchor+'" fill="'+col+'">'+String(o.text||'').split('\n').map((t,i)=>'<tspan x="'+tx+'" dy="'+(i?fs*1.25:0)+'"'+(o.script==='super'?' baseline-shift="super" font-size="70%"':o.script==='sub'?' baseline-shift="sub" font-size="70%"':'')+'>'+e(t)+'</tspan>').join('')+'</text>';
+    }else if(o.type==='rect'&&o.geometry==='ellipse'){
+      body='<ellipse cx="'+w/2+'" cy="'+h/2+'" rx="'+w/2+'" ry="'+h/2+'" fill="'+col+'" stroke="'+stroke+'" stroke-width="'+sw+'"/>';
     }else if(o.type==='rect')body='<rect width="'+w+'" height="'+h+'" fill="'+col+'" stroke="'+stroke+'" stroke-width="'+sw+'"'+(o.dash==='dash'?' stroke-dasharray="8 5"':o.dash==='dot'?' stroke-dasharray="2 4"':'')+'/>';
     else body='<path d="'+B.shapeLines(o).map(points=>points.map(([x,y],i)=>(i?'L':'M')+x+' '+y).join('')).join(' ')+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'"'+(o.dash==='dash'?' stroke-dasharray="8 5"':o.dash==='dot'?' stroke-dasharray="2 4"':'')+'/>';
     return'<g transform="translate('+n(o.x)+' '+n(o.y)+') rotate('+n(o.rotation)+' '+w/2+' '+h/2+')" opacity="'+B.clamp(n(o.opacity,1),0,1)+'">'+body+'</g>';
@@ -684,6 +885,15 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
       lines.push([[w-size*ux-size*uy, -size*uy+size*ux],[w,0],[w-size*ux+size*uy,-size*uy-size*ux]]);
     }
     return lines;
+  };
+  B.layoutCanvasSize=(group,objects,width,height)=>{
+    const manual=objects.filter(o=>o.visible!==false&&o.type!=='image'&&!o.autoLabel);
+    const arranged=objects.filter(o=>o.visible!==false&&(o.type==='image'||o.autoLabel));
+    const retained=B.bounds(manual),placed=B.bounds(arranged);
+    return {
+      width:Math.ceil(Math.max(width,placed.x+placed.w,Math.min(group.canvas.width,retained.x+retained.w))),
+      height:Math.ceil(Math.max(height,placed.y+placed.h,Math.min(group.canvas.height,retained.y+retained.h)))
+    };
   };
   B.quickLayout=(g,opts={})=>{
     const images=g.objects.filter(o=>o.type==='image'&&o.visible!==false),w=B.clamp(B.num(opts.width,640),100,5000),gap=B.clamp(B.num(opts.gap,36),0,500),x=180,y=180;
@@ -709,9 +919,10 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
     }
     if(images.some(o=>o.demo))add('演示数据 · 非实验结果',220,rowY+22,600,16,'center');
     const objects=g.objects.filter(o=>!o.autoLabel).map(o=>moved.get(o.id)||o).concat(additions),height=Math.max(590,rowY+85);
-    if(height>10000||objects.length>3000)throw Error('排版结果超过项目尺寸或对象数量上限，请拆分为多个图组。');
+    const size=B.layoutCanvasSize(g,objects,Math.max(1000,x+w+170),height);
+    if(size.width>10000||size.height>10000||objects.length>3000)throw Error('排版结果超过项目尺寸或对象数量上限，请拆分为多个图组。');
     // Apply only after all checks pass, leaving the prior figure intact on failure.
-    g.objects=objects;g.canvas={...g.canvas,width:Math.max(1000,x+w+170),height};
+    g.objects=objects;g.canvas={...g.canvas,...size};
   };
   B.rasterize=async(svg,w,h)=>{
     if(![w,h].every(v=>Number.isFinite(v)&&v>0))throw Error('导出尺寸必须为正数。');
@@ -750,12 +961,21 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
     const mime=a[0]===73&&a[1]===73||a[0]===77&&a[1]===77?'image/tiff':a[0]===137&&a[1]===80?'image/png':a[0]===255&&a[1]===216?'image/jpeg':a[0]===82&&a[8]===87?'image/webp':null;
     if(!mime)throw Error('支持 PNG、JPEG、WebP 和 TIFF；SVG 请作为文本/形状重新编辑。');
     const original='data:'+mime+';base64,'+B.base64(a),extra={original,hash,originalSize:file.size,originalName:file.name};
-    if(mime==='image/tiff'){const pages=await B.decodeTIFF(buf);return pages.map((p,i)=>B.sourceFromPixels(file.name+(pages.length>1?' · 第'+(i+1)+'页':''),p.width,p.height,p.bitDepth,p.samples,{...extra,info:p.info,...(p.rgbSamples?{rgbPixels:B.base64(p.rgbSamples)}:{})}));}
+    if(mime==='image/tiff'){const pages=await B.decodeTIFF(buf);return pages.map((p,i)=>B.sourceFromPixels(file.name+(pages.length>1?' · 第'+(i+1)+'页':''),p.width,p.height,p.bitDepth,p.samples,{...extra,info:p.info,tiffWhiteIsZero:p.whiteIsZero,...(p.rgbSamples?{rgbPixels:B.base64(p.rgbSamples)}:{})}));}
     if(mime==='image/png'&&a[24]>8)throw Error('PNG 是高位深图像。请将高位深原图无损导出为 16-bit 灰度 TIFF，避免定量降位深。');
     const im=await B.loadImage(original);if(im.width*im.height>32000000)throw Error('单图最多 3200 万像素。');const c=document.createElement('canvas');c.width=im.width;c.height=im.height;const ctx=c.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(im,0,0);const data=ctx.getImageData(0,0,c.width,c.height).data,p=new Uint8Array(c.width*c.height);for(let i=0;i<p.length;i++)p[i]=Math.round(.299*data[i*4]+.587*data[i*4+1]+.114*data[i*4+2]);
     const s=B.sourceFromPixels(file.name,c.width,c.height,8,p,{...extra,info:'8-bit RGB luminance'});s.url=c.toDataURL('image/png');const rgb=new Uint8Array(p.length*3);for(let i=0;i<p.length;i++)rgb.set(data.subarray(i*4,i*4+3),i*3);s.rgbPixels=B.base64(rgb);return[s];
   };
   B.loadImage=url=>new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>reject(Error('图像解码失败。'));im.src=url;});
+  B.sourceDownload=source=>{
+    const original=!!source.original;
+    const url=source.original||source.url;
+    const mime=url.slice(5,url.indexOf(';'));
+    const extension=mime==='image/jpeg'?'jpg':mime.split('/')[1];
+    const displayName=String(source.originalName||source.name||'image').replace(/[\\/:*?"<>|\x00-\x1f]/g,'_');
+    const name=original?displayName:displayName.replace(/\.[^.]+$/,'')+'-预览.'+extension;
+    return {original,name,mime,bytes:B.unbase64(url.slice(url.indexOf(',')+1))};
+  };
   const nativeSaves=new Map();
   B.nativeSaveResult=(id,status,message='')=>{const request=nativeSaves.get(id);if(!request)return;nativeSaves.delete(id);clearTimeout(request.timer);if(status==='saved')request.resolve({status:'saved'});else request.reject(Error(status==='cancelled'?'已取消保存，文件没有写入。':message||'保存失败，请重试。'));};
   B.saveFile=async(name,data,mime='application/octet-stream')=>{
@@ -802,6 +1022,7 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
     };
     const line=o=>{const width=B.clamp(B.num(o.strokeWidth,1),0,20);return '<a:ln w="'+emu(width)+'">'+(width?color(o.stroke,B.clamp(B.num(o.opacity,1),0,1)):'<a:noFill/>')+(o.dash==='dash'?'<a:prstDash val="dash"/>':o.dash==='dot'?'<a:prstDash val="sysDot"/>':'')+'</a:ln>';};
     const geometry=o=>{
+      if(o.type==='rect'&&o.geometry==='ellipse')return '<a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom>';
       if(o.type==='text'||o.type==='rect'||o.type==='image')return '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>';
       // Custom geometry remains an editable Office shape and matches the SVG path.
       const paths=B.shapeLines(o).map(points=>'<a:path w="'+Math.max(1,Math.round(o.w*1000))+'" h="'+Math.max(1,Math.round(o.h*1000))+'" fill="none">'+points.map(([x,y],i)=>'<a:'+(i?'lnTo':'moveTo')+'><a:pt x="'+Math.round(x*1000)+'" y="'+Math.round(y*1000)+'"/></a:'+(i?'lnTo':'moveTo')+'>').join('')+'</a:path>').join('');
@@ -870,8 +1091,8 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
     if(bytes.length!==source.width*source.height*(source.bitDepth/8))throw Error('原始像素长度不匹配，不能生成 ImageJ 复核包。');
     return bytes;
   }
-  function nativeTIFF(source,bytes){
-    const entries=[[256,4,source.width],[257,4,source.height],[258,3,source.bitDepth],[259,3,1],[262,3,1],[273,4,0],[274,3,1],[277,3,1],[278,4,source.height],[279,4,bytes.length],[284,3,1],[339,3,1]],offset=8+2+entries.length*12+4;
+  function nativeTIFF(source,bytes,whiteIsZero){
+    const entries=[[256,4,source.width],[257,4,source.height],[258,3,source.bitDepth],[259,3,1],[262,3,whiteIsZero?0:1],[273,4,0],[274,3,1],[277,3,1],[278,4,source.height],[279,4,bytes.length],[284,3,1],[339,3,1]],offset=8+2+entries.length*12+4;
     entries.find(e=>e[0]===273)[2]=offset;
     const out=new Uint8Array(offset+bytes.length),v=new DataView(out.buffer);out[0]=73;out[1]=73;v.setUint16(2,42,true);v.setUint32(4,8,true);v.setUint16(8,entries.length,true);
     entries.forEach(([tag,type,value],i)=>{const at=10+i*12;v.setUint16(at,tag,true);v.setUint16(at+2,type,true);v.setUint32(at+4,1,true);if(type===3)v.setUint16(at+8,value,true);else v.setUint32(at+8,value,true);});out.set(bytes,offset);return out;
@@ -904,11 +1125,14 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
     ];
     const body=[];
     objects.forEach((object,index)=>{
+      if(object.analysis?.rotation&&(object.rois.length||object.background))throw Error('ImageJ 复核需要原图坐标。请在原图坐标下重新确认分析旋转图层的 ROI。');
       const source=project.sources.find(s=>s.id===object.sourceId),bytes=sourcePixels(source),file='images/'+String(index+1).padStart(3,'0')+'.tif',max=2**source.bitDepth-1,polarity=object.polarity||'dark';
       if(!['dark','light'].includes(polarity)||!Array.isArray(object.rois))throw Error('ImageJ 复核遇到无效信号方向或 ROI 列表。');
-      files[file]=nativeTIFF(source,bytes);
+      const whiteIsZero=B.imagej.whiteIsZero(source),invertSignal=(polarity==='dark')!==whiteIsZero;
+      if(whiteIsZero)for(let i=0;i<bytes.length;i++)bytes[i]^=255;
+      files[file]=nativeTIFF(source,bytes,whiteIsZero);
       const bg=object.background?rect(source,object.background):null,bgStats=bg?stats(source,bytes,bg):null,protein=object.protein||object.name||'',records=[];
-      const image={index:index+1,file,objectId:object.id,sourceId:source.id,sourceName:source.name,sourceHash:source.hash||'',width:source.width,height:source.height,bitDepth:source.bitDepth,visible:object.visible!==false,polarity,demo:!!(object.demo||source.demo||group.demo||project.demo),displayCrop:object.crop||null,background:bg,originalBackground:object.background||null,rois:records};images.push(image);
+      const image={index:index+1,file,objectId:object.id,sourceId:source.id,sourceName:source.name,sourceHash:source.hash||'',width:source.width,height:source.height,bitDepth:source.bitDepth,photometricInterpretation:whiteIsZero?'WhiteIsZero':'BlackIsZero',visible:object.visible!==false,polarity,demo:!!(object.demo||source.demo||group.demo||project.demo),displayCrop:object.crop||null,background:bg,originalBackground:object.background||null,rois:records};images.push(image);
       macro.push('if (!File.exists(root + '+macroString(file)+')) exit("Missing bundle TIFF: '+file+'");');
       body.push('// Image '+(index+1)+': pixels and ROI coordinates are independent of display edits.',
         'beforeCount = nImages;',
@@ -926,10 +1150,10 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
       if(bg){measure(bg);body.push('backgroundMean = meanRaw;');const meta=fixed('background',null,bg);expected.push([...meta,bgStats.area,bgStats.mean,bgStats.sum,'',bgStats.mean,'']);write(meta,true);}
       object.rois.forEach((roi,roiIndex)=>{
         const sample=group.samples[roi.sampleIndex];if(!sample)throw Error('ROI 缺少有效的对应样本，无法生成可追溯的 ImageJ 复核包。');
-        const effective=rect(source,roi),measured=stats(source,bytes,effective),directional=polarity==='dark'?max*measured.area-measured.sum:measured.sum,corrected=bg?(polarity==='dark'?bgStats.mean*measured.area-measured.sum:measured.sum-bgStats.mean*measured.area):directional,meta=fixed('band',sample,effective);
+        const effective=rect(source,roi),measured=stats(source,bytes,effective),directional=invertSignal?max*measured.area-measured.sum:measured.sum,corrected=bg?(invertSignal?bgStats.mean*measured.area-measured.sum:measured.sum-bgStats.mean*measured.area):directional,meta=fixed('band',sample,effective);
         records.push({roiIndex:roiIndex+1,roiId:roi.id||'',sampleIndex:roi.sampleIndex,sampleId:sample.id,sampleGroup:sample.group,replicate:sample.replicate,include:sample.include!==false,original:{x:roi.x,y:roi.y,w:roi.w,h:roi.h},effective,areaPixels:measured.area,meanRaw:measured.mean,rawIntDen:measured.sum,directionalIntDen:directional,backgroundMeanRaw:bgStats?.mean??null,correctedIntDen:corrected});
         expected.push([...meta,measured.area,measured.mean,measured.sum,directional,bgStats?.mean??'',corrected]);measure(effective);
-        body.push('directional = '+(polarity==='dark'?max+'*areaPixels - rawIntDen':'rawIntDen')+';','corrected = '+(bg?(polarity==='dark'?'backgroundMean*areaPixels - rawIntDen':'rawIntDen - backgroundMean*areaPixels'):'directional')+';');write(meta,false);
+        body.push('directional = '+(invertSignal?max+'*areaPixels - rawIntDen':'rawIntDen')+';','corrected = '+(bg?(invertSignal?'backgroundMean*areaPixels - rawIntDen':'rawIntDen - backgroundMean*areaPixels'):'directional')+';');write(meta,false);
       });
       body.push('selectImage(ownedImage);','close();');
     });
@@ -938,7 +1162,7 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
       'function histogramSum(histogram) { sum=0; for (bin=0; bin<histogram.length; bin++) sum += bin*histogram[bin]; return sum; }',
       'function csvNumber(value, places) { return fromCharCode(34) + d2s(value,places) + fromCharCode(34); }',
       'function restoreImage(id) { if (id!=0 && isOpen(id)) selectImage(id); }','');
-    const manifest={format:'BlotStudio-ImageJ-verification',version:1,createdAt:new Date().toISOString(),projectId:project.id||'',projectName:project.name||'',groupId:group.id||'',groupName:group.name||'',demo:images.some(i=>i.demo),runtimeIncluded:false,macroRuntimeTested:false,measurement:'uncalibrated rectangular ROI; integer source pixels',coordinateRule:'x=max(0,floor(x)); y=max(0,floor(y)); right=min(width,ceil(x+w)); bottom=min(height,ceil(y+h))',tiff:{endianness:'little',sampleFormat:'unsigned integer',photometricInterpretation:'BlackIsZero (normalized source brightness)',spatialCalibration:'none',densityCalibration:'none',pagesPerFile:1},formulas:{rawIntDen:'sum of original unsigned pixel values',directionalDark:'(2^bitDepth-1)*AreaPixels-RawIntDen',directionalLight:'RawIntDen',correctedDark:'BackgroundMeanRaw*AreaPixels-RawIntDen',correctedLight:'RawIntDen-BackgroundMeanRaw*AreaPixels',withoutBackground:'CorrectedIntDen=DirectionalIntDen'},comparisonTolerance:{areaPixels:0,rawIntDen:0,directionalIntDen:0,meanRawAbsolute:1e-9,correctedAbsolute:1e-5,correctedRelative:1e-12},references,images};
+    const manifest={format:'BlotStudio-ImageJ-verification',version:2,createdAt:new Date().toISOString(),projectId:project.id||'',projectName:project.name||'',groupId:group.id||'',groupName:group.name||'',demo:images.some(i=>i.demo),runtimeIncluded:false,macroRuntimeTested:false,measurement:'uncalibrated rectangular ROI; integer source pixels',coordinateRule:'x=max(0,floor(x)); y=max(0,floor(y)); right=min(width,ceil(x+w)); bottom=min(height,ceil(y+h))',tiff:{endianness:'little',sampleFormat:'unsigned integer',photometricInterpretation:'See each image. Grayscale TIFF retains its original photometric interpretation; derived luminance is BlackIsZero.',spatialCalibration:'none',densityCalibration:'none',pagesPerFile:1},formulas:{rawIntDen:'sum of original unsigned pixel values',forWhiteIsZero:'Exchange the dark and light formulas. In a WhiteIsZero TIFF the stored value increases with darkness.',directionalDark:'(2^bitDepth-1)*AreaPixels-RawIntDen',directionalLight:'RawIntDen',correctedDark:'BackgroundMeanRaw*AreaPixels-RawIntDen',correctedLight:'RawIntDen-BackgroundMeanRaw*AreaPixels',withoutBackground:'CorrectedIntDen=DirectionalIntDen'},comparisonTolerance:{areaPixels:0,rawIntDen:0,directionalIntDen:0,meanRawAbsolute:1e-9,correctedAbsolute:1e-5,correctedRelative:1e-12},references,images};
     files['verify_imagej.ijm']=macro.join('\n');files['expected.csv']='\ufeff'+expected.map(csvRow).join('\r\n')+'\r\n';files['manifest.json']=JSON.stringify(manifest,null,2);
     files['README_zh-CN.txt']=[
       'BlotStudio：ImageJ 独立复核包',
@@ -955,13 +1179,13 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
       '5. 用支持 UTF-8 的表格软件比较 expected.csv 与 recomputed.csv，按 Role/ImageIndex/ObjectID/SampleID 对应行。',
       '',
       '数据和算法：',
-      '每个 image object 有独立单页 TIFF，从 source.pixels 直接编码，保留 8/16-bit 无符号灰度；不从屏幕预览、排版图或原始多页文件中取图。',
-      'TIFF 无空间/密度校准。WhiteIsZero 的输入已在导入时统一成亮度；此处写 BlackIsZero，禁止再因 LUT 或显示反相改变像素。',
+      '每个图层单独生成 8/16-bit 无符号灰度 TIFF，像素取自项目保存的分析平面。',
+      '灰度 TIFF 复核图保留输入文件的码值及 WhiteIsZero/BlackIsZero 方向，未做空间和密度校准。RGB 来源使用派生灰度。',
       'ROI 使用实际参与定量的原图整数像素范围：左/上向下取整，右/下向上取整并与原图相交。manifest 同时保留原始小数坐标。',
       '显示裁剪、旋转、翻转、亮度、对比度和透明度均不参与复核像素。隐藏图层及排除样本也会导出，并在 manifest/Include 中标记。',
       '宏使用 getRawStatistics 的未校准面积（像素数）、均值及单位宽度原始直方图。RawIntDen 为直方图 value×count 之和。',
-      '深色条带：DirectionalIntDen = 最大位深值×面积−RawIntDen；浅色条带：DirectionalIntDen = RawIntDen。',
-      '有背景时：深色 CorrectedIntDen = 背景均值×面积−RawIntDen；浅色为 RawIntDen−背景均值×面积。无背景时 CorrectedIntDen=DirectionalIntDen。',
+      '对于 BlackIsZero，深色条带：DirectionalIntDen = 最大位深值×面积−RawIntDen；浅色条带：DirectionalIntDen = RawIntDen。',
+      'WhiteIsZero 的码值随颜色变深而增大，使用下列公式时交换深色和浅色。BlackIsZero 有背景时：深色 CorrectedIntDen = 背景均值×面积−RawIntDen；浅色为 RawIntDen−背景均值×面积。无背景时 CorrectedIntDen=DirectionalIntDen。',
       '因此深色 DirectionalIntDen 不能误称 ImageJ RawIntDen。16-bit 最大值固定为 65535，不依赖 ImageJ 的 16-bit Invert 偏好。',
       '背景单独以 Role=background 输出；其方向积分/背景校正积分留空。负的背景校正值保留。',
       '此包只复核基础像素和背景扣除，不重新执行参照蛋白归一化、对照组折算、t 检验或 Gel Analyzer 峰面积分析。',
@@ -979,25 +1203,39 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
 
 (function(B){
   'use strict';
+  const assertOriginalFrame=o=>{
+    if(o.analysis?.rotation)throw Error('该图层的 ROI 位于分析旋转坐标系。请在原图坐标下重新确认 ROI 后再进行 ImageJ 复核。');
+  };
   B.currentImagejProfile=()=>{
     const {p,ui}=B.state,g=B.getGroup(),o=B.getAnalysis(),s=o&&p.sources.find(s=>s.id===o.sourceId),roi=o&&(o.rois.find(r=>r.id===ui.roiId)||o.rois[0]);
     if(!s||!roi)throw Error('请先为图像框选条带 ROI。');
+    assertOriginalFrame(o);
     return {g,o,s,roi,profile:B.imagej.profile(s,roi,{axis:ui.imagejAxis||'y',invert:!!ui.imagejInvert})};
   };
   B.imagejResultRows=(project,group)=>[
     ['方法','ImageJ1 未校准、无阈值矩形测量；背景框均值校正'],
-    ['说明','RawIntDen 为原始像素和；方向积分为按信号方向计算的信号；不等于 Gel Analyzer 峰面积'],[],
+    ['说明','灰度 TIFF 的 RawIntDen 使用文件码值，RGB 图像使用派生灰度。方向积分按条带深浅计算。'],[],
     ['蛋白','样本','分组','位深','Area px²','Mean','RawIntDen','IntDen','方向积分','背景均值','背景校正信号','有效ROI x','有效ROI y','有效ROI w','有效ROI h','来源','原图哈希'],
-    ...B.records(project,group).map(r=>[r.protein,r.sampleId,r.group,r.bitDepth,r.area,r.mean,r.rawIntDen,r.area*r.mean,r.raw,r.backgroundMean??'',r.corrected,r.rect.x,r.rect.y,r.rect.w,r.rect.h,r.sourceName,r.hash])
+    ...group.objects.filter(o=>o.type==='image'&&o.rois.length).flatMap(o=>{
+      assertOriginalFrame(o);
+      const source=project.sources.find(s=>s.id===o.sourceId);
+      return o.rois.map((roi,index)=>{
+        const sample=group.samples[roi.sampleIndex??index];
+        const m=B.imagej.measure(source,roi,{background:o.background,polarity:o.polarity});
+        return [o.protein||o.name,sample.id,sample.group,source.bitDepth,m.Area,m.Mean,m.RawIntDen,m.IntDen,m.DirectionalSignal,m.BackgroundMean??'',m.CorrectedSignal,m.rect.x,m.rect.y,m.rect.w,m.rect.h,source.name,source.hash||''];
+      });
+    })
   ];
   B.imagejPanel=(project,group,o,s)=>{
     const {ui}=B.state,e=B.esc,roi=o.rois.find(r=>r.id===ui.roiId)||o.rois[0],buttons=B.btn('imagej-measure-export','测量 Excel','export')+B.btn('imagej-bundle','ImageJ 复核包','folder');
     const title='<div class="section-title"><div><h2>ImageJ 方法</h2><p class="hint">未校准、无阈值矩形测量 · 原始 '+s.bitDepth+' 位像素</p></div><div class="button-row">'+buttons+'</div></div>';
+    if(o.analysis?.rotation)return '<section class="imagej-panel"><h2>ImageJ 原图复核</h2><p class="hint">当前 ROI 位于分析旋转坐标系。请在原图坐标下重新确认 ROI 后再复核。</p></section>';
+    try{B.imagej.whiteIsZero(s);}catch(error){return '<section class="imagej-panel"><h2>ImageJ 原图复核</h2><p class="hint">'+e(error.message)+'</p></section>';}
     if(!roi)return '<section class="imagej-panel">'+title+'<p class="hint">框选条带 ROI 后，显示 ImageJ 定义的测量与均值曲线。复核包可在原版 ImageJ 中重算。</p></section>';
     const m=B.imagej.measure(s,roi,{background:o.background,polarity:o.polarity}),profile=B.imagej.profile(s,roi,{axis:ui.imagejAxis||'y',invert:!!ui.imagejInvert}),sample=group.samples[roi.sampleIndex],w=640,h=180,left=64,right=20,top=20,bottom=36,lo=profile.values.reduce((a,v)=>Math.min(a,v),Infinity),hi=profile.values.reduce((a,v)=>Math.max(a,v),-Infinity),span=hi-lo||1;
     const px=i=>left+i/Math.max(1,profile.values.length-1)*(w-left-right),py=v=>top+(hi-v)/span*(h-top-bottom),step=Math.max(1,Math.ceil(profile.values.length/800)),indexes=Array.from({length:Math.ceil(profile.values.length/step)},(_,i)=>i*step),last=profile.values.length-1,points=[...new Set([...indexes,last])].map(i=>px(i).toFixed(2)+','+py(profile.values[i]).toFixed(2)).join(' '),f=v=>B.format(v),axis=profile.axis==='y'?'Y':'X';
     const svg='<svg class="imagej-profile" viewBox="0 0 '+w+' '+h+'" role="img" aria-label="选中 ROI 的 ImageJ 行列平均灰度曲线"><rect width="100%" height="100%" fill="#f6faf9"/><path d="M'+left+' '+top+'V'+(h-bottom)+'H'+(w-right)+'" fill="none" stroke="#9aabb4"/><polyline points="'+points+'" fill="none" stroke="#147f75" stroke-width="2"/>'+[[top,hi],[h-bottom,lo]].map(([y,value])=>'<text x="'+(left-8)+'" y="'+(y+4)+'" text-anchor="end" font-size="10" fill="#637583">'+e(f(value))+'</text>').join('')+'<text x="'+left+'" y="'+(h-15)+'" font-size="11" fill="#637583">'+profile.coords[0]+'</text><text x="'+(w-right)+'" y="'+(h-15)+'" text-anchor="end" font-size="11" fill="#637583">'+profile.coords.at(-1)+'</text><text x="'+(w/2)+'" y="'+(h-3)+'" text-anchor="middle" font-size="10" fill="#637583">原图 '+axis+' 坐标 / px</text></svg>';
-    return '<section class="imagej-panel">'+title+'<div class="imagej-metrics">'+[['Area',m.Area],['Mean',m.Mean],['RawIntDen',m.RawIntDen],['IntDen',m.IntDen]].map(([label,value])=>'<div><span>'+label+'</span><strong>'+e(f(value))+'</strong></div>').join('')+'</div><p class="hint">当前样本 '+e(sample?.id||'')+'；有效整数 ROI：'+[m.rect.x,m.rect.y,m.rect.w,m.rect.h].join(', ')+'。RawIntDen 是原始像素和；深色条带的反相积分与背景校正信号另列在测量表中。</p><div class="imagej-profile-controls">'+B.select('analysis-ui','imagejAxis',profile.axis,[['y','按行平均 · 纵向曲线'],['x','按列平均 · 横向曲线']],'曲线方向')+B.check('analysis-ui','imagejInvert',profile.invert,'全位深反相曲线')+B.btn('imagej-profile-export','曲线 CSV','export')+'</div>'+svg+'<p class="hint">曲线为 ROI 内每行 / 列的平均灰度；长曲线显示最多约 800 个采样点，CSV 保留全部数值。曲线不是 Gel Analyzer 峰面积；反相使用 '+(2**s.bitDepth-1)+' − 灰度。当前未内置完整 ImageJ Java 引擎、滚动球或人工封闭峰测量。</p></section>';
+    return '<section class="imagej-panel">'+title+'<div class="imagej-metrics">'+[['Area',m.Area],['Mean',m.Mean],['RawIntDen',m.RawIntDen],['IntDen',m.IntDen]].map(([label,value])=>'<div><span>'+label+'</span><strong>'+e(f(value))+'</strong></div>').join('')+'</div><p class="hint">当前样本 '+e(sample?.id||'')+'；有效整数 ROI：'+[m.rect.x,m.rect.y,m.rect.w,m.rect.h].join(', ')+'。灰度 TIFF 按原始码值计算 RawIntDen；RGB 图像按派生灰度计算。方向积分按显示中的条带深浅计算。</p><div class="imagej-profile-controls">'+B.select('analysis-ui','imagejAxis',profile.axis,[['y','按行平均 · 纵向曲线'],['x','按列平均 · 横向曲线']],'曲线方向')+B.check('analysis-ui','imagejInvert',profile.invert,'全位深反相曲线')+B.btn('imagej-profile-export','曲线 CSV','export')+'</div>'+svg+'<p class="hint">曲线为 ROI 内每行 / 列的平均灰度；长曲线显示最多约 800 个采样点，CSV 保留全部数值。曲线不是 Gel Analyzer 峰面积；反相使用 '+(2**s.bitDepth-1)+' − 灰度。当前未内置完整 ImageJ Java 引擎、滚动球或人工封闭峰测量。</p></section>';
   };
   B.exportImagej=async kind=>{
     const {p}=B.state,g=B.getGroup();B.validate(p);let result;
@@ -1034,9 +1272,33 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
     const {p,ui}=B.state,g=B.getGroup(),images=g.objects.filter(o=>o.type==='image'),exp=[...new Set(p.groups.map(g=>g.experiment))];
     return'<aside class="sidebar"><div class="panel-heading"><h2>项目目录</h2>'+B.ib('newgroup','新建图组','plus')+'</div><div class="tree"><button class="tree-root" data-action="project-name">'+ic('down',14)+ic('folder',18)+'<span>'+e(p.name)+'</span></button>'+exp.map(ex=>'<div class="experiment-row">'+ic('down',13)+ic('folder',17)+'<span>'+e(ex)+'</span></div>'+p.groups.filter(v=>v.experiment===ex).map(gr=>'<div class="tree-group '+(gr.id===g.id?'active':'')+'"><input type="checkbox" aria-label="选择图组 '+e(gr.name)+'" data-scope="checkgroup" data-field="'+gr.id+'" '+(ui.checkedGroups.includes(gr.id)?'checked':'')+'><button data-action="group" data-id="'+gr.id+'">'+ic('folder',16)+'<span>'+e(gr.name)+'</span></button>'+B.ib('group-menu','图组操作','layers','data-id="'+gr.id+'"')+'</div>'+(gr.id===g.id?images.map(o=>'<button class="protein-row '+(ui.analysisId===o.id&&ui.tab==='analysis'?'active':'')+'" data-action="protein" data-id="'+o.id+'">'+ic('image',16)+'<span>'+e(o.protein||o.name)+'</span><small>'+e(o.mw?o.mw+' kDa':'')+'</small></button>').join(''):'')).join('')).join('')+'</div><div class="sidebar-tools">'+B.btn('open','打开','folder')+B.btn('newproject','新项目','plus')+(ui.checkedGroups.length>1?B.btn('merge','合并所选图组','layers'):'')+'</div><div class="panel-heading layer-heading"><h2>图层 <small>'+g.objects.length+'</small></h2>'+B.ib('layers-order','图层管理','layers')+'</div><div class="layer-list">'+g.objects.slice().reverse().map(o=>'<div class="layer-row '+(ui.selected.includes(o.id)?'active':'')+'">'+B.ib('visibility',o.visible===false?'显示图层':'隐藏图层',o.visible===false?'hide':'eye','data-id="'+o.id+'"')+'<button class="layer-select" data-action="select-object" data-id="'+o.id+'">'+(o.type==='image'?'<img alt="" src="'+e(p.sources.find(s=>s.id===o.sourceId)?.url||'')+'">':'<span class="layer-type">'+(o.type==='text'?'T':ic(o.type,16))+'</span>')+'<span>'+e(o.name)+'</span></button>'+B.ib('lock',o.locked?'解锁图层':'锁定图层',o.locked?'lock':'unlock','data-id="'+o.id+'"')+'</div>').join('')+'</div><div class="sidebar-bottom">'+B.btn('audit','操作记录','layers')+'<span>v'+B.VERSION+' · MIT</span></div></aside>';
   };
+  B.selectionMarkup=(selected,zoom)=>{
+    const visible=selected.filter(o=>o.visible!==false);
+    const editable=visible.filter(o=>!o.locked);
+    const handlePositions=[
+      ['nw',0,0],['n',.5,0],['ne',1,0],['w',0,.5],
+      ['e',1,.5],['sw',0,1],['s',.5,1],['se',1,1]
+    ];
+    function outline(frame,handleId){
+      const rotation=frame.rotation||0;
+      const size=8/zoom;
+      let handles='';
+      if(handleId){
+        for(const [direction,fx,fy] of handlePositions){
+          const angle=Math.atan2(fy-.5,fx-.5)+rotation*Math.PI/180;
+          const cursor=['ew-resize','nwse-resize','ns-resize','nesw-resize'][(Math.round(angle/(Math.PI/4))%4+4)%4];
+          handles+='<rect data-resize="'+handleId+'" data-handle="'+direction+'" class="resize-handle" style="cursor:'+cursor+'" x="'+(frame.w*fx-size/2)+'" y="'+(frame.h*fy-size/2)+'" width="'+size+'" height="'+size+'" fill="white" stroke="#13897d" stroke-width="'+1.2/zoom+'"/>';
+        }
+      }
+      return '<g class="selection" transform="translate('+frame.x+' '+frame.y+') rotate('+rotation+' '+frame.w/2+' '+frame.h/2+')"><rect width="'+frame.w+'" height="'+frame.h+'" fill="none" stroke="#13897d" stroke-width="'+1.4/zoom+'" pointer-events="none"/>'+handles+'</g>';
+    }
+    let markup=visible.map(o=>outline(o,editable.length===1&&!o.locked?o.id:'')).join('');
+    if(editable.length>1)markup+=outline(B.bounds(editable),editable[0].id);
+    return markup;
+  };
   B.canvasMarkup=()=>{
     const {p,ui}=B.state,g=B.getGroup(),z=ui.zoom,selected=g.objects.filter(o=>ui.selected.includes(o.id));
-    return'<div class="ruler-h">'+Array.from({length:21},(_,i)=>'<span style="left:'+(i*100*z)+'px">'+(i*100)+'</span>').join('')+'</div><div class="ruler-v">'+Array.from({length:12},(_,i)=>'<span style="top:'+(i*100*z)+'px">'+(i*100)+'</span>').join('')+'</div><div class="artboard-wrap" style="width:'+g.canvas.width*z+'px;height:'+g.canvas.height*z+'px"><svg class="artboard" id="figure" width="'+g.canvas.width*z+'" height="'+g.canvas.height*z+'" viewBox="0 0 '+g.canvas.width+' '+g.canvas.height+'" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="WB 可编辑画布"><rect class="canvas-bg" width="100%" height="100%" fill="'+e(g.canvas.background)+'"/>'+g.objects.filter(o=>o.visible!==false).map(o=>'<g data-object="'+o.id+'" class="figure-object '+(o.locked?'locked':'')+'">'+B.objectMarkup(o,p.sources)+'</g>').join('')+selected.filter(o=>o.visible!==false).map(o=>'<g class="selection" transform="translate('+o.x+' '+o.y+') rotate('+o.rotation+' '+o.w/2+' '+o.h/2+')"><rect width="'+o.w+'" height="'+o.h+'" fill="none" stroke="#13897d" stroke-width="'+1.4/z+'" pointer-events="none"/>'+(!o.locked?[[0,0],[o.w/2,0],[o.w,0],[0,o.h/2],[o.w,o.h/2],[0,o.h],[o.w/2,o.h],[o.w,o.h]].map(([x,y],i)=>'<rect x="'+(x-4/z)+'" y="'+(y-4/z)+'" width="'+8/z+'" height="'+8/z+'" fill="white" stroke="#13897d" stroke-width="'+1.2/z+'" '+(i===7?'data-resize="'+o.id+'" class="resize-handle"':'pointer-events="none"')+'/>').join(''):'')+'</g>').join('')+(ui.marquee?'<rect class="marquee" x="'+ui.marquee.x+'" y="'+ui.marquee.y+'" width="'+ui.marquee.w+'" height="'+ui.marquee.h+'" fill="#14867c15" stroke="#14867c" stroke-dasharray="4 3"/>':'')+(ui.guideX!==null?'<path d="M'+ui.guideX+' 0V'+g.canvas.height+'" stroke="#e481a0" stroke-width="1"/>':'')+(ui.guideY!==null?'<path d="M0 '+ui.guideY+'H'+g.canvas.width+'" stroke="#e481a0" stroke-width="1"/>':'')+'</svg></div>';
+    return'<div class="ruler-h">'+Array.from({length:21},(_,i)=>'<span style="left:'+(i*100*z)+'px">'+(i*100)+'</span>').join('')+'</div><div class="ruler-v">'+Array.from({length:12},(_,i)=>'<span style="top:'+(i*100*z)+'px">'+(i*100)+'</span>').join('')+'</div><div class="artboard-wrap" style="width:'+g.canvas.width*z+'px;height:'+g.canvas.height*z+'px"><svg class="artboard" id="figure" width="'+g.canvas.width*z+'" height="'+g.canvas.height*z+'" viewBox="0 0 '+g.canvas.width+' '+g.canvas.height+'" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="WB 可编辑画布"><rect class="canvas-bg" width="100%" height="100%" fill="'+e(g.canvas.background)+'"/>'+g.objects.filter(o=>o.visible!==false).map(o=>'<g data-object="'+o.id+'" class="figure-object '+(o.locked?'locked':'')+'">'+B.objectMarkup(o,p.sources)+'</g>').join('')+B.selectionMarkup(selected,z)+(ui.marquee?'<rect class="marquee" x="'+ui.marquee.x+'" y="'+ui.marquee.y+'" width="'+ui.marquee.w+'" height="'+ui.marquee.h+'" fill="#14867c15" stroke="#14867c" stroke-dasharray="4 3"/>':'')+(ui.guideX!==null?'<path d="M'+ui.guideX+' 0V'+g.canvas.height+'" stroke="#e481a0" stroke-width="1"/>':'')+(ui.guideY!==null?'<path d="M0 '+ui.guideY+'H'+g.canvas.width+'" stroke="#e481a0" stroke-width="1"/>':'')+'</svg></div>';
   };
   B.editor=()=>'<section class="editor-center"><div class="document-bar"><span>'+e(B.getGroup().experiment)+' <b>/</b> '+e(B.getGroup().name)+'</span>'+B.check('ui','snap',B.state.ui.snap,'对象吸附')+'<span class="muted">拖动对象 · ⌘/Shift 多选 · 方向键微调</span></div><div class="canvas-viewport '+(B.state.ui.tool==='hand'?'hand-tool':'')+'" id="viewport"><div id="canvas-content">'+B.canvasMarkup()+'</div></div><div class="zoom-control">'+B.btn('fit','适应画布','fit')+'<span class="divider"></span>'+B.ib('zoom-out','缩小','minus')+'<span class="zoom-number">'+Math.round(B.state.ui.zoom*100)+'%</span>'+B.ib('zoom-in','放大','plus')+'</div></section>';
   B.inspector=()=>{
@@ -1045,8 +1307,17 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
   };
   B.analysis=()=>{
     const {p,ui}=B.state,g=B.getGroup(),o=B.getAnalysis(),s=o&&p.sources.find(s=>s.id===o.sourceId);if(!o||!s)return'<section class="content-page empty-page">'+ic('image',48)+'<h1>从一张原始 WB 图像开始</h1><p>导入 PNG、JPEG 或 8/16-bit TIFF，再框选条带和背景。</p>'+B.btn('import','导入原始图像','image','class="primary"')+'</section>';
-    const src={...o,x:0,y:0,w:s.width,h:s.height,rotation:o.analysis?.rotation||0,crop:{x:0,y:0,w:s.width,h:s.height},flipX:false,flipY:false,strokeWidth:0},rois=o.rois,records=B.records(p,g).filter(r=>r.objectId===o.id),z=Math.min(1.2,Math.max(.15,ui.analysisZoom||Math.min(900/s.width,420/s.height)));
-    return'<section class="analysis-page"><div class="page-heading"><div><h1>原图与灰度分析</h1><p>'+e(s.name)+' <span class="tag">'+s.bitDepth+'-bit 原始像素</span> '+s.width+' × '+s.height+' px</p></div>'+B.btn('original','导出原始文件','save')+'</div><div class="analysis-settings">'+B.select('analysis-ui','analysisId',o.id,g.objects.filter(v=>v.type==='image').map(v=>[v.id,v.protein||v.name]),'图像')+B.input('analysis','protein',o.protein,'蛋白')+B.input('analysis','mw',o.mw,'分子量 kDa')+B.select('analysis','referenceId',o.referenceId,[['','不归一到参照'],...g.objects.filter(v=>v.type==='image'&&v.id!==o.id).map(v=>[v.id,v.protein||v.name])],'参照蛋白')+B.select('analysis','polarity',o.polarity,[['dark','深色条带 / 浅背景'],['light','浅色条带 / 深背景']],'信号方向')+'</div><div class="analysis-tools">'+[['roi','框选条带','rect'],['background','框选背景','rect'],['crop','框选裁剪','crop']].map(([id,t,icon])=>B.btn('analysis-tool',t,icon,'data-id="'+id+'" class="'+(ui.analysisTool===id?'chosen':'')+'"')).join('')+B.btn('auto-rois','按泳道生成 ROI','grid')+B.btn('copy-rois','同步到其他蛋白','copy')+B.btn('clear-rois','清空 ROI','trash')+B.btn('clear-bg','清除背景','close')+'<span class="toolbar-spacer"></span>'+B.ib('analysis-zoom-out','缩小原图','minus')+'<span>'+Math.round(z*100)+'%</span>'+B.ib('analysis-zoom-in','放大原图','plus')+'</div><div class="analysis-image-scroll"><svg id="analysis-image" width="'+s.width*z+'" height="'+s.height*z+'" viewBox="0 0 '+s.width+' '+s.height+'" role="img" aria-label="原图 ROI 框选区">'+B.objectMarkup(src,p.sources)+'<rect x="'+o.crop.x+'" y="'+o.crop.y+'" width="'+o.crop.w+'" height="'+o.crop.h+'" fill="none" stroke="#d6952d" stroke-width="'+1.5/z+'" stroke-dasharray="6 4" pointer-events="none"/>'+rois.map((r,i)=>'<g data-roi="'+r.id+'"><rect x="'+r.x+'" y="'+r.y+'" width="'+r.w+'" height="'+r.h+'" fill="'+(ui.roiId===r.id?'#13897d30':'#13897d15')+'" stroke="#13897d" stroke-width="'+1.5/z+'"/><text x="'+(r.x+2/z)+'" y="'+Math.max(12/z,r.y-3/z)+'" font-size="'+12/z+'" fill="#0b6f65">'+(i+1)+'</text></g>').join('')+(o.background?'<rect x="'+o.background.x+'" y="'+o.background.y+'" width="'+o.background.w+'" height="'+o.background.h+'" fill="#477bc020" stroke="#477bc0" stroke-width="'+1.5/z+'"/>':'')+(ui.analysisRect?'<rect x="'+ui.analysisRect.x+'" y="'+ui.analysisRect.y+'" width="'+ui.analysisRect.w+'" height="'+ui.analysisRect.h+'" fill="#d6952d30" stroke="#d6952d" stroke-width="'+1.5/z+'"/>':'')+'</svg></div><div class="analysis-caption"><span><i class="legend green"></i>条带 ROI</span><span><i class="legend blue"></i>背景 ROI</span><span><i class="legend amber"></i>显示裁剪范围</span><span>在原图拖框；选中条带框后可拖动。定量始终读取原始 '+s.bitDepth+'-bit 像素。</span></div><div class="split-row"><div class="analysis-readout"><h3>定量设置</h3>'+B.range('analysis','brightness',o.brightness,0,200,'显示亮度','%')+B.range('analysis','contrast',o.contrast,0,200,'显示对比度','%')+'<p class="hint">深色条带：校正积分 = 背景均值 × ROI 面积 − ROI 像素和。无背景框时使用反相积分。负值保留，并从比值/统计中排除。</p></div><div class="roi-editor"><h3>选中 ROI 的原图坐标</h3>'+(rois.find(r=>r.id===ui.roiId)?'<div class="field-grid four">'+['x','y','w','h'].map(f=>B.input('roi',f,Math.round(rois.find(r=>r.id===ui.roiId)[f]),f.toUpperCase(),'type="number" min="0"')).join('')+'</div>'+B.select('roi','sampleIndex',rois.find(r=>r.id===ui.roiId).sampleIndex,g.samples.map((s,i)=>[i,s.id+' · '+s.group]),'对应样本')+B.btn('delete-roi','删除此 ROI','trash'):'<p class="hint">点击原图中的绿色框，精确修改位置和尺寸。</p>')+'</div></div>'+(B.imagejPanel?B.imagejPanel(p,g,o,s):'')+'<div class="section-title"><h2>灰度结果 <small>'+records.length+' 个 ROI</small></h2><div class="button-row">'+B.btn('results-xlsx','导出 Excel','export')+B.btn('to-stats','查看统计','chart')+'</div></div><div class="table-scroll"><table><thead><tr><th>ROI</th><th>样本</th><th>分组</th><th>面积 px²</th><th>原始积分</th><th>校正积分</th><th>目的/参照</th><th>提示</th></tr></thead><tbody>'+records.map((r,i)=>'<tr class="'+(r.issue?'warning-row':'')+'" data-action="roi-select" data-id="'+r.roi.id+'"><td>'+(i+1)+'</td><td>'+e(r.sampleId)+'</td><td>'+e(r.group)+'</td><td>'+r.area+'</td><td>'+B.format(r.raw)+'</td><td>'+B.format(r.corrected)+'</td><td>'+B.format(r.ratio)+'</td><td>'+e(r.issue||'—')+'</td></tr>').join('')+'</tbody></table></div></section>';
+    const cropMode=ui.analysisTool==='crop',rotation=o.analysis?.rotation||0;
+    const separateFrames=cropMode&&rotation!==0;
+    const src={...o,x:0,y:0,w:s.width,h:s.height,rotation:cropMode?0:rotation,crop:{x:0,y:0,w:s.width,h:s.height},flipX:false,flipY:false,strokeWidth:0},rois=separateFrames?[]:o.rois,records=B.records(p,g).filter(r=>r.objectId===o.id),z=Math.min(1.2,Math.max(.15,ui.analysisZoom||Math.min(900/s.width,420/s.height)));
+    const roiMarkup=(r,i)=>{
+      const method=o.analysis&&(r.shape||o.analysis.method);
+      const shape=method==='ellipse'
+        ?'<ellipse cx="'+(r.x+r.w/2)+'" cy="'+(r.y+r.h/2)+'" rx="'+r.w/2+'" ry="'+r.h/2
+        :'<rect x="'+r.x+'" y="'+r.y+'" width="'+r.w+'" height="'+r.h;
+      return '<g data-roi="'+r.id+'">'+shape+'" fill="'+(ui.roiId===r.id?'#13897d30':'#13897d15')+'" stroke="#13897d" stroke-width="'+1.5/z+'"/><text x="'+(r.x+2/z)+'" y="'+Math.max(12/z,r.y-3/z)+'" font-size="'+12/z+'" fill="#0b6f65">'+(i+1)+'</text></g>';
+    };
+    return'<section class="analysis-page"><div class="page-heading"><div><h1>原图与灰度分析</h1><p>'+e(s.name)+' <span class="tag">'+s.bitDepth+'-bit 原始像素</span> '+s.width+' × '+s.height+' px</p></div>'+B.btn('original','导出原始文件','save')+'</div><div class="analysis-settings">'+B.select('analysis-ui','analysisId',o.id,g.objects.filter(v=>v.type==='image').map(v=>[v.id,v.protein||v.name]),'图像')+B.input('analysis','protein',o.protein,'蛋白')+B.input('analysis','mw',o.mw,'分子量 kDa')+B.select('analysis','referenceId',o.referenceId,[['','不归一到参照'],...g.objects.filter(v=>v.type==='image'&&v.id!==o.id).map(v=>[v.id,v.protein||v.name])],'参照蛋白')+B.select('analysis','polarity',o.polarity,[['dark','深色条带 / 浅背景'],['light','浅色条带 / 深背景']],'信号方向')+'</div><div class="analysis-tools">'+[['roi','框选条带','rect'],['background','框选背景','rect'],['crop','框选裁剪','crop']].map(([id,t,icon])=>B.btn('analysis-tool',t,icon,'data-id="'+id+'" class="'+(ui.analysisTool===id?'chosen':'')+'"')).join('')+B.btn('auto-rois','按泳道生成 ROI','grid')+B.btn('copy-rois','同步到其他蛋白','copy')+B.btn('clear-rois','清空 ROI','trash')+B.btn('clear-bg','清除背景','close')+'<span class="toolbar-spacer"></span>'+B.ib('analysis-zoom-out','缩小原图','minus')+'<span>'+Math.round(z*100)+'%</span>'+B.ib('analysis-zoom-in','放大原图','plus')+'</div><div class="analysis-image-scroll"><svg '+(cropMode?'data-display-crop="true" ':'')+'id="analysis-image" width="'+s.width*z+'" height="'+s.height*z+'" viewBox="0 0 '+s.width+' '+s.height+'" role="img" aria-label="原图 ROI 框选区">'+B.objectMarkup(src,p.sources)+(cropMode||!rotation?'<rect x="'+o.crop.x+'" y="'+o.crop.y+'" width="'+o.crop.w+'" height="'+o.crop.h+'" fill="none" stroke="#d6952d" stroke-width="'+1.5/z+'" stroke-dasharray="6 4" pointer-events="none"/>':'')+rois.map(roiMarkup).join('')+(o.background&&!separateFrames?'<rect x="'+o.background.x+'" y="'+o.background.y+'" width="'+o.background.w+'" height="'+o.background.h+'" fill="#477bc020" stroke="#477bc0" stroke-width="'+1.5/z+'"/>':'')+(ui.analysisRect?'<rect x="'+ui.analysisRect.x+'" y="'+ui.analysisRect.y+'" width="'+ui.analysisRect.w+'" height="'+ui.analysisRect.h+'" fill="#d6952d30" stroke="#d6952d" stroke-width="'+1.5/z+'"/>':'')+'</svg></div><div class="analysis-caption"><span><i class="legend green"></i>条带 ROI</span><span><i class="legend blue"></i>背景 ROI</span><span><i class="legend amber"></i>显示裁剪范围</span><span>'+(separateFrames?'在未旋转原图上拖框裁剪。':'在图像上拖框，拖动已选条带框可调整位置。')+'定量始终读取原始 '+s.bitDepth+'-bit 像素。</span></div><div class="split-row"><div class="analysis-readout"><h3>定量设置</h3>'+B.range('analysis','brightness',o.brightness,0,200,'显示亮度','%')+B.range('analysis','contrast',o.contrast,0,200,'显示对比度','%')+'<p class="hint">深色条带：校正积分 = 背景均值 × ROI 面积 − ROI 像素和。'+(o.analysis?.background==='roi'?'请框选背景 ROI 后读取校正信号。':!o.analysis?'旧版项目未框选背景时使用方向积分。':'当前背景处理以所选分析方法为准。')+'有效的零值与负值保留在统计中。负值提示目标信号低于背景；计算比值时，参照信号须大于 0。</p></div><div class="roi-editor"><h3>选中 ROI 的原图坐标</h3>'+(rois.find(r=>r.id===ui.roiId)?'<div class="field-grid four">'+['x','y','w','h'].map(f=>B.input('roi',f,Math.round(rois.find(r=>r.id===ui.roiId)[f]),f.toUpperCase(),'type="number" min="0"')).join('')+'</div>'+B.select('roi','sampleIndex',rois.find(r=>r.id===ui.roiId).sampleIndex,g.samples.map((s,i)=>[i,s.id+' · '+s.group]),'对应样本')+B.btn('delete-roi','删除此 ROI','trash'):'<p class="hint">点击原图中的绿色框，精确修改位置和尺寸。</p>')+'</div></div>'+(B.imagejPanel?B.imagejPanel(p,g,o,s):'')+'<div class="section-title"><h2>灰度结果 <small>'+records.length+' 个 ROI</small></h2><div class="button-row">'+B.btn('results-xlsx','导出 Excel','export')+B.btn('to-stats','查看统计','chart')+'</div></div><div class="table-scroll"><table><thead><tr><th>ROI</th><th>样本</th><th>分组</th><th>面积 px²</th><th>原始积分</th><th>校正积分</th><th>目的/参照</th><th>提示</th></tr></thead><tbody>'+records.map((r,i)=>'<tr class="'+(r.issue?'warning-row':'')+'" data-action="roi-select" data-id="'+r.roi.id+'"><td>'+(i+1)+'</td><td>'+e(r.sampleId)+'</td><td>'+e(r.group)+'</td><td>'+r.area+'</td><td>'+B.format(r.raw)+'</td><td>'+B.format(r.corrected)+'</td><td>'+B.format(r.ratio)+'</td><td>'+e(r.issue||'—')+'</td></tr>').join('')+'</tbody></table></div></section>';
   };
   B.format=v=>v===null||v===undefined||!Number.isFinite(v)?'—':Math.abs(v)>=1000000?Number(v).toExponential(3):Number(v).toLocaleString('en-US',{maximumFractionDigits:4});
   B.design=()=>{
@@ -1057,19 +1328,119 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
     return'<section class="content-page"><div class="subnav">'+tabs.map(([id,t])=>'<button data-action="design-tab" data-id="'+id+'" class="'+(ui.designTab===id?'active':'')+'">'+t+'</button>').join('')+'</div>'+body+'</section>';
   };
   B.schemas={samples:{title:'样品库',description:'记录来源、浓度和批次，便于追溯上样信息。',fields:[['name','样本 ID'],['group','分组'],['source','来源'],['concentration','浓度及单位'],['batch','批次'],['notes','备注']]},antibodies:{title:'抗体库',description:'记录一抗、二抗及对应条件。',fields:[['protein','靶蛋白'],['brand','厂家'],['catalog','货号'],['lot','批号'],['host','宿主'],['dilution','稀释比例'],['secondary','二抗'],['notes','备注']]},plan:{title:'上样与一抗计划',description:'维护胶、膜、泳道、上样量和孵育条件。',fields:[['membrane','胶/膜编号'],['lane','泳道'],['sample','样本 ID'],['amount','上样量及单位'],['protein','蛋白'],['antibody','一抗及条件'],['notes','备注']]}};
-  B.chartSVG=(data,title,normalize=false)=>{
-    const w=760,h=420,left=85,top=50,bottom=350,available=610,groups=data.groups,max=Math.max(.01,...groups.flatMap(g=>[g.mean+(Number.isFinite(g.sd)?g.sd:0),...g.values]))*1.2,y=v=>bottom-v/max*(bottom-top),step=available/Math.max(1,groups.length),colors=['#183f48','#368d81','#81b5a5','#bfd9ce'];
-    return'<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420"><rect width="760" height="420" fill="white"/><text x="380" y="27" font-family="Arial" font-size="18" text-anchor="middle" fill="#20252c">'+e(title)+'</text>'+Array.from({length:5},(_,i)=>{const val=max*i/4,py=y(val);return'<path d="M'+left+' '+py+'H715" stroke="#e9edf0"/><text x="73" y="'+(py+4)+'" text-anchor="end" font-family="Arial" font-size="12">'+e(B.format(val))+'</text>';}).join('')+'<path d="M85 45V350H715" fill="none" stroke="#273c45" stroke-width="1.4"/>'+groups.map((g,i)=>{const x=left+step*(i+.5),sd=Number.isFinite(g.sd)?g.sd:0;return'<rect x="'+(x-25)+'" y="'+y(g.mean)+'" width="50" height="'+(bottom-y(g.mean))+'" fill="'+colors[i%4]+'" fill-opacity=".5"/><path d="M'+x+' '+y(g.mean-sd)+'V'+y(g.mean+sd)+'M'+(x-9)+' '+y(g.mean+sd)+'H'+(x+9)+'M'+(x-9)+' '+y(g.mean-sd)+'H'+(x+9)+'" stroke="#273c45" stroke-width="1.4"/>'+g.values.map((v,j)=>'<circle cx="'+(x+((j%5)-Math.min(4,g.values.length-1)/2)*7)+'" cy="'+y(v)+'" r="4" fill="'+colors[i%4]+'" stroke="white" stroke-width="1"/>').join('')+'<text x="'+x+'" y="375" text-anchor="middle" font-family="Arial" font-size="13">'+e(g.name)+'</text><text x="'+x+'" y="394" text-anchor="middle" font-family="Arial" font-size="11" fill="#71808a">n = '+g.n+'</text>';}).join('')+'<text transform="translate(19 210) rotate(-90)" text-anchor="middle" font-family="Arial" font-size="13">'+(normalize?'Relative expression (control = 1)':'Signal / reference or integrated intensity')+'</text></svg>';
+  const chartDefaults={mode:'bars',error:'sd',title:'',axisLabel:''};
+  const chartText=(value,limit)=>typeof value==='string'?Array.from(value.trim()).slice(0,limit).join(''):'';
+  B.chartStyleKey=data=>{
+    const {ui}=B.state;
+    const groupIds=ui.checkedGroups.length?[...ui.checkedGroups].sort():[B.getGroup().id];
+    return JSON.stringify([groupIds,data.protein,ui.metric,ui.normalize?data.control:null]);
   };
-  B.currentStats=()=>{const {p,ui}=B.state,g=B.getGroup(),groups=ui.checkedGroups.length?p.groups.filter(v=>ui.checkedGroups.includes(v.id)):[g],records=groups.flatMap(gr=>B.records(p,gr).map(r=>({...r,imageGroup:gr.name}))),proteins=[...new Set(records.map(r=>r.protein))],protein=proteins.includes(ui.statsProtein)?ui.statsProtein:proteins[0]||'',control=ui.control||g.samples[0]?.group||'',data=B.statData(records,protein,ui.metric,control,ui.normalize);if(!data.rows.length&&!data.error&&protein)data.error=ui.metric==='ratio'?'当前蛋白尚无有效参照比值。请设置参照蛋白并框选对应泳道，或改选背景校正积分。':'没有纳入的有效正值。请检查 ROI、背景框和样本纳入状态。';return{...data,records,proteins,protein,control};};
+  B.chartStyle=data=>{
+    const value=B.state.p.chartStyles?.[B.chartStyleKey(data)];
+    return {
+      mode:value?.mode==='points'?'points':chartDefaults.mode,
+      error:['sd','sem','none'].includes(value?.error)?value.error:chartDefaults.error,
+      title:chartText(value?.title,100),axisLabel:chartText(value?.axisLabel,60)
+    };
+  };
+  const chartAxis=(data,normalize,metric)=>{
+    if(normalize)return 'Relative signal (control mean = 1)';
+    if(metric==='ratio')return 'Target / reference';
+    if(metric==='controlRatio')return 'Target / loading control';
+    if(metric==='totalRatio')return 'Target / total protein';
+    if(metric==='raw')return 'Integrated signal (gray level × pixel)';
+    return data.rows?.[0]?.method==='profile'?'Peak area (mean intensity × profile pixel)':'Corrected signal (gray level × pixel)';
+  };
+  const glyphWidth=(char,size)=>size*(char.codePointAt(0)>255?1:.62);
+  const textWidth=(label,size)=>Array.from(label).reduce((width,char)=>width+glyphWidth(char,size),0);
+  const groupLabelLines=label=>{
+    const lines=[];let line='',width=0;
+    for(const character of String(label)){
+      const next=glyphWidth(character,13);
+      if(width+next>154){lines.push(line);line='';width=0;}
+      line+=character;width+=next;
+    }
+    lines.push(line);
+    return lines;
+  };
+  B.chartSVG=(data,title,normalize=false,style=chartDefaults,metric='corrected')=>{
+    const groups=data.groups,heading=style.title||title,axisLabel=style.axisLabel||chartAxis(data,normalize,metric);
+    const labels=groups.map(group=>groupLabelLines(group.name));
+    let columnWidth=75,labelLines=1;
+    for(const lines of labels){
+      labelLines=Math.max(labelLines,lines.length);
+      for(const line of lines)columnWidth=Math.max(columnWidth,textWidth(line,13)+22);
+    }
+    const left=86,rightMargin=30,top=54;
+    const width=Math.ceil(Math.max(760,left+rightMargin+columnWidth*groups.length,textWidth(heading,18)+40));
+    const right=width-rightMargin,bottom=top+Math.max(270,Math.ceil(textWidth(axisLabel,13)+14));
+    const height=bottom+72+labelLines*16,step=(right-left)/Math.max(1,groups.length);
+    const colors=['#183f48','#368d81','#487d98','#8b6847'],fills=['#a9bdc1','#b1d5ce','#bdd3df','#dac9b7'];
+    let lower=0,upper=0;
+    const uncertainty=group=>style.error!=='none'&&group.n>1&&Number.isFinite(group[style.error])?group[style.error]:null;
+    // Work in scaled units so a very large finite range or a very small signal still projects correctly.
+    let scale=0;
+    for(const group of groups){
+      scale=Math.max(scale,Math.abs(group.mean),uncertainty(group)||0);
+      for(const value of group.values)scale=Math.max(scale,Math.abs(value));
+    }
+    scale=scale||1;
+    for(const group of groups){
+      const mean=group.mean/scale,error=(uncertainty(group)||0)/scale;
+      lower=Math.min(lower,mean-error);upper=Math.max(upper,mean+error);
+      for(const value of group.values){lower=Math.min(lower,value/scale);upper=Math.max(upper,value/scale);}
+    }
+    const margin=(upper-lower)*.08;
+    if(lower<0)lower-=margin;
+    if(upper>0)upper+=margin;
+    if(upper===lower)upper=1;
+    const y=scaled=>bottom-(scaled-lower)/(upper-lower)*(bottom-top);
+    const ink='#273c45';
+    const line=(x1,y1,x2,y2,color=ink,weight=1.4)=>'<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+color+'" stroke-width="'+weight+'"/>';
+    const text=(x,y,value,size=13,anchor='middle',extra='')=>'<text x="'+x+'" y="'+y+'" font-family="Arial" font-size="'+size+'" text-anchor="'+anchor+'" fill="'+ink+'" '+extra+'>'+e(value)+'</text>';
+    const svg=['<svg xmlns="http://www.w3.org/2000/svg" width="'+width+'" height="'+height+'" viewBox="0 0 '+width+' '+height+'" role="img" aria-label="'+e(heading)+'"><rect x="0" y="0" width="'+width+'" height="'+height+'" fill="#ffffff"/>',text(width/2,28,heading,18)];
+    const ticks=Array.from({length:5},(_,i)=>lower+(upper-lower)*i/4);
+    if(lower<0&&upper>0){
+      const nearZero=ticks.findIndex(tick=>Math.abs(tick)<(upper-lower)*.06);
+      if(nearZero>=0)ticks[nearZero]=0;else ticks.push(0);
+    }
+    for(const tick of ticks){
+      const value=tick*scale,absolute=Math.abs(value);
+      const label=absolute!==0&&(absolute<.001||absolute>=1e6)?value.toExponential(2):B.format(value);
+      svg.push(line(left,y(tick),right,y(tick),'#e3e9ec',1),text(left-10,y(tick)+4,label,12,'end'));
+    }
+    svg.push(line(left,top,left,bottom),line(left,y(0),right,y(0)));
+    for(let i=0;i<groups.length;i++){
+      const group=groups[i],x=left+step*(i+.5),mean=group.mean/scale,meanY=y(mean),color=colors[i%colors.length];
+      const half=Math.min(24,step*.29),error=uncertainty(group);
+      if(style.mode==='bars')svg.push('<rect x="'+(x-half)+'" y="'+Math.min(meanY,y(0))+'" width="'+half*2+'" height="'+Math.abs(meanY-y(0))+'" fill="'+fills[i%fills.length]+'"/>');
+      if(error!==null){
+        const high=y(mean+error/scale),low=y(mean-error/scale),cap=half*.4;
+        svg.push(line(x,high,x,low),line(x-cap,high,x+cap,high),line(x-cap,low,x+cap,low));
+      }
+      const extent=Math.min(half-3,4*(group.values.length-1));
+      group.values.forEach((value,index)=>{
+        const jitter=group.values.length===1?0:extent*(2*index/(group.values.length-1)-1);
+        svg.push('<circle cx="'+(x+jitter)+'" cy="'+y(value/scale)+'" r="3.5" fill="'+color+'" stroke="#ffffff" stroke-width=".8"/>');
+      });
+      if(style.mode==='points')svg.push(line(x-half,meanY,x+half,meanY,ink,2.2));
+      labels[i].forEach((label,index)=>svg.push(text(x,bottom+22+index*16,label)));
+      svg.push(text(x,bottom+22+labelLines*16,'n = '+group.n,11));
+    }
+    const legend='Points = samples · '+(style.mode==='bars'?'Bars':'Lines')+' = means'+(style.error==='none'?'':' · Error bars = '+style.error.toUpperCase());
+    svg.push(text((left+right)/2,height-12,legend,12),text(0,0,axisLabel,13,'middle','transform="translate(18 '+((top+bottom)/2)+') rotate(-90)"'),'</svg>');
+    return svg.join('');
+  };
+  B.statsChartSVG=(data=B.currentStats())=>B.chartSVG(data,data.protein+(B.getGroup().demo?' · 演示数据':''),B.state.ui.normalize,B.chartStyle(data),B.state.ui.metric);
+  B.currentStats=()=>{const {p,ui}=B.state,g=B.getGroup(),groups=ui.checkedGroups.length?p.groups.filter(v=>ui.checkedGroups.includes(v.id)):[g],records=groups.flatMap(gr=>B.records(p,gr).map(r=>({...r,imageGroup:gr.name}))),proteins=[...new Set(records.map(r=>r.protein))],protein=proteins.includes(ui.statsProtein)?ui.statsProtein:proteins[0]||'',control=ui.control||g.samples[0]?.group||'',data=B.statData(records,protein,ui.metric,control,ui.normalize);if(!data.rows.length&&!data.error&&protein)data.error=ui.metric==='ratio'?'当前蛋白尚无有效参照比值。请设置参照蛋白并框选对应泳道，或改选背景校正积分。':'没有纳入的有效测量值。请检查 ROI、背景框和样本纳入状态。';return{...data,records,proteins,protein,control};};
   B.stats=()=>{
     const {ui,p}=B.state,d=B.currentStats(),groups=[...new Set(d.records.map(r=>r.group))];
-    return'<section class="content-page stats-page"><div class="page-heading"><div><h1>灰度统计与归一化</h1><p>当前图组'+(ui.checkedGroups.length?' · 已合并 '+ui.checkedGroups.length+' 个选中图组':'')+' · 使用原始像素计算的积分信号</p></div><div class="button-row">'+B.btn('results-xlsx','导出数据','export')+B.btn('chart-export','导出图表 SVG','chart')+'</div></div>'+(!d.proteins.length?'<div class="empty-list">'+ic('chart',42)+'<h2>还没有可统计的 ROI</h2><p>先在图片分析中框选条带，并设置泳道和参照蛋白。</p>'+B.btn('to-analysis','前往图片分析','image','class="primary"')+'</div>':'<div class="stats-controls">'+B.select('ui','statsProtein',d.protein,d.proteins.map(x=>[x,x]),'目的蛋白')+B.select('ui','metric',ui.metric,[['corrected','背景校正积分'],['raw','原始积分'],['ratio','目的 / 参照比值']],'统计指标')+B.select('ui','control',d.control,groups.map(x=>[x,x]),'对照组')+B.check('ui','normalize',ui.normalize,'对照均值归一化为 1')+'</div>'+(d.error?'<p class="notice">'+e(d.error)+'</p>':'')+'<div class="stats-grid"><div class="chart-panel">'+B.chartSVG(d,d.protein+(B.getGroup().demo?' · 演示数据':''),ui.normalize)+'<p class="hint">单点为纳入的样本；柱为均值；误差线为 SD。'+(B.getGroup().demo?'当前为模拟演示数据，不是实验结果。':'')+'</p></div><div class="summary-panel"><h3>描述统计</h3><table><thead><tr><th>分组</th><th>n</th><th>均值</th><th>SD</th><th>SEM</th></tr></thead><tbody>'+d.groups.map(g=>'<tr><td>'+e(g.name)+'</td><td>'+g.n+'</td><td>'+B.format(g.mean)+'</td><td>'+B.format(g.sd)+'</td><td>'+B.format(g.sem)+'</td></tr>').join('')+'</tbody></table>'+B.check('ui','inferential',ui.inferential,'显示 Welch t 检验（各组 vs 对照）')+(ui.inferential?'<p class="hint">双侧、独立样本，Holm 多重比较校正。n &lt; 2 或方差为 0 时不报告 P 值。技术重复不能直接作为独立样本。</p><table><thead><tr><th>比较组</th><th>原始 P</th><th>Holm P</th></tr></thead><tbody>'+d.tests.map(t=>'<tr><td>'+e(t.group)+'</td><td>'+B.format(t.p)+'</td><td>'+B.format(t.adjusted)+'</td></tr>').join('')+'</tbody></table>':'')+'</div></div><div class="section-title"><h2>纳入统计的数据</h2><span class="muted">在实验设计中调整纳入状态；重复、非正信号或缺失参照需核查</span></div><div class="table-scroll"><table><thead><tr><th>图组</th><th>蛋白</th><th>样本</th><th>分组</th><th>重复</th><th>校正积分</th><th>目的/参照</th><th>当前统计值</th></tr></thead><tbody>'+d.rows.map(r=>'<tr><td>'+e(r.imageGroup)+'</td><td>'+e(r.protein)+'</td><td>'+e(r.sampleId)+'</td><td>'+e(r.group)+'</td><td>'+r.replicate+'</td><td>'+B.format(r.corrected)+'</td><td>'+B.format(r.ratio)+'</td><td>'+B.format(r.value)+'</td></tr>').join('')+'</tbody></table></div>')+'</section>';
+    return'<section class="content-page stats-page"><div class="page-heading"><div><h1>灰度统计与归一化</h1><p>当前图组'+(ui.checkedGroups.length?' · 已合并 '+ui.checkedGroups.length+' 个选中图组':'')+' · 使用原始像素计算的积分信号</p></div><div class="button-row">'+B.btn('results-xlsx','导出数据','export')+B.btn('chart-options','图表样式','chart',d.groups.length?'':'disabled')+B.btn('chart-to-layout','加入排版','layers',d.groups.length?'':'disabled')+B.btn('chart-export','导出图表 SVG','export',d.groups.length?'':'disabled')+'</div></div>'+(!d.proteins.length?'<div class="empty-list">'+ic('chart',42)+'<h2>还没有可统计的 ROI</h2><p>先在图片分析中框选条带，并设置泳道和参照蛋白。</p>'+B.btn('to-analysis','前往图片分析','image','class="primary"')+'</div>':'<div class="stats-controls">'+B.select('ui','statsProtein',d.protein,d.proteins.map(x=>[x,x]),'目的蛋白')+B.select('ui','metric',ui.metric,[['corrected','背景校正积分'],['raw','原始积分'],['ratio','目的 / 参照比值']],'统计指标')+B.select('ui','control',d.control,groups.map(x=>[x,x]),'对照组')+B.check('ui','normalize',ui.normalize,'对照均值归一化为 1')+'</div>'+(d.error?'<p class="notice">'+e(d.error)+'</p>':'')+'<div class="stats-grid"><div class="chart-panel">'+(d.groups.length?'<div class="chart-preview"><div style="min-width:'+(d.groups.length>5?75*d.groups.length+116:0)+'px">'+B.statsChartSVG(d)+'</div></div>':'<p class="empty-list">暂无可绘制的统计值</p>')+'</div><div class="summary-panel"><h3>描述统计</h3><table><thead><tr><th>分组</th><th>n</th><th>均值</th><th>SD</th><th>SEM</th></tr></thead><tbody>'+d.groups.map(g=>'<tr><td>'+e(g.name)+'</td><td>'+g.n+'</td><td>'+B.format(g.mean)+'</td><td>'+B.format(g.sd)+'</td><td>'+B.format(g.sem)+'</td></tr>').join('')+'</tbody></table>'+B.check('ui','inferential',ui.inferential,'显示 Welch t 检验（各组 vs 对照）')+(ui.inferential?'<p class="hint">双侧、独立样本，Holm 多重比较校正。n &lt; 2 或方差为 0 时不报告 P 值。技术重复不能直接作为独立样本。</p><table><thead><tr><th>比较组</th><th>原始 P</th><th>Holm P</th></tr></thead><tbody>'+d.tests.map(t=>'<tr><td>'+e(t.group)+'</td><td>'+B.format(t.p)+'</td><td>'+B.format(t.adjusted)+'</td></tr>').join('')+'</tbody></table>':'')+'</div></div><div class="section-title"><h2>纳入统计的数据</h2><span class="muted">零值与负值计入统计；参照分母须大于 0。可在实验设计中调整样本纳入状态。</span></div><div class="table-scroll"><table><thead><tr><th>图组</th><th>蛋白</th><th>样本</th><th>分组</th><th>重复</th><th>校正积分</th><th>目的/参照</th><th>当前统计值</th></tr></thead><tbody>'+d.rows.map(r=>'<tr><td>'+e(r.imageGroup)+'</td><td>'+e(r.protein)+'</td><td>'+e(r.sampleId)+'</td><td>'+e(r.group)+'</td><td>'+r.replicate+'</td><td>'+B.format(r.corrected)+'</td><td>'+B.format(r.ratio)+'</td><td>'+B.format(r.value)+'</td></tr>').join('')+'</tbody></table></div>')+'</section>';
   };
   B.modal=()=>{
     const {ui,p}=B.state,m=ui.modal;if(!m)return'';let title='',body='',footer='';const input=(f,v,t,opts='')=>B.input('modal',f,v,t,opts);
     if(m.type==='export'){title='导出';body=B.select('modal','format',m.format,[['png','PNG · 组图'],['svg','SVG · 可编辑矢量文字'],['pptx','PowerPoint · 独立图片与文本'],['tiff','TIFF · 8-bit RGB 排版图'],['xlsx','Excel · 原始灰度与比值'],['csv','CSV · 原始灰度与比值'],['project','项目文件 · 含原图与编辑记录'],['originals','原图与记录 ZIP'],['audit','操作记录 CSV']],'文件格式')+B.select('modal','scale',m.scale,[[1,'1× 原始画布像素'],[2,'2× 像素'],[3,'3× 像素'],[4,'4× 像素']],'PNG / TIFF 像素倍率')+'<p class="hint">导出不加水印。演示项目的“演示数据”图注是可编辑文本。SVG 保留文字和形状；PPTX 中每条图片和每段文字可分别编辑。TIFF 排版输出为 8-bit RGB，不替代原始定量 TIFF。</p>';footer=B.btn('do-export','导出文件','export','class="primary"');}
-    else if(m.type==='help'){title='BlotStudio 使用帮助';body='<div class="help-text"><p><b>1. 实验设计</b>：设置泳道、样本和分组，记录样品、抗体及上样计划。</p><p><b>2. 图片分析</b>：导入原图，框选裁剪范围与 ROI。原生支持标准 8/16-bit 灰度 TIFF（未压缩、LZW、PackBits、Deflate）；不支持的格式会明确报错。</p><p><b>3. 排版编辑</b>：所有图片、文本和形状均独立。拖动、右下角缩放，使用属性精确调整；多选后对齐、等距、组合。双击图片进入裁剪和分析，双击文字进入内容编辑。</p><p><b>4. 统计结果</b>：按泳道匹配参照蛋白，支持目的/内参、部分/总蛋白比值，再按对照均值归一化。展示单点、均值与 SD，可选择双侧 Welch 检验及 Holm 校正。</p><p><b>快捷键</b>：⌘/Ctrl+Z 撤销，⇧⌘Z / Ctrl+Y 重做，⌘D 复制，⌘G 组合，⇧⌘G 取消组合，⌘A 全选，⌘S 保存；方向键移动 1 px，Shift+方向键移动 10 px；Delete 删除，Esc 取消选择。</p><p><b>保存</b>：自动保存到当前浏览器 / 应用本地，并可导出含原图的 .wbproj 项目。请定期导出备份。没有账号、联网请求、订阅、数量付费限制或水印。</p><p><b>定量边界</b>：所有计算基于原始亮度像素，显示增强不改变计算；RGB 使用 0.299 R + 0.587 G + 0.114 B。灰度积分不是光密度或绝对蛋白含量。无背景 ROI 时报告反相/正向积分；不同曝光、位深或膜间的绝对积分不能直接比较。重复样本 ID、缺失参照、非正信号、饱和应先核查。</p><p>源码以 MIT 许可提供，可自行修改。当前版本 v'+B.VERSION+'。本版本为独立实现；不读取参考软件的代码或项目。</p></div>';}
+    else if(m.type==='help'){title='BlotStudio 使用帮助';body='<div class="help-text"><p><b>1. 实验设计</b>：设置泳道、样本和分组，记录样品、抗体及上样计划。</p><p><b>2. 图片分析</b>：导入原图，框选裁剪范围与 ROI。原生支持标准 8/16-bit 灰度 TIFF（未压缩、LZW、PackBits、Deflate）；不支持的格式会明确报错。</p><p><b>3. 排版编辑</b>：所有图片、文本和形状均独立。拖动对象可移动位置，拖动边缘或四角的八个控制点可调整大小，按住 Shift 可保持比例。多选后可以对齐、等距分布或组合。缩放整组时文字字号和线宽随之调整。双击图片进入裁剪和分析，双击文字进入内容编辑。</p><p><b>4. 统计结果</b>：可按样本匹配参照蛋白，计算目的蛋白/内参或目的蛋白/总蛋白比值，并选择是否按对照组均值归一化。可显示柱形加散点或仅散点，误差线可选 SD、SEM 或关闭，也可将统计图插入排版。双侧 Welch 检验与 Holm 校正可在统计设置中选择。</p><p><b>快捷键</b>：⌘/Ctrl+Z 撤销，⇧⌘Z / Ctrl+Y 重做，⌘D 复制，⌘G 组合，⇧⌘G 取消组合，⌘A 全选，⌘S 保存；方向键移动 1 px，Shift+方向键移动 10 px；Delete 删除，Esc 取消选择。</p><p><b>保存</b>：自动保存到当前浏览器 / 应用本地，并可导出含原图的 .wbproj 项目。请定期导出备份。没有账号、联网请求、订阅、数量付费限制或水印。</p><p><b>定量边界</b>：显示亮度、对比度等调整不会改变定量。分析方法可设置原始位深或 8-bit，并为彩色图选择 RGB 等权平均或加权亮度。灰度积分不是光密度或绝对蛋白含量。背景框均值模式需要背景 ROI；不扣背景时报告方向积分；不同曝光、位深或膜间的绝对积分不能直接比较。重复样本 ID、缺失参照、非正信号、饱和应先核查。</p><p>源码以 MIT 许可提供，可自行修改。当前版本 v'+B.VERSION+'。本版本为独立实现；不读取参考软件的代码或项目。</p></div>';}
     else if(m.type==='audit'){title='操作记录';body='<div class="audit-list">'+p.audit.slice().reverse().map(r=>'<div><time>'+e(r.time.replace('T',' ').slice(0,19))+'</time><strong>'+e(r.action)+'</strong><p>'+e(r.detail)+'</p></div>').join('')+'</div>';footer=B.btn('audit-export','导出记录','export');}
     else if(m.type==='group-menu'){const g=p.groups.find(g=>g.id===m.id);title='图组 · '+g.name;body=input('name',g.name,'名称')+input('experiment',g.experiment,'所属实验');footer=B.btn('clonegroup','复制图组','copy','data-id="'+g.id+'"')+B.btn('deletegroup','删除图组','trash','data-id="'+g.id+'" '+(p.groups.length===1?'disabled':''))+B.btn('save-group','保存','','class="primary"');}
     else if(m.type==='library'){const schema=B.schemas[ui.designTab];title=(m.index===null?'添加':'编辑')+schema.title+'记录';body=schema.fields.map(([f,t])=>input(f,m.record[f]||'',t)).join('');footer=B.btn('save-library','保存记录','save','class="primary"');}
@@ -1101,7 +1472,20 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
   B.selectObject=(id,multi=false)=>{const {ui}=B.state,g=B.getGroup(),o=g.objects.find(v=>v.id===id);if(!o)return;let ids=o.groupId&&!multi?g.objects.filter(v=>v.groupId===o.groupId).map(v=>v.id):[id];ui.selected=multi?(ui.selected.includes(id)?ui.selected.filter(v=>!ids.includes(v)):[...new Set([...ui.selected,...ids])]):ids;ui.inspector='object';};
   B.editSelected=(label,fn)=>B.commit(label,(p,g)=>g.objects.filter(o=>B.state.ui.selected.includes(o.id)&&!o.locked).forEach(o=>fn(o,p,g)));
   B.fit=()=>{const v=document.getElementById('viewport'),g=B.getGroup();if(v){B.state.ui.zoom=B.clamp(Math.min((v.clientWidth-86)/g.canvas.width,(v.clientHeight-108)/g.canvas.height),.1,1.5);B.state.ui.scrollX=0;B.state.ui.scrollY=0;B.render();}};
-  B.performUndo=redo=>{const st=B.state,from=redo?st.future:st.past,to=redo?st.past:st.future;if(!from.length)return;to.push(st.p);st.p=from.pop();if(!st.p.groups.some(g=>g.id===st.ui.group))st.ui.group=st.p.groups[0].id;st.ui.selected=[];st.ui.checkedGroups=st.ui.checkedGroups.filter(id=>st.p.groups.some(g=>g.id===id));st.p.activeGroup=st.ui.group;B.validate(st.p);B.persist();B.render();};
+  B.performUndo=redo=>{
+    const st=B.state,from=redo?st.future:st.past,to=redo?st.past:st.future;
+    if(!from.length)return;
+    const previous=st.p;
+    to.push(previous);
+    st.p=from.pop();
+    if(previous.id!==st.p.id)projectEpoch++;
+    if(!st.p.groups.some(g=>g.id===st.ui.group))st.ui.group=st.p.groups[0].id;
+    st.ui.selected=[];
+    st.ui.checkedGroups=st.ui.checkedGroups.filter(id=>st.p.groups.some(g=>g.id===id));
+    st.p=B.validate({...st.p,activeGroup:st.ui.group});
+    B.persist();
+    B.render();
+  };
   B.cloneGroup=(g,name)=>{const out=JSON.parse(JSON.stringify(g)),ids=new Map(g.objects.map(o=>[o.id,B.uid()]));out.id=B.uid();out.name=name||g.name+' 副本';for(const o of out.objects){o.id=ids.get(o.id);o.referenceId=ids.get(o.referenceId)||'';o.controlId=ids.get(o.controlId)||'';o.totalId=ids.get(o.totalId)||'';if(o.groupId)o.groupId='clone'+out.id+o.groupId;for(const r of o.rois||[])r.id=B.uid();}return out;};
   B.importFiles=async files=>{
     const targetProject=B.state.p.id,targetGroup=B.getGroup().id,epoch=projectEpoch,successes=[],errors=[];B.toast('正在解码图像，原图会保留在项目内…');
@@ -1130,7 +1514,17 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
       else if(fmt==='pptx')result=await B.saveFile(name+'.pptx',await B.pptx(p,g),'application/vnd.openxmlformats-officedocument.presentationml.presentation');
       else if(fmt==='csv'||fmt==='xlsx')result=await B.saveFile(name+'.'+fmt,B.dataExport(fmt),fmt==='csv'?'text/csv':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       else if(fmt==='audit')result=await B.saveFile(name+'-操作记录.csv',B.csv([['时间 UTC','操作','说明'],...p.audit.map(r=>[r.time,r.action,r.detail])]),'text/csv');
-      else if(fmt==='originals'){const files={'project.wbproj':JSON.stringify(p),'audit.csv':B.csv([['时间 UTC','操作','说明'],...p.audit.map(r=>[r.time,r.action,r.detail])])};p.sources.forEach((s,i)=>{const original=s.original||s.url,ext=original.match(/^data:image\/(\w+)/)?.[1]||'png';files['originals/'+(i+1)+'-'+s.name.replace(/[\\/:*?"<>|]/g,'_')+'.'+ext]=B.unbase64(original.split(',')[1]);});result=await B.saveFile(name+'-原图与记录.zip',B.zip(files));}
+      else if(fmt==='originals'){
+        const files={'project.wbproj':JSON.stringify(p),'audit.csv':B.csv([['时间 UTC','操作','说明'],...p.audit.map(r=>[r.time,r.action,r.detail])])};
+        const manifest=p.sources.map((source,index)=>{
+          const file=B.sourceDownload(source);
+          const path=(file.original?'originals/':'previews/')+(index+1)+'-'+file.name;
+          files[path]=file.bytes;
+          return {sourceId:source.id,sourceName:source.name,path,kind:file.original?'original':'display-preview',recordedSourceHash:source.hash||null};
+        });
+        files['sources.json']=JSON.stringify(manifest,null,2);
+        result=await B.saveFile(name+'-原图与记录.zip',B.zip(files));
+      }
       else if(['png','tiff'].includes(fmt)){if(![1,2,3,4].includes(scale))throw Error('像素倍率无效。');const c=await B.rasterize(B.svg(p,g),g.canvas.width*scale,g.canvas.height*scale);if(fmt==='png')result=await B.saveFile(name+'.png',await B.pngDpi(c,g.canvas.dpi),'image/png');else result=await B.saveFile(name+'.tiff',B.encodeTIFF(c.getContext('2d').getImageData(0,0,c.width,c.height).data,c.width,c.height,Number(g.canvas.dpi)),'image/tiff');}
       else throw Error('不支持的导出格式。');
       if(ui.modal===m)ui.modal=null;B.render();B.toast(result.status==='saved'?'文件已保存。':'已请求浏览器下载，请在下载记录中确认文件。');
@@ -1192,7 +1586,13 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
     'roi-select':el=>{B.state.ui.roiId=el.dataset.id;B.render();},
     'analysis-zoom-in':()=>{const o=B.getAnalysis(),s=B.state.p.sources.find(s=>s.id===o.sourceId);B.state.ui.analysisZoom=(B.state.ui.analysisZoom||Math.min(900/s.width,420/s.height))*1.25;B.render();},
     'analysis-zoom-out':()=>{const o=B.getAnalysis(),s=B.state.p.sources.find(s=>s.id===o.sourceId);B.state.ui.analysisZoom=(B.state.ui.analysisZoom||Math.min(900/s.width,420/s.height))/1.25;B.render();},
-    original:()=>{const o=B.getAnalysis(),s=B.state.p.sources.find(s=>s.id===o.sourceId),data=s.original||s.url;return B.saveFile(s.originalName||s.name+(s.original?'':'.png'),B.unbase64(data.split(',')[1]),data.split(';')[0].slice(5));},
+    original:async()=>{
+      const image=B.getAnalysis(),source=B.state.p.sources.find(s=>s.id===image.sourceId);
+      const file=B.sourceDownload(source);
+      const result=await B.saveFile(file.name,file.bytes,file.mime);
+      if(!file.original)B.toast('此项目仅保留了显示预览，本次导出为预览图。');
+      return result;
+    },
     'to-stats':()=>{B.state.ui.tab='stats';B.render();},'to-analysis':()=>{B.state.ui.tab='analysis';B.render();},
     'results-xlsx':()=>B.saveFile(B.getGroup().name+'-灰度数据.xlsx',B.dataExport('xlsx'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
     'imagej-measure-export':()=>B.exportImagej('measure'),
@@ -1236,7 +1636,14 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
     if(vp&&ui.tool==='hand'){gesture={type:'pan',x:ev.clientX,y:ev.clientY,left:vp.scrollLeft,top:vp.scrollTop,vp};ev.preventDefault();return;}
     if(analysis){if(ui.analysisTool==='roi'&&!B.getGroup().samples.length){B.toast('请先在实验设计中设置样本与分组，再框选条带。');return;}const o=B.getAnalysis();if(o.locked){B.toast('此图像已锁定，请先解锁再框选。');return;}const s=p.sources.find(s=>s.id===o.sourceId),start=point(analysis,ev),roiEl=ev.target.closest('[data-roi]');if(roiEl&&ui.analysisTool==='roi'){ui.roiId=roiEl.dataset.roi;gesture={type:'roi-move',start,base:p,objectId:o.id,roiId:roiEl.dataset.roi,svg:analysis,rect:{...o.rois.find(r=>r.id===roiEl.dataset.roi)}};}else gesture={type:'analysis',start,base:p,objectId:o.id,svg:analysis,mode:ui.analysisTool,width:s.width,height:s.height};ev.preventDefault();return;}
     if(!fig)return;const start=point(fig,ev),resize=ev.target.closest('[data-resize]'),object=ev.target.closest('[data-object]');
-    if(resize){const o=B.getGroup().objects.find(o=>o.id===resize.dataset.resize);if(o.locked)return;gesture={type:'resize',start,base:p,objects:B.getGroup().objects.filter(o=>ui.selected.includes(o.id)&&!o.locked),bounds:B.bounds(B.getGroup().objects.filter(o=>ui.selected.includes(o.id))),svg:fig};ev.preventDefault();return;}
+    if(resize){
+      const objects=B.getGroup().objects.filter(o=>ui.selected.includes(o.id)&&o.visible!==false&&!o.locked);
+      if(!objects.length)return;
+      const frame=objects.length===1?objects[0]:B.bounds(objects);
+      gesture={type:'resize',start,base:p,objects,frame,handle:resize.dataset.handle||'se',svg:fig};
+      ev.preventDefault();
+      return;
+    }
     if(object){const id=object.dataset.object,o=B.getGroup().objects.find(o=>o.id===id);if(ev.shiftKey||ev.metaKey||ev.ctrlKey||!ui.selected.includes(id))B.selectObject(id,ev.shiftKey||ev.metaKey||ev.ctrlKey);if(!o.locked){gesture={type:'move',start,base:p,objects:B.getGroup().objects.filter(o=>ui.selected.includes(o.id)&&!o.locked),svg:fig};}B.render();ev.preventDefault();return;}
     if(!ev.shiftKey&&!ev.metaKey)ui.selected=[];gesture={type:'marquee',start,svg:fig,prior:ui.selected.slice()};ui.marquee={x:start.x,y:start.y,w:0,h:0};B.refreshCanvas();ev.preventDefault();
   });
@@ -1246,21 +1653,63 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
     // The original SVG can be detached after render; map through the current SVG instead.
     const svg=document.getElementById(ge.type==='analysis'||ge.type==='roi-move'?'analysis-image':'figure');if(!svg)return;const at=point(svg,ev),dx=at.x-ge.start.x,dy=at.y-ge.start.y;ge.moved=Math.abs(dx)+Math.abs(dy)>.5;
     if(ge.type==='marquee'){ui.marquee=rectFrom(ge.start,at);B.refreshCanvas();return;}
-    if(ge.type==='analysis'){ui.analysisRect=rectFrom(ge.start,{x:B.clamp(at.x,0,ge.width),y:B.clamp(at.y,0,ge.height)});const current=document.querySelector('#analysis-image .live-rect');if(current)current.remove();const r=ui.analysisRect,node=document.createElementNS('http://www.w3.org/2000/svg','rect');for(const [k,v] of Object.entries(r))node.setAttribute(k,v);node.setAttribute('class','live-rect');node.setAttribute('fill','#d6952d30');node.setAttribute('stroke','#d6952d');node.setAttribute('stroke-width','1');node.setAttribute('pointer-events','none');svg.append(node);return;}
-    if(ge.type==='roi-move'){const p=B.clone(ge.base),g=p.groups.find(g=>g.id===ui.group),o=g.objects.find(o=>o.id===ge.objectId),s=p.sources.find(s=>s.id===o.sourceId),r=o.rois.find(r=>r.id===ge.roiId);r.x=B.clamp(ge.rect.x+dx,0,s.width-r.w);r.y=B.clamp(ge.rect.y+dy,0,s.height-r.h);B.state.p=p;const node=svg.querySelector('[data-roi="'+ge.roiId+'"] rect');if(node){node.setAttribute('x',r.x);node.setAttribute('y',r.y);}return;}
+    if(ge.type==='analysis'){
+      const r=rectFrom(ge.start,{x:B.clamp(at.x,0,ge.width),y:B.clamp(at.y,0,ge.height)});
+      ui.analysisRect=r;
+      const ellipse=ge.mode==='roi'&&B.getAnalysis()?.analysis?.method==='ellipse';
+      let node=svg.querySelector('.live-rect');
+      if(!node){
+        node=document.createElementNS('http://www.w3.org/2000/svg',ellipse?'ellipse':'rect');
+        node.setAttribute('class','live-rect');
+        node.setAttribute('fill','#d6952d30');
+        node.setAttribute('stroke','#d6952d');
+        node.setAttribute('pointer-events','none');
+        svg.append(node);
+      }
+      const geometry=ellipse?{cx:r.x+r.w/2,cy:r.y+r.h/2,rx:r.w/2,ry:r.h/2}:{x:r.x,y:r.y,width:r.w,height:r.h};
+      for(const [name,value] of Object.entries(geometry))node.setAttribute(name,value);
+      return;
+    }
+    if(ge.type==='roi-move'){
+      const p=B.clone(ge.base),g=p.groups.find(g=>g.id===ui.group),o=g.objects.find(o=>o.id===ge.objectId);
+      const source=p.sources.find(s=>s.id===o.sourceId),roi=o.rois.find(r=>r.id===ge.roiId);
+      roi.x=B.clamp(ge.rect.x+dx,0,source.width-roi.w);
+      roi.y=B.clamp(ge.rect.y+dy,0,source.height-roi.h);
+      B.state.p=p;
+      const overlay=svg.querySelector('[data-roi="'+ge.roiId+'"]');
+      if(overlay)overlay.setAttribute('transform','translate('+(roi.x-ge.rect.x)+' '+(roi.y-ge.rect.y)+')');
+      return;
+    }
     const p=B.clone(ge.base),g=p.groups.find(g=>g.id===ui.group);ui.guideX=null;ui.guideY=null;
     if(ge.type==='move'){
-      let mx=dx,my=dy;if(ui.snap&&!ev.altKey){const b=B.bounds(ge.objects),others=g.objects.filter(o=>!ui.selected.includes(o.id)&&o.visible!==false),xs=[0,g.canvas.width/2,g.canvas.width,...others.flatMap(o=>[o.x,o.x+o.w/2,o.x+o.w])],ys=[0,g.canvas.height/2,g.canvas.height,...others.flatMap(o=>[o.y,o.y+o.h/2,o.y+o.h])];const snap=(edges,targets,delta)=>{let best=5/ui.zoom,result={delta,guide:null};for(const v of edges)for(const t of targets){const d=t-v-delta;if(Math.abs(d)<best){best=Math.abs(d);result={delta:delta+d,guide:t};}}return result;};const x=snap([b.x,b.x+b.w/2,b.x+b.w],xs,mx),y=snap([b.y,b.y+b.h/2,b.y+b.h],ys,my);mx=x.delta;my=y.delta;ui.guideX=x.guide;ui.guideY=y.guide;}
+      let mx=dx,my=dy;if(ui.snap&&!ev.altKey){const b=B.bounds(ge.objects),others=g.objects.filter(o=>!ui.selected.includes(o.id)&&o.visible!==false).map(B.objectBounds),xs=[0,g.canvas.width/2,g.canvas.width,...others.flatMap(o=>[o.x,o.x+o.w/2,o.x+o.w])],ys=[0,g.canvas.height/2,g.canvas.height,...others.flatMap(o=>[o.y,o.y+o.h/2,o.y+o.h])];const snap=(edges,targets,delta)=>{let best=5/ui.zoom,result={delta,guide:null};for(const v of edges)for(const t of targets){const d=t-v-delta;if(Math.abs(d)<best){best=Math.abs(d);result={delta:delta+d,guide:t};}}return result;};const x=snap([b.x,b.x+b.w/2,b.x+b.w],xs,mx),y=snap([b.y,b.y+b.h/2,b.y+b.h],ys,my);mx=x.delta;my=y.delta;ui.guideX=x.guide;ui.guideY=y.guide;}
       for(const base of ge.objects){const o=g.objects.find(o=>o.id===base.id);o.x=base.x+mx;o.y=base.y+my;}
     }else if(ge.type==='resize'){
-      if(ge.objects.length===1){const base=ge.objects[0],o=g.objects.find(o=>o.id===base.id),r=(base.rotation||0)*Math.PI/180,cos=Math.cos(r),sin=Math.sin(r),lx=dx*cos+dy*sin,ly=-dx*sin+dy*cos;let w=Math.max(2,base.w+lx),h=Math.max(2,base.h+ly);if(base.lockRatio||ev.shiftKey)h=w*base.h/base.w;const ax=base.x+base.w/2+cos*(-base.w/2)-sin*(-base.h/2),ay=base.y+base.h/2+sin*(-base.w/2)+cos*(-base.h/2);o.x=ax+cos*w/2-sin*h/2-w/2;o.y=ay+sin*w/2+cos*h/2-h/2;o.w=w;o.h=h;
-      }else{const b=ge.bounds,sx=Math.max(.05,(b.w+dx)/b.w),sy=ev.shiftKey?sx:Math.max(.05,(b.h+dy)/b.h);for(const base of ge.objects){const o=g.objects.find(o=>o.id===base.id);o.x=b.x+(base.x-b.x)*sx;o.y=b.y+(base.y-b.y)*sy;o.w=base.w*sx;o.h=base.h*sy;}}
+      const objects=ge.objects,frame=ge.frame;
+      // An anisotropic group scale would shear rotated panels, which the project format cannot represent.
+      const keepRatio=ev.shiftKey||objects.some(o=>o.lockRatio)||(objects.length>1&&objects.some(o=>o.rotation%180!==0));
+      const next=B.resizeFrame(frame,ge.handle,dx,dy,keepRatio);
+      if(objects.length===1){
+        Object.assign(g.objects.find(o=>o.id===objects[0].id),next);
+      }else{
+        const sx=next.w/frame.w,sy=next.h/frame.h;
+        const fontScale=Math.min(sx,sy),strokeScale=Math.sqrt(sx*sy);
+        for(const base of objects){
+          const object=g.objects.find(o=>o.id===base.id);
+          object.x=next.x+(base.x-frame.x)*sx;
+          object.y=next.y+(base.y-frame.y)*sy;
+          object.w=base.w*sx;
+          object.h=base.h*sy;
+          if(base.type==='text')object.fontSize=B.clamp(base.fontSize*fontScale,6,300);
+          if(base.type!=='text')object.strokeWidth=B.clamp((base.strokeWidth??1)*strokeScale,0,20);
+        }
+      }
     }B.state.p=p;B.refreshCanvas();
   });
   const endGesture=()=>{
     if(!gesture)return;const ge=gesture,ui=B.state.ui;gesture=null;ui.guideX=null;ui.guideY=null;
     try{
-      if(ge.type==='marquee'){const r=ui.marquee;ui.selected=[...new Set([...ge.prior,...B.getGroup().objects.filter(o=>o.visible!==false&&o.x>=r.x&&o.y>=r.y&&o.x+o.w<=r.x+r.w&&o.y+o.h<=r.y+r.h).map(o=>o.id)])];ui.marquee=null;B.render();return;}
+      if(ge.type==='marquee'){const r=ui.marquee;ui.selected=[...new Set([...ge.prior,...B.getGroup().objects.filter(o=>{const b=B.objectBounds(o);return o.visible!==false&&b.x>=r.x&&b.y>=r.y&&b.x+b.w<=r.x+r.w&&b.y+b.h<=r.y+r.h;}).map(o=>o.id)])];ui.marquee=null;B.render();return;}
       if(ge.type==='analysis'){const r=ui.analysisRect;ui.analysisRect=null;if(!r||r.w<2||r.h<2){B.render();return;}B.commit(ge.mode==='crop'?'修改显示裁剪范围':ge.mode==='background'?'框选背景 ROI':'框选条带 ROI',(p,g)=>{const o=g.objects.find(o=>o.id===ge.objectId);if(o.locked)throw Error('此图像已锁定，请先解锁。');const s=p.sources.find(s=>s.id===o.sourceId),rect=B.rectPixels(s,r);if(ge.mode==='crop'){o.crop=rect;if(o.lockRatio)o.h=o.w*rect.h/rect.w;}else if(ge.mode==='background')o.background=rect;else{let i=0;while(o.rois.some(r=>r.sampleIndex===i))i++;if(i>=g.samples.length)throw Error('每条泳道已有一个 ROI。请删除多余框或添加泳道。');const roi={...rect,id:B.uid(),sampleIndex:i};o.rois.push(roi);ui.roiId=roi.id;}});return;}
       if(['move','resize','roi-move'].includes(ge.type)&&ge.moved){B.log(B.state.p,ge.type==='move'?'移动对象':ge.type==='resize'?'缩放对象':'移动 ROI','原图像素未修改。');B.validate(B.state.p);B.state.past.push(ge.base);if(B.state.past.length>35)B.state.past.shift();B.state.future=[];B.persist();B.render();}else if(ge.type!=='pan'){if(ge.base)B.state.p=ge.base;B.render();}
     }catch(err){B.state.p=ge.base;ui.analysisRect=null;B.render();B.toast(err.message);}
@@ -1328,7 +1777,10 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
         text(a.swap?mw:protein,5,y+h/2-14,left-(a.swap?a.mwGap:a.proteinGap)-5,22,'right',a.swap?'mw':'protein');text(a.swap?protein:mw,left+w+(a.swap?a.proteinGap:a.mwGap),y+h/2-14,155,22,'left',a.swap?'protein':'mw');y+=h+a.gap;
       }
       rows.forEach((field,row)=>{const yy=a.groupPosition==='above'?24+row*32:y+row*32;for(let start=0;start<g.samples.length;){const value=g.samples[start].factors?.[field]??g.samples[start].group;let end=start+1;while(end<g.samples.length&&(g.samples[end].factors?.[field]??g.samples[end].group)===value)end++;const x=left+a.width*start/g.samples.length,w=a.width*(end-start)/g.samples.length;const pairId=a.syncGroups?'layout-pair-'+B.uid():null;text(value,x,yy,w,20,'center','group');if(pairId)add.at(-1).groupId=pairId;if(a.groupLine)add.push(B.object('line',{name:'分组框线',x:x+3,y:yy+25+a.groupGap,w:Math.max(1,w-6),h:.01,strokeWidth:a.lineWidth,autoLabel:true,labelRole:'group-line',...(pairId?{groupId:pairId}:{})}));start=end;}});
-      g.objects=g.objects.filter(o=>!o.autoLabel).concat(add);g.canvas.width=Math.max(400,right+190);g.canvas.height=Math.max(250,y+(a.groupPosition==='below'?rows.length*32:0)+45);if(g.canvas.width>10000||g.canvas.height>10000||g.objects.length>3000)throw Error('排版超过画布或对象上限。');g.layoutOptions=a;
+      g.objects=g.objects.filter(o=>!o.autoLabel).concat(add);
+      const size=B.layoutCanvasSize(g,g.objects,Math.max(400,right+190),Math.max(250,y+(a.groupPosition==='below'?rows.length*32:0)+45));
+      Object.assign(g.canvas,size);
+      if(g.canvas.width>10000||g.canvas.height>10000||g.objects.length>3000)throw Error('排版超过画布或对象上限。');g.layoutOptions=a;
     }catch(error){Object.assign(g,before);throw error;}
   };
   if(!B.state||!B.actions)return;
@@ -1371,11 +1823,18 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
     const opts=o().analysis,images=g().objects.filter(v=>v.type==='image'&&v.id!==o().id),choices=[['','未指定'],...images.map(v=>[v.id,v.protein||v.name])];
     html=html.replace('<div class="analysis-tools">','<div class="analysis-settings">'+B.select('analysis','kind',o().kind||'target',[['target','目的蛋白'],['control','内参'],['total','总蛋白']],'蛋白类型')+B.select('analysis','controlId',o().controlId||'',choices,'内参蛋白')+B.select('analysis','totalId',o().totalId||'',choices,'总蛋白')+B.btn('methods','灰度计算方式','grid')+B.btn('detect-rois','自动定位条带','bolt')+B.btn('reupload-image','重新上传此蛋白','image')+'</div><div class="analysis-tools">');
     if(opts?.rotation)html=html.replace('选中 ROI 的原图坐标','选中 ROI 的校正副本坐标').replace('<svg id="analysis-image"', '<svg data-analysis-rotation="'+opts.rotation+'" id="analysis-image"');
-    if(opts?.method==='ellipse')html=html.replace(/<rect x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)" fill="(#13897d[^"]+)"/g,(_,x,y,w,h,fill)=>'<ellipse cx="'+(+x+(+w)/2)+'" cy="'+(+y+(+h)/2)+'" rx="'+(+w)/2+'" ry="'+(+h)/2+'" fill="'+fill+'"');
     if(opts)html=html.replace('定量始终读取原始 '+(p().sources.find(s=>s.id===o().sourceId)?.bitDepth)+'-bit 像素。','分析使用独立副本；计算位深 '+(opts.convert8?8:p().sources.find(s=>s.id===o().sourceId)?.bitDepth)+'-bit，方法 '+e(opts.method)+'，背景 '+e(opts.background)+'。');
-    if(opts?.method==='profile'){
-      const records=B.records(p(),g()).filter(r=>r.objectId===o().id),r=records.find(r=>r.roi.id===ui().roiId)||records[0];
-      if(r?.profile){const a=r.profile,high=Math.max(1,...a.values),points=a.values.map((v,i)=>(i*700/Math.max(1,a.values.length-1))+','+(150-v/high*140)).join(' '),base=a.baseline.map((v,i)=>(i*700/Math.max(1,a.values.length-1))+','+(150-v/high*140)).join(' ');html+='<div class="profile-panel"><h3>泳道峰图 · '+e(r.sampleId)+'</h3><svg viewBox="0 0 710 170" role="img" aria-label="泳道峰图"><polyline points="'+points+'" fill="none" stroke="#13897d" stroke-width="2"/><polyline points="'+base+'" fill="none" stroke="#d6952d"/></svg><p>正信号与线性基线之间的梯形积分面积：'+B.format(a.area)+'</p>'+B.input('baseline','baselineStart',r.roi.baselineStart??Math.min(...a.values),'基线起点','type="number" min="0" step="0.1"')+B.input('baseline','baselineEnd',r.roi.baselineEnd??Math.min(...a.values),'基线终点','type="number" min="0" step="0.1"')+'</div>';ui().profileRoiId=r.roi.id;}
+    if(opts&&(opts.method==='profile'||o().rois.some(roi=>roi.shape==='profile'))){
+      const records=B.records(p(),g()).filter(r=>r.objectId===o().id),r=records.find(r=>r.roi.id===ui().roiId)||records.find(r=>r.profile);
+      if(r?.profile){
+        const a=r.profile;
+        let low=Math.min(0,a.baseline[0],a.baseline.at(-1)),high=Math.max(0,a.baseline[0],a.baseline.at(-1));
+        for(const v of a.values){low=Math.min(low,v);high=Math.max(high,v);}
+        const span=high-low||1;
+        const points=values=>values.map((v,i)=>(i*700/Math.max(1,values.length-1))+','+(150-(v-low)/span*140)).join(' ');
+        html+='<div class="profile-panel"><h3>泳道峰图 · '+e(r.sampleId)+'</h3><svg viewBox="0 0 710 170" role="img" aria-label="泳道峰图"><polyline points="'+points(a.values)+'" fill="none" stroke="#13897d" stroke-width="2"/><polyline points="'+points(a.baseline)+'" fill="none" stroke="#d6952d"/></svg><p>正信号与线性基线之间的梯形积分面积：'+B.format(a.area)+'</p>'+B.input('baseline','baselineStart',r.roi.baselineStart??'','基线起点','type="number" step="any" placeholder="自动 '+B.format(a.baseline[0])+'"')+B.input('baseline','baselineEnd',r.roi.baselineEnd??'','基线终点','type="number" step="any" placeholder="自动 '+B.format(a.baseline.at(-1))+'"')+'</div>';
+        ui().profileRoiId=r.roi.id;
+      }
     }
     return html;
   };
@@ -1416,7 +1875,7 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
   const deleteGroup=actions.deletegroup;actions.deletegroup=el=>{const target=p().groups.find(v=>v.id===el.dataset.id);if(!target)return;B.commit('删除图组至恢复区',project=>{project.deletedGroups ||= [];project.deletedGroups.push({group:JSON.parse(JSON.stringify(target)),time:new Date().toISOString()});project.groups=project.groups.filter(v=>v.id!==target.id);if(!project.groups.length)project.groups=[B.blankGroup()];ui().group=project.groups[0].id;ui().modal=null;});};
   const doExport=B.doExport;B.doExport=async()=>{const m=ui().modal;if(!m||!['jpg','svg-linked'].includes(m.format))return doExport();if(ui().exporting)throw Error('正在导出。');ui().exporting=true;try{const name=g().name.replace(/[\\/:*?"<>|]/g,'_');let data,mime,ext;if(m.format==='svg-linked'){data=await B.linkedSVG(p(),g());mime='application/zip';ext='zip';}else{const scale=Number(m.scale),quality=Number(m.quality||.94);if(![1,2,3,4].includes(scale)||![1,.94,.85].includes(quality))throw Error('JPG 导出参数无效。');const canvas=await B.rasterize(B.svg(p(),g()),g().canvas.width*scale,g().canvas.height*scale);data=B.unbase64(canvas.toDataURL('image/jpeg',quality).split(',')[1]);mime='image/jpeg';ext='jpg';}const result=await B.saveFile(name+'.'+ext,data,mime);ui().modal=null;B.render();B.toast(result.status==='saved'?'文件已保存。':'已请求浏览器下载，请核对下载记录。');}finally{ui().exporting=false;}};
   const imported=B.importFiles;B.importFiles=async files=>{const old=new Set(p().sources.map(s=>s.id));await imported(files);if(!p().sources.some(s=>!old.has(s.id)))return;B.commit('为新图像创建分析选区',(project)=>{for(const group of project.groups)for(const image of group.objects.filter(v=>v.type==='image'&&!old.has(v.sourceId)&&!v.rois.length)){image.analysis=B.analysisDefaults();image.kind='target';image.rois=group.samples.length?B.detectBandROIs(project.sources.find(s=>s.id===image.sourceId),image.crop,group.samples.length,image.analysis,image.polarity):[];}});};
-  document.addEventListener('change',ev=>{const el=ev.target;if(el.dataset.scope!=='baseline')return;try{const value=Number(el.value);if(!Number.isFinite(value)||value<0)throw Error('基线必须为非负有限数值。');B.editAnalysis('调整峰图基线',image=>{const r=image.rois.find(r=>r.id===ui().profileRoiId);if(!r)throw Error('请先选择泳道。');r[el.dataset.field]=value;});}catch(error){B.toast(error.message);}});
+  document.addEventListener('change',ev=>{const el=ev.target;if(el.dataset.scope!=='baseline')return;try{const value=el.value.trim()===''?null:Number(el.value);if(value!==null&&!Number.isFinite(value))throw Error('请填写有效的基线数值。');B.editAnalysis('调整峰图基线',image=>{const r=image.rois.find(r=>r.id===ui().profileRoiId);if(!r)throw Error('请先选择泳道。');if(value===null)delete r[el.dataset.field];else r[el.dataset.field]=value;});}catch(error){B.toast(error.message);}});
   const commitStyle=B.commit;B.commit=(label,job,detail='')=>commitStyle(label,(project,group)=>{const before=new Map(group.objects.map(v=>[v.id,{...v}]));job(project,group);const opts=group.layoutOptions||{},styles=['fontFamily','fontSize','fontWeight','italic','fill','script','stroke','strokeWidth','dash','opacity'];for(const [role,enabled] of [['group',opts.syncGroups],['group-line',opts.syncGroups],['protein',opts.syncProtein],['mw',opts.syncMw]]){if(!enabled)continue;const changed=group.objects.find(v=>v.labelRole===role&&before.has(v.id)&&styles.some(key=>v[key]!==before.get(v.id)[key]));if(!changed)continue;for(const target of group.objects.filter(v=>v.labelRole===role&&!v.locked))for(const key of styles)if(changed[key]!==before.get(changed.id)[key])target[key]=changed[key];}},detail);
   const renderDisplay=B.render;let displayGeneration=0;B.render=()=>{renderDisplay();const generation=++displayGeneration,images=g().objects.filter(v=>v.type==='image'&&v.visible!==false),jobs=images.map(image=>{const source=p().sources.find(s=>s.id===image.sourceId);if(!source)return null;const params={grayscale:!!image.grayscale,brightness:B.num(image.brightness,100),contrast:B.num(image.contrast,100),invert:!!image.invert};return B.cachedDisplay(source.url,params)?null:B.displayURL(source.url,params);}).filter(Boolean);if(jobs.length)Promise.all(jobs).then(()=>{if(generation===displayGeneration)B.render();}).catch(error=>B.toast(error.message));};
   let clipboard=[],clipboardSources=[];
@@ -1450,26 +1909,97 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
 
 (function(B){
   'use strict';
-  const pending=new Map();let directory=null,syncTimer=null;
+  const pending=new Map(),backups=new Map();
+  let directory=null;
   B.workspaceResult=(id,status,message='')=>{const request=pending.get(id);if(!request)return;pending.delete(id);clearTimeout(request.timer);status==='ok'?request.resolve(message):request.reject(Error(status==='cancelled'?'已取消选择目录。':message||'目录操作失败。'));};
   const native=body=>{if(globalThis.chrome?.webview?.postMessage){chrome.webview.postMessage({type:'workspace',...body});return true;}if(globalThis.webkit?.messageHandlers?.saveFile){webkit.messageHandlers.saveFile.postMessage(body);return true;}return false;};
   const request=body=>new Promise((resolve,reject)=>{const id=B.uid(),timer=setTimeout(()=>{pending.delete(id);reject(Error('目录操作未完成，请检查窗口。'));},120000);pending.set(id,{resolve,reject,timer});try{if(!native({...body,id})){clearTimeout(timer);pending.delete(id);reject(Error('当前环境不支持原生目录操作。'));}}catch(error){clearTimeout(timer);pending.delete(id);reject(error);}});
   B.workspaceState={path:'未选择',sync:false,status:'尚未写入'};
   B.chooseWorkspace=async()=>{let path;if(globalThis.showDirectoryPicker&&!globalThis.chrome?.webview&&!globalThis.webkit?.messageHandlers?.saveFile){directory=await showDirectoryPicker({mode:'readwrite'});path=directory.name;}else path=await request({workspace:'choose'});B.workspaceState.path=path;B.workspaceState.status='目录已选择，尚未写入';B.render();};
-  B.syncWorkspace=async()=>{
-    const project=B.state.p;B.validate(project);if(B.workspaceState.path==='未选择')throw Error('请先选择存储路径。');const name='BlotStudio-'+project.id+'.wbproj',text=JSON.stringify(project);
-    B.workspaceState.status='正在写入…';try{if(directory){const file=await directory.getFileHandle(name,{create:true}),writer=await file.createWritable();await writer.write(text);await writer.close();}else await request({workspace:'write',name,data:B.base64(B.utf8(text))});B.workspaceState.status='已写入 '+new Date().toLocaleTimeString();return true;}catch(error){B.workspaceState.status='写入失败：'+error.message;throw error;}
+  const writeProject=async project=>{
+    B.validate(project);
+    if(B.workspaceState.path==='未选择')throw Error('请先选择存储路径。');
+    const name='BlotStudio-'+project.id+'.wbproj',text=JSON.stringify(project);
+    B.workspaceState.status='正在写入…';
+    try{
+      if(directory){
+        const file=await directory.getFileHandle(name,{create:true});
+        const writer=await file.createWritable();
+        await writer.write(text);
+        await writer.close();
+      }else{
+        await request({workspace:'write',name,data:B.base64(B.utf8(text))});
+      }
+      B.workspaceState.status='已写入 '+new Date().toLocaleTimeString();
+      return true;
+    }catch(error){
+      B.workspaceState.status='写入失败：'+error.message;
+      throw error;
+    }
   };
-  let writeQueue=Promise.resolve();const syncNow=B.syncWorkspace;B.syncWorkspace=()=>{const job=writeQueue.catch(()=>{}).then(syncNow);writeQueue=job;return job;};
-  const schedule=()=>{if(!B.workspaceState.sync)return;clearTimeout(syncTimer);syncTimer=setTimeout(async()=>{try{await B.syncWorkspace();}catch(error){B.toast(error.message);}B.render();},1500);};
-  const persist=B.persist;B.persist=()=>{persist();schedule();};
-  const flush=B.flushSave;B.flushSave=async()=>{const local=await flush();if(!local)return false;clearTimeout(syncTimer);if(B.workspaceState.sync){try{return await B.syncWorkspace();}catch{return false;}}return true;};
+
+  let writeQueue=Promise.resolve();
+  const enqueue=project=>{
+    const job=writeQueue.catch(()=>{}).then(()=>writeProject(project));
+    writeQueue=job;
+    return job;
+  };
+  const markPending=project=>{
+    const previous=backups.get(project.id);
+    if(previous?.project===project)return previous;
+    clearTimeout(previous?.timer);
+    const backup={project};
+    backups.set(project.id,backup);
+    return backup;
+  };
+  const writeBackup=backup=>{
+    clearTimeout(backup.timer);
+    if(backup.job)return backup.job;
+    backup.job=enqueue(backup.project).then(result=>{
+      const id=backup.project.id;
+      if(backups.get(id)===backup)backups.delete(id);
+      return result;
+    },error=>{
+      backup.job=null;
+      throw error;
+    });
+    return backup.job;
+  };
+
+  B.syncWorkspace=()=>{
+    const project=B.state.p;
+    return B.workspaceState.sync?writeBackup(markPending(project)):enqueue(project);
+  };
+  const schedule=()=>{
+    if(!B.workspaceState.sync)return;
+    const backup=markPending(B.state.p);
+    clearTimeout(backup.timer);
+    backup.timer=setTimeout(async()=>{
+      try{await writeBackup(backup);}
+      catch(error){B.toast('项目「'+backup.project.name+'」备份失败：'+error.message);}
+      B.render();
+    },1500);
+  };
+  const cancelScheduled=()=>{
+    for(const backup of backups.values())clearTimeout(backup.timer);
+    backups.clear();
+  };
+  const persist=B.persist;
+  B.persist=()=>{persist();schedule();};
+  const flush=B.flushSave;
+  B.flushSave=async()=>{
+    if(!await flush())return false;
+    if(!B.workspaceState.sync)return true;
+    markPending(B.state.p);
+    const results=await Promise.allSettled(Array.from(backups.values(),writeBackup));
+    return results.every(result=>result.status==='fulfilled');
+  };
   const modal=B.modal;B.modal=()=>{if(B.state.ui.modal?.type!=='workspace')return modal();return'<div class="modal-shade"><section class="modal" role="dialog" aria-modal="true"><div class="modal-heading"><h2>文件管理</h2>'+B.ib('close-modal','关闭','close')+'</div><div class="modal-body"><p>已选择的存储路径：'+B.esc(B.workspaceState.path)+'</p><p>'+B.esc(B.workspaceState.status)+'</p><p class="hint">目录备份包含完整项目、原图、ROI、图层和操作记录。每个项目使用唯一文件名，写入成功后才报告完成。重新启动后请重新选择目录。</p></div><div class="modal-footer">'+B.btn('choose-workspace','选择存储路径','folder')+B.btn('sync-workspace','立即备份 / 重试','save')+B.btn('toggle-workspace-sync',B.workspaceState.sync?'关闭同步':'开启同步','check')+'</div></section></div>';};
   Object.assign(B.actions,{
     workspace:()=>{B.state.ui.projectTools=false;B.state.ui.modal={type:'workspace'};B.render();},
     'choose-workspace':()=>B.chooseWorkspace(),
     'sync-workspace':async()=>{await B.syncWorkspace();B.render();B.toast('目录备份已写入。');},
-    'toggle-workspace-sync':()=>{if(B.workspaceState.path==='未选择')throw Error('请先选择存储路径。');B.workspaceState.sync=!B.workspaceState.sync;schedule();B.render();}
+    'toggle-workspace-sync':()=>{if(B.workspaceState.path==='未选择')throw Error('请先选择存储路径。');B.workspaceState.sync=!B.workspaceState.sync;if(B.workspaceState.sync)schedule();else cancelScheduled();B.render();}
   });
 })(globalThis.BS ||= {});
 
@@ -1527,14 +2057,133 @@ html,body,#app,.app-main,.editor-center,.canvas-viewport,#canvas-content{backgro
   };
   const stats=B.stats;B.stats=()=>stats().replace('<div class="stats-controls">','<div class="button-row">'+B.btn('statistics-settings','编辑统计分组 / 蛋白名称','grid')+B.btn('clear-statistics-settings','撤销统计映射','undo')+'</div><div class="stats-controls">');
   const modal=B.modal;B.modal=()=>{
+    if(B.state.ui.modal?.type==='chart-options'){
+      const m=B.state.ui.modal;
+      const fields=B.select('modal','mode',m.mode,[['bars','柱形 + 样本散点'],['points','样本散点 + 均值线']],'图表类型')
+        +B.select('modal','error',m.error,[['sd','标准差（SD）'],['sem','均值标准误（SEM）'],['none','隐藏误差线']],'误差线')
+        +B.input('modal','title',m.title,'图标题','maxlength="100" placeholder="自动使用蛋白名称"')
+        +B.input('modal','axisLabel',m.axisLabel,'纵轴标题','maxlength="60" placeholder="自动使用统计指标及单位"');
+      return '<div class="modal-shade"><section class="modal" role="dialog" aria-modal="true"><div class="modal-heading"><h2>统计图样式</h2>'
+        +B.ib('close-modal','关闭','close')+'</div><div class="modal-body">'+fields+'</div><div class="modal-footer">'
+        +B.btn('close-modal','取消')+B.btn('apply-chart-options','应用','check','class="primary"')+'</div></section></div>';
+    }
     if(B.state.ui.modal?.type!=='statistics-settings')return modal();const m=B.state.ui.modal;
     return'<div class="modal-shade"><section class="modal" role="dialog" aria-modal="true"><div class="modal-heading"><h2>编辑统计分组与蛋白名称</h2>'+B.ib('close-modal','关闭','close')+'</div><div class="modal-body"><p class="hint">每行填写“原名称=统计名称”。仅改变统计视图；原始图组、样本、ROI 和蛋白名称保留。合并后重复的样本 ID 仍会阻止虚增 n。</p><label class="field"><span>统计分组映射</span><textarea data-scope="modal" data-field="groups" aria-label="统计分组映射" rows="6">'+B.esc(m.groups)+'</textarea></label><label class="field"><span>蛋白名称映射</span><textarea data-scope="modal" data-field="proteins" aria-label="蛋白名称映射" rows="6">'+B.esc(m.proteins)+'</textarea></label></div><div class="modal-footer">'+B.btn('apply-statistics-settings','应用统计映射','check')+'</div></section></div>';
   };
   Object.assign(B.actions,{
+    'chart-options':()=>{
+      const data=B.currentStats();
+      if(!data.groups.length)throw Error(data.error||'请先获取有效的定量结果。');
+      B.state.ui.modal={type:'chart-options',key:B.chartStyleKey(data),...B.chartStyle(data)};
+      B.render();
+    },
+    'apply-chart-options':()=>{
+      const {key,mode,error,title,axisLabel}=B.state.ui.modal;
+      if(!['bars','points'].includes(mode)||!['sd','sem','none'].includes(error))throw Error('图表设置无效。');
+      B.commit('修改统计图样式',project=>{
+        if(!project.chartStyles||typeof project.chartStyles!=='object'||Array.isArray(project.chartStyles))project.chartStyles={};
+        project.chartStyles[key]={mode,error,title:String(title).trim().slice(0,100),axisLabel:String(axisLabel).trim().slice(0,60)};
+        B.state.ui.modal=null;
+      });
+    },
     'statistics-settings':()=>{const settings=B.state.p.statisticsSettings||{},text=map=>Object.entries(map||{}).map(([a,b])=>a+'='+b).join('\n');B.state.ui.modal={type:'statistics-settings',groups:text(settings.groups),proteins:text(settings.proteins)};B.render();},
     'apply-statistics-settings':()=>{const m=B.state.ui.modal,settings={groups:B.aliasMap(m.groups),proteins:B.aliasMap(m.proteins)};B.commit('修改统计名称映射',project=>project.statisticsSettings=settings);B.state.ui.modal=null;B.render();},
     'clear-statistics-settings':()=>B.commit('撤销统计名称映射',project=>delete project.statisticsSettings)
   });
+})(globalThis.BS ||= {});
+
+(function(B) {
+  'use strict';
+
+  // Convert only the small set of SVG primitives emitted by the statistics page.
+  // The figure editor and PowerPoint can then edit every plot mark independently.
+  const value=(node,attribute,fallback=0)=>node.hasAttribute(attribute)?Number(node.getAttribute(attribute)):fallback;
+  function color(node,attribute,fallback='none'){
+    const raw=node.getAttribute(attribute)||fallback;
+    const rgb=({black:'#000000',white:'#ffffff'})[raw]||raw;
+    const alpha=value(node,attribute+'-opacity',1);
+    if(alpha>=1||rgb==='none')return rgb;
+    const hex=rgb.length===4?'#'+Array.from(rgb.slice(1),digit=>digit+digit).join(''):rgb;
+    return hex+Math.round(255*alpha).toString(16).padStart(2,'0');
+  }
+
+  function textObject(node,context){
+    const fontSize=value(node,'font-size',13),fontFamily=node.getAttribute('font-family')||'Arial';
+    const fontWeight=['bold','700'].includes(node.getAttribute('font-weight'))?700:400;
+    const text=node.textContent,align=({middle:'center',end:'right'})[node.getAttribute('text-anchor')]||'left';
+    context.font=fontWeight+' '+fontSize+'px '+fontFamily;
+    const w=Math.max(1,context.measureText(text).width),h=fontSize*1.25;
+    const localX=value(node,'x')+(align==='center'?0:align==='left'?w/2:-w/2);
+    const localY=value(node,'y')-fontSize*.90+h/2;
+    const transform=node.transform.baseVal.consolidate()?.matrix;
+    const center=transform?new DOMPoint(localX,localY).matrixTransform(transform):{x:localX,y:localY};
+    const rotation=transform?Math.atan2(transform.b,transform.a)*180/Math.PI:0;
+    return B.object('text',{name:text,text,x:center.x-w/2,y:center.y-h/2,w,h,align,rotation,fontSize,fontFamily,fontWeight,fill:color(node,'fill','#000000'),strokeWidth:0});
+  }
+
+  function plotMark(node,context){
+    if(node.localName==='text')return textObject(node,context);
+    if(node.localName==='line'){
+      const x1=value(node,'x1'),y1=value(node,'y1'),x2=value(node,'x2'),y2=value(node,'y2');
+      const w=Math.hypot(x2-x1,y2-y1),h=value(node,'stroke-width',1);
+      if(!w||!h)return null;
+      return B.object('rect',{name:'统计图线段',x:(x1+x2-w)/2,y:(y1+y2-h)/2,w,h,rotation:Math.atan2(y2-y1,x2-x1)*180/Math.PI,fill:color(node,'stroke'),stroke:'none',strokeWidth:0});
+    }
+    const style={fill:color(node,'fill','#000000'),stroke:color(node,'stroke'),strokeWidth:node.hasAttribute('stroke')?value(node,'stroke-width',1):0};
+    if(node.localName==='circle'){
+      const r=value(node,'r');
+      return B.object('rect',{name:'样本点',geometry:'ellipse',x:value(node,'cx')-r,y:value(node,'cy')-r,w:2*r,h:2*r,...style});
+    }
+    if(node.localName==='rect'){
+      const w=value(node,'width'),h=value(node,'height');
+      return w&&h?B.object('rect',{name:'统计图矩形',x:value(node,'x'),y:value(node,'y'),w,h,...style}):null;
+    }
+    if(node.localName==='desc'||node.localName==='title')return null;
+    throw Error('无法将图表元素 '+node.localName+' 转为可编辑对象。');
+  }
+
+  function currentChart(){
+    const data=B.currentStats();
+    if(data.error||!data.groups.length)throw Error(data.error||'请先生成有效的分组统计数据。');
+    return {data,svg:B.statsChartSVG(data)};
+  }
+
+  B.actions['chart-export']=()=>{
+    const {data,svg}=currentChart();
+    return B.saveFile(data.protein+'-统计图.svg',svg,'image/svg+xml');
+  };
+  B.actions['chart-to-layout']=()=>{
+    const {data,svg}=currentChart();
+    const root=new DOMParser().parseFromString(svg,'image/svg+xml').documentElement;
+    const width=value(root,'width'),height=value(root,'height');
+    const context=document.createElement('canvas').getContext('2d');
+    const marks=Array.from(root.children,node=>{
+      const mark=plotMark(node,context);
+      if(mark)mark.opacity=value(node,'opacity',1);
+      return mark;
+    }).filter(Boolean);
+    if(!marks.length||!(width>0&&height>0))throw Error('统计图尺寸或内容无效。');
+
+    B.commit('将统计图快照加入排版',(project,group)=>{
+      const padding=20,existing=group.objects.filter(o=>o.visible!==false);
+      const bounds=B.bounds(existing);
+      let x=padding,y=existing.length?Math.max(padding,Math.ceil(bounds.y+bounds.h)+padding):padding;
+      if(y+height+padding>10000){x=Math.max(padding,Math.ceil(bounds.x+bounds.w)+padding);y=padding;}
+      if(x+width+padding>10000||y+height+padding>10000||group.objects.length+marks.length>3000){
+        throw Error('图表超出画布尺寸或对象数量上限，可单独导出图表 SVG。');
+      }
+      const groupId=B.uid();
+      for(const mark of marks){mark.x+=x;mark.y+=y;mark.groupId=groupId;}
+      group.objects.push(...marks);
+      group.canvas.width=Math.max(group.canvas.width,Math.ceil(x+width)+padding);
+      group.canvas.height=Math.max(group.canvas.height,Math.ceil(y+height)+padding);
+      B.state.ui.tab='edit';
+      B.state.ui.selected=marks.map(mark=>mark.id);
+      B.state.ui.inspector='object';
+    },data.protein+' · '+data.groups.map(group=>group.name+' (n='+group.n+')').join(' / '));
+    B.fit();
+    B.toast('统计图快照已加入排版。解组后可分别编辑，数据变化后可重新加入。');
+  };
 })(globalThis.BS ||= {});
 
 /*

@@ -42,6 +42,8 @@ jobs:
             ${{ runner.temp }}/Synthetic-WB-verification/*-SYNTHETIC-16bit.tif
             ${{ runner.temp }}/Synthetic-WB-verification/expected-independent-numpy.csv
       - run: npm run build
+      - name: Verify the downloadable HTML matches the tested build
+        run: git diff --exit-code --stat -- BlotStudio.html
       - run: node scripts/package-release.mjs web x64
       - uses: actions/upload-artifact@v4
         with:
