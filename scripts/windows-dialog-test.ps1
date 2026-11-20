@@ -124,12 +124,16 @@ if ($TargetPath -and $Action -in @('open', 'folder')) {
         if (!$selected -and !$navigated -and $Action -eq 'open') {
             $folderName = [IO.Path]::GetFileName([IO.Path]::GetDirectoryName($TargetPath))
             foreach ($item in $items) {
-                if ($item.Current.ControlType -ne [System.Windows.Automation.ControlType]::TreeItem -or $item.Current.Name -ne $folderName) { continue }
+                $type = $item.Current.ControlType
+                if ($type -notin @([System.Windows.Automation.ControlType]::ListItem,[System.Windows.Automation.ControlType]::DataItem) -or $item.Current.Name -ne $folderName) { continue }
                 $pattern = $null
                 if ($item.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern,[ref]$pattern)) {
                     $pattern.Select()
                     $navigated = $true
-                    Write-Output "Navigated to shell location: $folderName"
+                    if (!$pattern.Current.IsSelected) { throw "Directory entry was not selected: $folderName" }
+                    Write-Output "Open selected shell directory: $folderName"
+                    Press-Button $record 1
+                    Start-Sleep -Milliseconds 300
                     break
                 }
             }
