@@ -234,12 +234,15 @@
         Object.assign(g.objects.find(o=>o.id===objects[0].id),next);
       }else{
         const sx=next.w/frame.w,sy=next.h/frame.h;
+        const fontScale=Math.min(sx,sy),strokeScale=Math.sqrt(sx*sy);
         for(const base of objects){
           const object=g.objects.find(o=>o.id===base.id);
           object.x=next.x+(base.x-frame.x)*sx;
           object.y=next.y+(base.y-frame.y)*sy;
           object.w=base.w*sx;
           object.h=base.h*sy;
+          if(base.type==='text')object.fontSize=B.clamp(base.fontSize*fontScale,6,300);
+          if(base.type!=='text')object.strokeWidth=B.clamp((base.strokeWidth??1)*strokeScale,0,20);
         }
       }
     }B.state.p=p;B.refreshCanvas();

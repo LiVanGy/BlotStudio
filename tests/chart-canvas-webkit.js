@@ -36,6 +36,34 @@
   assert(rgba[3]===255&&Math.min(...rgba.slice(0,3))<235,'Lost sample color in the raster export');
   const pptx=new TextDecoder().decode(await B.pptx(project,{...group,objects:added}));
   assert((pptx.match(/prst="ellipse"/g)||[]).length===samples&&pptx.includes('<a:t '),'PowerPoint lost editable points or text');
+  const resize=(frame,scale)=>{
+    const svg=document.querySelector('#figure'),handle=svg.querySelector('[data-handle="se"]');
+    assert(handle,'No resize handle on selected layout');
+    const matrix=svg.getScreenCTM();
+    const send=(target,type,x,y)=>{
+      const point=new DOMPoint(x,y).matrixTransform(matrix);
+      target.dispatchEvent(new PointerEvent(type,{bubbles:true,cancelable:true,button:0,buttons:type==='pointerup'?0:1,clientX:point.x,clientY:point.y}));
+    };
+    send(handle,'pointerdown',frame.x+frame.w,frame.y+frame.h);
+    send(document,'pointermove',frame.x+frame.w*scale,frame.y+frame.h*scale);
+    send(document,'pointerup',frame.x+frame.w*scale,frame.y+frame.h*scale);
+  };
+  const title=added.find(o=>o.type==='text'&&!o.rotation&&o.fontSize>=12);
+  const line=added.find(o=>o.name==='统计图线段'),marker=points.find(o=>o.strokeWidth>0);
+  assert(title&&line&&marker,'Fixture must include a chart title, axis and marker outline');
+  const objectById=id=>B.getGroup().objects.find(o=>o.id===id);
+  resize(B.bounds(added),.65);
+  const scaledTitle=objectById(title.id),factor=scaledTitle.w/title.w;
+  assert(Math.abs(factor-.65)<.015,'Chart geometry did not follow the resize gesture');
+  assert(Math.abs(scaledTitle.fontSize-title.fontSize*factor)<.02,'Chart labels did not scale with the group');
+  assert(Math.abs(objectById(line.id).h-line.h*factor)<.02&&Math.abs(objectById(marker.id).strokeWidth-marker.strokeWidth*factor)<.02,'Chart axes or marker outline did not scale with the group');
+  assert(added.filter(o=>o.strokeWidth===0).every(o=>objectById(o.id).strokeWidth===0),'Scaling introduced zero-width borders');
+  B.validate(B.state.p);
+  B.performUndo(false);
+  assert(objectById(title.id).fontSize===title.fontSize&&objectById(marker.id).strokeWidth===marker.strokeWidth,'Undo lost group styles');
+  B.performUndo(true);
+  assert(objectById(title.id).fontSize===scaledTitle.fontSize,'Redo lost scaled group styles');
+  B.performUndo(false);
   const snapshot=JSON.stringify(project);
   B.performUndo(false);
   assert(B.getGroup().objects.length===original,'Undo changed the source layout');
@@ -43,5 +71,10 @@
   assert(B.getGroup().objects.length===original+added.length,'Redo lost chart marks');
   await B.openProject(new File([snapshot],'SYNTHETIC-chart-roundtrip.wbproj'));
   assert(B.getGroup().objects.filter(o=>o.geometry==='ellipse').length===samples,'Reopen lost editable points');
+  B.state.ui.selected=[];
+  B.selectObject(title.id,true);
+  B.render();
+  resize(objectById(title.id),.8);
+  assert(objectById(title.id).w<title.w&&objectById(title.id).fontSize===title.fontSize,'Resizing one text box changed its font size');
   report({name:'editable statistical chart',passed:1,total:1,tests:[{name:'Statistics page to editable layout, SVG, raster, PowerPoint and project reopen',pass:true}],observations:{groups:data.groups.length,values:data.rows.length,vectorPoints:samples,editableMarks:added.length,centerPixel:Array.from(rgba)}});
 })().catch(error=>webkit.messageHandlers.qaResult.postMessage({fatal:error.message,stack:error.stack}));
