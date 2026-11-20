@@ -15,7 +15,15 @@ try{
   for(const name of order){parts.push(await fs.readFile('src/'+name+'.js','utf8'));if(name==='io')parts.push('BS.db={read:async()=>null,write:async()=>{}};');}
   let app=(await fs.readFile('index.template.html','utf8')).replace('/*__STYLE__*/',(await fs.readFile('src/styles.css','utf8'))+'\n'+(await fs.readFile('src/glass.css','utf8'))+'\n'+(await fs.readFile('src/button-glass.css','utf8'))+'\n'+(await fs.readFile('src/frosted-shell.css','utf8'))).replace('/*__SCRIPT__*/',parts.join('\n').replaceAll('</script','<\\/script'));
   // Synthetic projects are test-only; this helper never enters build.mjs output.
-  app=app.replace('<head>','<head><script>addEventListener("error",e=>webkit.messageHandlers.qaResult.postMessage({fatal:e.message,stack:e.error?.stack}));addEventListener("unhandledrejection",e=>webkit.messageHandlers.qaResult.postMessage({fatal:String(e.reason),stack:e.reason?.stack}));</script>');
+  app=app.replace('<head>', `<head><script>
+    addEventListener('error',event=>{
+      const {message,filename,lineno,colno,error}=event;
+      webkit.messageHandlers.qaResult.postMessage({fatal:message||String(error),file:filename||location.href,line:lineno||0,column:colno||0,stack:error?.stack||''});
+    });
+    addEventListener('unhandledrejection',event=>{
+      webkit.messageHandlers.qaResult.postMessage({fatal:String(event.reason),stack:event.reason?.stack||''});
+    });
+  </script>`);
   // This independent production-only suite has no synthetic-project helper.
   // Cache actual MediaQueryLists solely in the fixture so it can exercise the
   // JS preference-change listener; the operating system's CSS setting is intact.
