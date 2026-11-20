@@ -15,6 +15,7 @@
     };
     const line=o=>{const width=B.clamp(B.num(o.strokeWidth,1),0,20);return '<a:ln w="'+emu(width)+'">'+(width?color(o.stroke,B.clamp(B.num(o.opacity,1),0,1)):'<a:noFill/>')+(o.dash==='dash'?'<a:prstDash val="dash"/>':o.dash==='dot'?'<a:prstDash val="sysDot"/>':'')+'</a:ln>';};
     const geometry=o=>{
+      if(o.type==='rect'&&o.geometry==='ellipse')return '<a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom>';
       if(o.type==='text'||o.type==='rect'||o.type==='image')return '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>';
       // Custom geometry remains an editable Office shape and matches the SVG path.
       const paths=B.shapeLines(o).map(points=>'<a:path w="'+Math.max(1,Math.round(o.w*1000))+'" h="'+Math.max(1,Math.round(o.h*1000))+'" fill="none">'+points.map(([x,y],i)=>'<a:'+(i?'lnTo':'moveTo')+'><a:pt x="'+Math.round(x*1000)+'" y="'+Math.round(y*1000)+'"/></a:'+(i?'lnTo':'moveTo')+'>').join('')+'</a:path>').join('');

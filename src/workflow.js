@@ -46,7 +46,10 @@
         text(a.swap?mw:protein,5,y+h/2-14,left-(a.swap?a.mwGap:a.proteinGap)-5,22,'right',a.swap?'mw':'protein');text(a.swap?protein:mw,left+w+(a.swap?a.proteinGap:a.mwGap),y+h/2-14,155,22,'left',a.swap?'protein':'mw');y+=h+a.gap;
       }
       rows.forEach((field,row)=>{const yy=a.groupPosition==='above'?24+row*32:y+row*32;for(let start=0;start<g.samples.length;){const value=g.samples[start].factors?.[field]??g.samples[start].group;let end=start+1;while(end<g.samples.length&&(g.samples[end].factors?.[field]??g.samples[end].group)===value)end++;const x=left+a.width*start/g.samples.length,w=a.width*(end-start)/g.samples.length;const pairId=a.syncGroups?'layout-pair-'+B.uid():null;text(value,x,yy,w,20,'center','group');if(pairId)add.at(-1).groupId=pairId;if(a.groupLine)add.push(B.object('line',{name:'分组框线',x:x+3,y:yy+25+a.groupGap,w:Math.max(1,w-6),h:.01,strokeWidth:a.lineWidth,autoLabel:true,labelRole:'group-line',...(pairId?{groupId:pairId}:{})}));start=end;}});
-      g.objects=g.objects.filter(o=>!o.autoLabel).concat(add);g.canvas.width=Math.max(400,right+190);g.canvas.height=Math.max(250,y+(a.groupPosition==='below'?rows.length*32:0)+45);if(g.canvas.width>10000||g.canvas.height>10000||g.objects.length>3000)throw Error('排版超过画布或对象上限。');g.layoutOptions=a;
+      g.objects=g.objects.filter(o=>!o.autoLabel).concat(add);
+      const size=B.layoutCanvasSize(g,g.objects,Math.max(400,right+190),Math.max(250,y+(a.groupPosition==='below'?rows.length*32:0)+45));
+      Object.assign(g.canvas,size);
+      if(g.canvas.width>10000||g.canvas.height>10000||g.objects.length>3000)throw Error('排版超过画布或对象上限。');g.layoutOptions=a;
     }catch(error){Object.assign(g,before);throw error;}
   };
   if(!B.state||!B.actions)return;
