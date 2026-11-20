@@ -6,6 +6,7 @@ param(
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
+Add-Type -AssemblyName System.Windows.Forms
 Add-Type -TypeDefinition @'
 using System;
 using System.Collections.Generic;
@@ -15,6 +16,8 @@ public static class BlotDialog {
     public delegate bool EnumProc(IntPtr window, IntPtr state);
     [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc callback, IntPtr state);
     [DllImport("user32.dll")] public static extern bool EnumChildWindows(IntPtr parent, EnumProc callback, IntPtr state);
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
+    [DllImport("user32.dll", EntryPoint="SendMessageW")] public static extern IntPtr SendInt(IntPtr window, uint message, IntPtr w, IntPtr l);
     [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr window);
     [DllImport("user32.dll")] public static extern bool IsWindowEnabled(IntPtr window);
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr window, out uint process);
@@ -94,8 +97,16 @@ foreach ($control in [BlotDialog]::Controls($record.Window)) {
     if ($edit -ne [IntPtr]::Zero) { break }
 }
 if ($edit -eq [IntPtr]::Zero) { throw "File name field unavailable: $script:seen" }
-[void][BlotDialog]::SendMessage($edit,12,[IntPtr]::Zero,$TargetPath)
-Press-Button $record 1
+[void][BlotDialog]::SetForegroundWindow($record.Window)
+$element = [System.Windows.Automation.AutomationElement]::FromHandle($edit)
+$element.SetFocus()
+[System.Windows.Forms.Clipboard]::SetText($TargetPath)
+[void][BlotDialog]::SendInt($edit,177,[IntPtr]::Zero,[IntPtr](-1))
+[void][BlotDialog]::SendInt($edit,770,[IntPtr]::Zero,[IntPtr]::Zero)
+$value = $element.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value
+if ($value -ne $TargetPath) { throw "File-name edit contains '$value', expected '$TargetPath'" }
+Write-Output ("Submit {0}: {1}" -f [BlotDialog]::Title($record.Window), $value)
+[System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
 if ($Action -eq 'overwrite') {
     $confirm = Wait-Dialog 6
     Press-Button $confirm 6
