@@ -70,14 +70,114 @@
     return'<section class="content-page"><div class="subnav">'+tabs.map(([id,t])=>'<button data-action="design-tab" data-id="'+id+'" class="'+(ui.designTab===id?'active':'')+'">'+t+'</button>').join('')+'</div>'+body+'</section>';
   };
   B.schemas={samples:{title:'样品库',description:'记录来源、浓度和批次，便于追溯上样信息。',fields:[['name','样本 ID'],['group','分组'],['source','来源'],['concentration','浓度及单位'],['batch','批次'],['notes','备注']]},antibodies:{title:'抗体库',description:'记录一抗、二抗及对应条件。',fields:[['protein','靶蛋白'],['brand','厂家'],['catalog','货号'],['lot','批号'],['host','宿主'],['dilution','稀释比例'],['secondary','二抗'],['notes','备注']]},plan:{title:'上样与一抗计划',description:'维护胶、膜、泳道、上样量和孵育条件。',fields:[['membrane','胶/膜编号'],['lane','泳道'],['sample','样本 ID'],['amount','上样量及单位'],['protein','蛋白'],['antibody','一抗及条件'],['notes','备注']]}};
-  B.chartSVG=(data,title,normalize=false)=>{
-    const w=760,h=420,left=85,top=50,bottom=350,available=610,groups=data.groups,max=Math.max(.01,...groups.flatMap(g=>[g.mean+(Number.isFinite(g.sd)?g.sd:0),...g.values]))*1.2,y=v=>bottom-v/max*(bottom-top),step=available/Math.max(1,groups.length),colors=['#183f48','#368d81','#81b5a5','#bfd9ce'];
-    return'<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420"><rect width="760" height="420" fill="white"/><text x="380" y="27" font-family="Arial" font-size="18" text-anchor="middle" fill="#20252c">'+e(title)+'</text>'+Array.from({length:5},(_,i)=>{const val=max*i/4,py=y(val);return'<path d="M'+left+' '+py+'H715" stroke="#e9edf0"/><text x="73" y="'+(py+4)+'" text-anchor="end" font-family="Arial" font-size="12">'+e(B.format(val))+'</text>';}).join('')+'<path d="M85 45V350H715" fill="none" stroke="#273c45" stroke-width="1.4"/>'+groups.map((g,i)=>{const x=left+step*(i+.5),sd=Number.isFinite(g.sd)?g.sd:0;return'<rect x="'+(x-25)+'" y="'+y(g.mean)+'" width="50" height="'+(bottom-y(g.mean))+'" fill="'+colors[i%4]+'" fill-opacity=".5"/><path d="M'+x+' '+y(g.mean-sd)+'V'+y(g.mean+sd)+'M'+(x-9)+' '+y(g.mean+sd)+'H'+(x+9)+'M'+(x-9)+' '+y(g.mean-sd)+'H'+(x+9)+'" stroke="#273c45" stroke-width="1.4"/>'+g.values.map((v,j)=>'<circle cx="'+(x+((j%5)-Math.min(4,g.values.length-1)/2)*7)+'" cy="'+y(v)+'" r="4" fill="'+colors[i%4]+'" stroke="white" stroke-width="1"/>').join('')+'<text x="'+x+'" y="375" text-anchor="middle" font-family="Arial" font-size="13">'+e(g.name)+'</text><text x="'+x+'" y="394" text-anchor="middle" font-family="Arial" font-size="11" fill="#71808a">n = '+g.n+'</text>';}).join('')+'<text transform="translate(19 210) rotate(-90)" text-anchor="middle" font-family="Arial" font-size="13">'+(normalize?'Relative expression (control = 1)':'Signal / reference or integrated intensity')+'</text></svg>';
+  const chartDefaults={mode:'bars',error:'sd',title:'',axisLabel:''};
+  const chartText=(value,limit)=>typeof value==='string'?Array.from(value.trim()).slice(0,limit).join(''):'';
+  B.chartStyleKey=data=>{
+    const {ui}=B.state;
+    const groupIds=ui.checkedGroups.length?[...ui.checkedGroups].sort():[B.getGroup().id];
+    return JSON.stringify([groupIds,data.protein,ui.metric,ui.normalize?data.control:null]);
   };
+  B.chartStyle=data=>{
+    const value=B.state.p.chartStyles?.[B.chartStyleKey(data)];
+    return {
+      mode:value?.mode==='points'?'points':chartDefaults.mode,
+      error:['sd','sem','none'].includes(value?.error)?value.error:chartDefaults.error,
+      title:chartText(value?.title,100),axisLabel:chartText(value?.axisLabel,60)
+    };
+  };
+  const chartAxis=(data,normalize,metric)=>{
+    if(normalize)return 'Relative signal (control mean = 1)';
+    if(metric==='ratio')return 'Target / reference';
+    if(metric==='controlRatio')return 'Target / loading control';
+    if(metric==='totalRatio')return 'Target / total protein';
+    if(metric==='raw')return 'Integrated signal (gray level × pixel)';
+    return data.rows?.[0]?.method==='profile'?'Peak area (mean intensity × profile pixel)':'Corrected signal (gray level × pixel)';
+  };
+  const glyphWidth=(char,size)=>size*(char.codePointAt(0)>255?1:.62);
+  const textWidth=(label,size)=>Array.from(label).reduce((width,char)=>width+glyphWidth(char,size),0);
+  const groupLabelLines=label=>{
+    const lines=[];let line='',width=0;
+    for(const character of String(label)){
+      const next=glyphWidth(character,13);
+      if(width+next>154){lines.push(line);line='';width=0;}
+      line+=character;width+=next;
+    }
+    lines.push(line);
+    return lines;
+  };
+  B.chartSVG=(data,title,normalize=false,style=chartDefaults,metric='corrected')=>{
+    const groups=data.groups,heading=style.title||title,axisLabel=style.axisLabel||chartAxis(data,normalize,metric);
+    const labels=groups.map(group=>groupLabelLines(group.name));
+    let columnWidth=75,labelLines=1;
+    for(const lines of labels){
+      labelLines=Math.max(labelLines,lines.length);
+      for(const line of lines)columnWidth=Math.max(columnWidth,textWidth(line,13)+22);
+    }
+    const left=86,rightMargin=30,top=54;
+    const width=Math.ceil(Math.max(760,left+rightMargin+columnWidth*groups.length,textWidth(heading,18)+40));
+    const right=width-rightMargin,bottom=top+Math.max(270,Math.ceil(textWidth(axisLabel,13)+14));
+    const height=bottom+72+labelLines*16,step=(right-left)/Math.max(1,groups.length);
+    const colors=['#183f48','#368d81','#487d98','#8b6847'],fills=['#a9bdc1','#b1d5ce','#bdd3df','#dac9b7'];
+    let lower=0,upper=0;
+    const uncertainty=group=>style.error!=='none'&&group.n>1&&Number.isFinite(group[style.error])?group[style.error]:null;
+    // Work in scaled units so a very large finite range or a very small signal still projects correctly.
+    let scale=0;
+    for(const group of groups){
+      scale=Math.max(scale,Math.abs(group.mean),uncertainty(group)||0);
+      for(const value of group.values)scale=Math.max(scale,Math.abs(value));
+    }
+    scale=scale||1;
+    for(const group of groups){
+      const mean=group.mean/scale,error=(uncertainty(group)||0)/scale;
+      lower=Math.min(lower,mean-error);upper=Math.max(upper,mean+error);
+      for(const value of group.values){lower=Math.min(lower,value/scale);upper=Math.max(upper,value/scale);}
+    }
+    const margin=(upper-lower)*.08;
+    if(lower<0)lower-=margin;
+    if(upper>0)upper+=margin;
+    if(upper===lower)upper=1;
+    const y=scaled=>bottom-(scaled-lower)/(upper-lower)*(bottom-top);
+    const ink='#273c45';
+    const line=(x1,y1,x2,y2,color=ink,weight=1.4)=>'<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+color+'" stroke-width="'+weight+'"/>';
+    const text=(x,y,value,size=13,anchor='middle',extra='')=>'<text x="'+x+'" y="'+y+'" font-family="Arial" font-size="'+size+'" text-anchor="'+anchor+'" fill="'+ink+'" '+extra+'>'+e(value)+'</text>';
+    const svg=['<svg xmlns="http://www.w3.org/2000/svg" width="'+width+'" height="'+height+'" viewBox="0 0 '+width+' '+height+'" role="img" aria-label="'+e(heading)+'"><rect x="0" y="0" width="'+width+'" height="'+height+'" fill="#ffffff"/>',text(width/2,28,heading,18)];
+    const ticks=Array.from({length:5},(_,i)=>lower+(upper-lower)*i/4);
+    if(lower<0&&upper>0){
+      const nearZero=ticks.findIndex(tick=>Math.abs(tick)<(upper-lower)*.06);
+      if(nearZero>=0)ticks[nearZero]=0;else ticks.push(0);
+    }
+    for(const tick of ticks){
+      const value=tick*scale,absolute=Math.abs(value);
+      const label=absolute!==0&&(absolute<.001||absolute>=1e6)?value.toExponential(2):B.format(value);
+      svg.push(line(left,y(tick),right,y(tick),'#e3e9ec',1),text(left-10,y(tick)+4,label,12,'end'));
+    }
+    svg.push(line(left,top,left,bottom),line(left,y(0),right,y(0)));
+    for(let i=0;i<groups.length;i++){
+      const group=groups[i],x=left+step*(i+.5),mean=group.mean/scale,meanY=y(mean),color=colors[i%colors.length];
+      const half=Math.min(24,step*.29),error=uncertainty(group);
+      if(style.mode==='bars')svg.push('<rect x="'+(x-half)+'" y="'+Math.min(meanY,y(0))+'" width="'+half*2+'" height="'+Math.abs(meanY-y(0))+'" fill="'+fills[i%fills.length]+'"/>');
+      if(error!==null){
+        const high=y(mean+error/scale),low=y(mean-error/scale),cap=half*.4;
+        svg.push(line(x,high,x,low),line(x-cap,high,x+cap,high),line(x-cap,low,x+cap,low));
+      }
+      const extent=Math.min(half-3,4*(group.values.length-1));
+      group.values.forEach((value,index)=>{
+        const jitter=group.values.length===1?0:extent*(2*index/(group.values.length-1)-1);
+        svg.push('<circle cx="'+(x+jitter)+'" cy="'+y(value/scale)+'" r="3.5" fill="'+color+'" stroke="#ffffff" stroke-width=".8"/>');
+      });
+      if(style.mode==='points')svg.push(line(x-half,meanY,x+half,meanY,ink,2.2));
+      labels[i].forEach((label,index)=>svg.push(text(x,bottom+22+index*16,label)));
+      svg.push(text(x,bottom+22+labelLines*16,'n = '+group.n,11));
+    }
+    const legend='Points = samples · '+(style.mode==='bars'?'Bars':'Lines')+' = means'+(style.error==='none'?'':' · Error bars = '+style.error.toUpperCase());
+    svg.push(text((left+right)/2,height-12,legend,12),text(0,0,axisLabel,13,'middle','transform="translate(18 '+((top+bottom)/2)+') rotate(-90)"'),'</svg>');
+    return svg.join('');
+  };
+  B.statsChartSVG=(data=B.currentStats())=>B.chartSVG(data,data.protein+(B.getGroup().demo?' · 演示数据':''),B.state.ui.normalize,B.chartStyle(data),B.state.ui.metric);
   B.currentStats=()=>{const {p,ui}=B.state,g=B.getGroup(),groups=ui.checkedGroups.length?p.groups.filter(v=>ui.checkedGroups.includes(v.id)):[g],records=groups.flatMap(gr=>B.records(p,gr).map(r=>({...r,imageGroup:gr.name}))),proteins=[...new Set(records.map(r=>r.protein))],protein=proteins.includes(ui.statsProtein)?ui.statsProtein:proteins[0]||'',control=ui.control||g.samples[0]?.group||'',data=B.statData(records,protein,ui.metric,control,ui.normalize);if(!data.rows.length&&!data.error&&protein)data.error=ui.metric==='ratio'?'当前蛋白尚无有效参照比值。请设置参照蛋白并框选对应泳道，或改选背景校正积分。':'没有纳入的有效正值。请检查 ROI、背景框和样本纳入状态。';return{...data,records,proteins,protein,control};};
   B.stats=()=>{
     const {ui,p}=B.state,d=B.currentStats(),groups=[...new Set(d.records.map(r=>r.group))];
-    return'<section class="content-page stats-page"><div class="page-heading"><div><h1>灰度统计与归一化</h1><p>当前图组'+(ui.checkedGroups.length?' · 已合并 '+ui.checkedGroups.length+' 个选中图组':'')+' · 使用原始像素计算的积分信号</p></div><div class="button-row">'+B.btn('results-xlsx','导出数据','export')+B.btn('chart-export','导出图表 SVG','chart')+'</div></div>'+(!d.proteins.length?'<div class="empty-list">'+ic('chart',42)+'<h2>还没有可统计的 ROI</h2><p>先在图片分析中框选条带，并设置泳道和参照蛋白。</p>'+B.btn('to-analysis','前往图片分析','image','class="primary"')+'</div>':'<div class="stats-controls">'+B.select('ui','statsProtein',d.protein,d.proteins.map(x=>[x,x]),'目的蛋白')+B.select('ui','metric',ui.metric,[['corrected','背景校正积分'],['raw','原始积分'],['ratio','目的 / 参照比值']],'统计指标')+B.select('ui','control',d.control,groups.map(x=>[x,x]),'对照组')+B.check('ui','normalize',ui.normalize,'对照均值归一化为 1')+'</div>'+(d.error?'<p class="notice">'+e(d.error)+'</p>':'')+'<div class="stats-grid"><div class="chart-panel">'+B.chartSVG(d,d.protein+(B.getGroup().demo?' · 演示数据':''),ui.normalize)+'<p class="hint">单点为纳入的样本；柱为均值；误差线为 SD。'+(B.getGroup().demo?'当前为模拟演示数据，不是实验结果。':'')+'</p></div><div class="summary-panel"><h3>描述统计</h3><table><thead><tr><th>分组</th><th>n</th><th>均值</th><th>SD</th><th>SEM</th></tr></thead><tbody>'+d.groups.map(g=>'<tr><td>'+e(g.name)+'</td><td>'+g.n+'</td><td>'+B.format(g.mean)+'</td><td>'+B.format(g.sd)+'</td><td>'+B.format(g.sem)+'</td></tr>').join('')+'</tbody></table>'+B.check('ui','inferential',ui.inferential,'显示 Welch t 检验（各组 vs 对照）')+(ui.inferential?'<p class="hint">双侧、独立样本，Holm 多重比较校正。n &lt; 2 或方差为 0 时不报告 P 值。技术重复不能直接作为独立样本。</p><table><thead><tr><th>比较组</th><th>原始 P</th><th>Holm P</th></tr></thead><tbody>'+d.tests.map(t=>'<tr><td>'+e(t.group)+'</td><td>'+B.format(t.p)+'</td><td>'+B.format(t.adjusted)+'</td></tr>').join('')+'</tbody></table>':'')+'</div></div><div class="section-title"><h2>纳入统计的数据</h2><span class="muted">在实验设计中调整纳入状态；重复、非正信号或缺失参照需核查</span></div><div class="table-scroll"><table><thead><tr><th>图组</th><th>蛋白</th><th>样本</th><th>分组</th><th>重复</th><th>校正积分</th><th>目的/参照</th><th>当前统计值</th></tr></thead><tbody>'+d.rows.map(r=>'<tr><td>'+e(r.imageGroup)+'</td><td>'+e(r.protein)+'</td><td>'+e(r.sampleId)+'</td><td>'+e(r.group)+'</td><td>'+r.replicate+'</td><td>'+B.format(r.corrected)+'</td><td>'+B.format(r.ratio)+'</td><td>'+B.format(r.value)+'</td></tr>').join('')+'</tbody></table></div>')+'</section>';
+    return'<section class="content-page stats-page"><div class="page-heading"><div><h1>灰度统计与归一化</h1><p>当前图组'+(ui.checkedGroups.length?' · 已合并 '+ui.checkedGroups.length+' 个选中图组':'')+' · 使用原始像素计算的积分信号</p></div><div class="button-row">'+B.btn('results-xlsx','导出数据','export')+B.btn('chart-options','图表样式','chart',d.groups.length?'':'disabled')+B.btn('chart-to-layout','加入排版','layers',d.groups.length?'':'disabled')+B.btn('chart-export','导出图表 SVG','export',d.groups.length?'':'disabled')+'</div></div>'+(!d.proteins.length?'<div class="empty-list">'+ic('chart',42)+'<h2>还没有可统计的 ROI</h2><p>先在图片分析中框选条带，并设置泳道和参照蛋白。</p>'+B.btn('to-analysis','前往图片分析','image','class="primary"')+'</div>':'<div class="stats-controls">'+B.select('ui','statsProtein',d.protein,d.proteins.map(x=>[x,x]),'目的蛋白')+B.select('ui','metric',ui.metric,[['corrected','背景校正积分'],['raw','原始积分'],['ratio','目的 / 参照比值']],'统计指标')+B.select('ui','control',d.control,groups.map(x=>[x,x]),'对照组')+B.check('ui','normalize',ui.normalize,'对照均值归一化为 1')+'</div>'+(d.error?'<p class="notice">'+e(d.error)+'</p>':'')+'<div class="stats-grid"><div class="chart-panel">'+(d.groups.length?'<div class="chart-preview"><div style="min-width:'+(d.groups.length>5?75*d.groups.length+116:0)+'px">'+B.statsChartSVG(d)+'</div></div>':'<p class="empty-list">暂无可绘制的统计值</p>')+'</div><div class="summary-panel"><h3>描述统计</h3><table><thead><tr><th>分组</th><th>n</th><th>均值</th><th>SD</th><th>SEM</th></tr></thead><tbody>'+d.groups.map(g=>'<tr><td>'+e(g.name)+'</td><td>'+g.n+'</td><td>'+B.format(g.mean)+'</td><td>'+B.format(g.sd)+'</td><td>'+B.format(g.sem)+'</td></tr>').join('')+'</tbody></table>'+B.check('ui','inferential',ui.inferential,'显示 Welch t 检验（各组 vs 对照）')+(ui.inferential?'<p class="hint">双侧、独立样本，Holm 多重比较校正。n &lt; 2 或方差为 0 时不报告 P 值。技术重复不能直接作为独立样本。</p><table><thead><tr><th>比较组</th><th>原始 P</th><th>Holm P</th></tr></thead><tbody>'+d.tests.map(t=>'<tr><td>'+e(t.group)+'</td><td>'+B.format(t.p)+'</td><td>'+B.format(t.adjusted)+'</td></tr>').join('')+'</tbody></table>':'')+'</div></div><div class="section-title"><h2>纳入统计的数据</h2><span class="muted">在实验设计中调整纳入状态；重复、非正信号或缺失参照需核查</span></div><div class="table-scroll"><table><thead><tr><th>图组</th><th>蛋白</th><th>样本</th><th>分组</th><th>重复</th><th>校正积分</th><th>目的/参照</th><th>当前统计值</th></tr></thead><tbody>'+d.rows.map(r=>'<tr><td>'+e(r.imageGroup)+'</td><td>'+e(r.protein)+'</td><td>'+e(r.sampleId)+'</td><td>'+e(r.group)+'</td><td>'+r.replicate+'</td><td>'+B.format(r.corrected)+'</td><td>'+B.format(r.ratio)+'</td><td>'+B.format(r.value)+'</td></tr>').join('')+'</tbody></table></div>')+'</section>';
   };
   B.modal=()=>{
     const {ui,p}=B.state,m=ui.modal;if(!m)return'';let title='',body='',footer='';const input=(f,v,t,opts='')=>B.input('modal',f,v,t,opts);

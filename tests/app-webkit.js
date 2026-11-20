@@ -20,6 +20,33 @@
   await check('Cloned graphs remap both denominators; duplicate IDs cannot inflate n',()=>{B.commit('Configure synthetic denominators',(_project,group)=>{const images=group.objects.filter(v=>v.type==='image');images[0].controlId=images[1].id;images[0].totalId=images[2].id;});const original=B.getGroup();B.state.ui.modal={type:'group-menu',id:original.id};B.render();click('clonegroup');const copy=B.getGroup(),clones=copy.objects.filter(v=>v.type==='image');assert(clones[0].controlId===clones[1].id,'Control reference points to old group');assert(clones[0].totalId===clones[2].id,'Total reference points to old group');B.state.ui.checkedGroups=[original.id,copy.id];B.state.ui.tab='stats';B.state.ui.statsProtein='p-Akt';B.state.ui.metric='corrected';B.render();assert(B.currentStats().error.includes('重复样本'),'Duplicate sample pooling not rejected');});
   await check('Deleted graphs appear in recovery and restore with their source relationships',()=>{B.state.ui.tab='edit';const id=B.getGroup().id;B.state.ui.modal={type:'group-menu',id};B.render();click('deletegroup');assert(B.state.p.deletedGroups.some(v=>v.group.id===id),'Not archived');click('recover-groups');one('[data-action="restore-group"][data-id="'+id+'"]').click();assert(B.state.p.groups.some(v=>v.id===id),'Not restored');B.validate(B.state.p);});
   await check('Statistical name editing preserves original sample annotations',()=>{B.state.ui.tab='stats';B.state.ui.checkedGroups=[];B.render();const original=B.getGroup().samples[0].group;click('statistics-settings');change('modal','groups',original+'=Control renamed');click('apply-statistics-settings');assert(B.currentStats().records[0].group==='Control renamed','Alias not applied');assert(B.getGroup().samples[0].group===original,'Raw sample group changed');click('clear-statistics-settings');assert(!B.state.p.statisticsSettings,'Mapping not cleared');});
+  await check('Statistical chart styles, editable captions and native SVG persist across a project round trip',async()=>{
+    reset();
+    Object.assign(B.state.ui,{tab:'stats',statsProtein:'p-Akt',metric:'corrected',normalize:false});
+    B.render();
+    const count=B.currentStats().rows.length;
+    assert(count>0,'Fixture has no measurements');
+    click('chart-options');
+    change('modal','mode','points');change('modal','error','sem');
+    change('modal','title','Synthetic <summary>');change('modal','axisLabel','Custom & units');
+    click('apply-chart-options');
+    const rendered=one('.chart-panel svg');
+    assert(rendered.textContent.includes('Synthetic <summary>')&&rendered.textContent.includes('Custom & units'),'Custom captions missing');
+    assert(rendered.textContent.includes('Error bars = SEM'),'Uncertainty caption does not reflect SEM');
+    assert(rendered.querySelectorAll('circle').length===count,'A displayed sample is missing');
+    assert(rendered.querySelectorAll('rect').length===1,'Bars remain in points-only mode');
+    const exported=new Promise(resolve=>onSave=item=>{onSave=null;resolve(item);});
+    click('chart-export');
+    const file=await exported;
+    assert(new TextDecoder().decode(Uint8Array.from(file.bytes))===B.statsChartSVG(),'Exported chart differs from preview');
+    const projectFile=new File([JSON.stringify(B.state.p)],'SYNTHETIC-chart.wbproj',{type:'application/json'});
+    await B.openProject(projectFile);
+    assert(one('.chart-panel svg').textContent.includes('Custom & units'),'Opening the saved project lost its chart style');
+    change('ui','metric','raw');
+    assert(!one('.chart-panel svg').textContent.includes('Custom & units'),'Axis from another metric leaked into this chart');
+    reset();
+  });
+
   await check('Real JPG, linked SVG, XLSX, PPTX and project exports complete',async()=>{reset();B.state.ui.tab='edit';B.render();for(const format of ['jpg','svg-linked','xlsx','pptx','project']){const file=await exportFile(format);assert(file.bytes.length>100,'Empty '+format);if(format==='jpg')assert(file.bytes[0]===255&&file.bytes[1]===216,'Invalid JPEG');else if(format!=='project')assert(file.bytes[0]===80&&file.bytes[1]===75,'Invalid ZIP package '+format);else{const project=B.validate(JSON.parse(new TextDecoder().decode(Uint8Array.from(file.bytes))));assert(project.sources.length===3,'Sources lost');}}});
   await check('Topic-scoped Excel supports more than thirty graphs',async()=>{reset();for(let i=0;i<31;i++)B.state.p.groups.push(B.blankGroup('SYNTHETIC scope '+i));B.render();click('export-scope');change('modal','scope','topic');const pending=new Promise(resolve=>onSave=item=>{onSave=null;resolve(item);});click('export-scoped');const file=await pending;assert(file.bytes[0]===80&&file.bytes[1]===75,'Invalid workbook');await Promise.resolve();await Promise.resolve();});
   await check('Modular insert and arrange menus dispatch existing editing actions',()=>{
