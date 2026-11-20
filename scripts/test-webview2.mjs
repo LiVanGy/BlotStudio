@@ -107,7 +107,9 @@ async function checkFiles() {
   assert.match(cancelled.message, /取消/);
   assert.deepEqual(await readdir(files), ['备份 目录']);
   assert.deepEqual(await nativeDialog('BS.actions.save()', 'save', projectFile), {ok: true});
-  assert.equal((await readProject(projectFile)).sources[0].hash, originalHash);
+  const manuallySaved = await readProject(projectFile);
+  assert.equal(manuallySaved.sources[0].hash, originalHash);
+  assert.deepEqual(Buffer.from(manuallySaved.sources[0].original.split(',')[1], 'base64'), fixture);
   await evaluate('BS.commit("SYNTHETIC rename", p => {p.name=' + JSON.stringify(expectedName) + ';})');
   assert.deepEqual(await nativeDialog('BS.actions.save()', 'overwrite', projectFile), {ok: true});
   assert.equal((await readProject(projectFile)).name, expectedName);
@@ -123,15 +125,32 @@ async function checkFiles() {
   assert.equal(folderCancel.ok, false);
   assert.match(folderCancel.message, /取消/);
   const managed = path.join(folder, 'BlotStudio-' + projectId + '.wbproj');
-  await mkdir(managed);
-  const failed = await evaluate('BS.syncWorkspace().then(() => false, () => BS.workspaceState.status.includes("失败"))');
-  assert.equal(failed, true);
-  assert.deepEqual(await readdir(managed), []);
-  assert.deepEqual(await readdir(folder), [path.basename(managed)]);
-  await rm(managed, {recursive: true});
   assert.equal(await evaluate('BS.syncWorkspace()'), true);
-  assert.deepEqual([(await readProject(managed)).name, (await readProject(managed)).sources[0].hash], [expectedName,originalHash]);
-  console.log('PASS: native folder selection, cancellation, write failure, cleanup and retry yield a readable disk backup.');
+  const originalBackup = await readFile(managed);
+  const protectedName = 'SYNTHETIC backup retry';
+  await evaluate('BS.commit("SYNTHETIC pending backup", p => {p.name=' + JSON.stringify(protectedName) + ';})');
+
+  // FileShare.Read keeps the valid backup readable but forbids replacement.
+  const locker = spawn('powershell.exe', ['-NoProfile','-Command',
+    '$f=[IO.File]::Open($env:BLOTSTUDIO_QA_LOCK,"Open","Read","Read"); try {[Console]::WriteLine("LOCKED"); [void][Console]::ReadLine()}finally{$f.Dispose()}'
+  ], {env:{...process.env,BLOTSTUDIO_QA_LOCK:managed}, stdio:['pipe','pipe','inherit']});
+  const ended = once(locker, 'exit');
+  try {
+    const [data] = await once(locker.stdout, 'data', {signal:AbortSignal.timeout(10000)});
+    assert.match(data.toString(), /LOCKED/);
+    const failed = await evaluate('BS.syncWorkspace().then(() => false, () => BS.workspaceState.status.includes("失败"))');
+    assert.equal(failed, true);
+    assert.deepEqual(await readFile(managed), originalBackup, 'Failed backup must preserve every original byte.');
+    assert.deepEqual(await readdir(folder), [path.basename(managed)]);
+  } finally {
+    locker.stdin.end('\n');
+    await ended;
+  }
+  assert.equal(await evaluate('BS.syncWorkspace()'), true);
+  const restored = await readProject(managed);
+  assert.equal(restored.name, protectedName);
+  assert.deepEqual(Buffer.from(restored.sources[0].original.split(',')[1], 'base64'),fixture);
+  console.log('PASS: folder cancellation, failed overwrite preserving every previous byte, temporary-file cleanup and retry verified on disk.');
 }
 
 async function checkSmallWindow() {
