@@ -55,7 +55,7 @@ function Wait-Dialog([int]$ButtonId) {
     do {
         foreach ($dialog in [BlotDialog]::Dialogs([int[]]$ids,$main)) {
             $root = [System.Windows.Automation.AutomationElement]::FromHandle($dialog)
-            $id = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::AutomationIdProperty, [string]$ButtonId)
+            $id = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, [string]$ButtonId)
             $button = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $id)
             $script:seen = [BlotDialog]::Title($dialog) + ' ' + (([BlotDialog]::Controls($dialog) | ForEach-Object { [BlotDialog]::Class($_) + ':' + [BlotDialog]::GetDlgCtrlID($_) }) -join ',')
             if ($button) { return [PSCustomObject]@{ Window=$dialog; Button=$button } }
@@ -66,11 +66,13 @@ function Wait-Dialog([int]$ButtonId) {
 }
 function Press-Button($record,[int]$id) {
     $hwnd = [IntPtr]$record.Button.Current.NativeWindowHandle
-    if ($hwnd -ne [IntPtr]::Zero -and [BlotDialog]::Class($hwnd) -eq 'Button') {
-        if (-not [BlotDialog]::PostMessage($hwnd,245,[IntPtr]::Zero,[IntPtr]::Zero)) { throw "Cannot press $id" }
-    } else {
-        $invoke = $record.Button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-        $invoke.Invoke()
+    Write-Output ("Select {0} in {1}" -f $id,[BlotDialog]::Title($record.Window))
+    if (-not [BlotDialog]::PostMessage($record.Window,273,[IntPtr]$id,$hwnd)) { throw "Cannot activate dialog button $id" }
+    if ($id -eq 2) {
+        Start-Sleep -Milliseconds 400
+        if ([BlotDialog]::IsWindowVisible($record.Window)) {
+            [void][BlotDialog]::PostMessage($record.Window,16,[IntPtr]::Zero,[IntPtr]::Zero)
+        }
     }
 }
 if ($Action -eq 'cancel') {
