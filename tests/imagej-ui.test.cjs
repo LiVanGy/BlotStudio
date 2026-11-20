@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-for(const name of ['core','science','imagej','scene','ui','imagej-ui'])require('../src/'+name+'.js');
+for(const name of ['core','analysis-engine','science','imagej','scene','ui','imagej-ui'])require('../src/'+name+'.js');
 const B=globalThis.BS;
 function setup(){
   const p=JSON.parse(fs.readFileSync(path.join(process.env.BLOTSTUDIO_EXAMPLE_DIR||path.join(__dirname,'../examples'),'SYNTHETIC-WB-workflow.wbproj'),'utf8'));B.validate(p);const g=p.groups[0],o=g.objects[0],s=p.sources[0];

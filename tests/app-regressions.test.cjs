@@ -20,7 +20,7 @@ async function harness(options={}){
     webkit:{messageHandlers:{saveFile:{postMessage:body=>messages.push(body)}}}
   };
   context.window=context;const sandbox=vm.createContext(context);
-  for(const module of ['core','science','tiff','scene','io','pptx','ui'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../src',module+'.js'),'utf8'),sandbox,{filename:module+'.js'});
+  for(const module of ['core','analysis-engine','science','tiff','scene','io','pptx','ui'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../src',module+'.js'),'utf8'),sandbox,{filename:module+'.js'});
   vm.runInContext(fs.readFileSync(path.join(__dirname,'support/synthetic.js'),'utf8'),sandbox,{filename:'synthetic-fixture.js'});
   const B=sandbox.BS;let saved;
   B.db={read:async()=>saved,write:async p=>{saved=JSON.parse(JSON.stringify(p));writes.push(saved);}};

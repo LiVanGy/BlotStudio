@@ -23,6 +23,24 @@ jobs:
           python-version: '3.11'
       - run: python -m pip install numpy pillow scipy openpyxl
       - run: node scripts/test-ci.mjs
+      - name: Generate and verify the downloadable synthetic project
+        if: github.event_name == 'pull_request'
+        env:
+          BLOTSTUDIO_EXAMPLE_DIR: ${{ runner.temp }}/Synthetic-WB-verification
+        run: |
+          python tests/generate-workflow-fixtures.py
+          node scripts/generate-test-project.cjs
+          node --test tests/verification-project.test.cjs
+      - name: Upload synthetic WB verification data
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Synthetic-WB-verification
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/Synthetic-WB-verification/SYNTHETIC-WB-workflow.wbproj
+            ${{ runner.temp }}/Synthetic-WB-verification/*-SYNTHETIC-16bit.tif
+            ${{ runner.temp }}/Synthetic-WB-verification/expected-independent-numpy.csv
       - run: npm run build
       - run: node scripts/package-release.mjs web x64
       - uses: actions/upload-artifact@v4
