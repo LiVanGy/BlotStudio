@@ -73,6 +73,28 @@ jobs:
       - run: npm run build
       - run: node --test tests/windows-save.test.cjs
       - run: dotnet publish native/windows/BlotStudio.csproj -c Release -r win-${{ matrix.arch }} --self-contained true -o dist/windows-${{ matrix.arch }}
+      - name: Check the WebView2 Runtime for desktop acceptance
+        shell: pwsh
+        run: |
+          $client = '{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $keys = @("HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\$client", "HKCU:\SOFTWARE\Microsoft\EdgeUpdate\Clients\$client", "HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\$client")
+          function Get-WebViewVersion {
+            foreach ($key in $keys) {
+              $version = Get-ItemPropertyValue $key -Name pv -ErrorAction SilentlyContinue
+              if ($version -and [version]$version -gt [version]'0.0.0.0') { return $version }
+            }
+          }
+          $version = Get-WebViewVersion
+          if (!$version) {
+            $bootstrapper = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebView2Setup.exe'
+            Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $bootstrapper
+            $signature = Get-AuthenticodeSignature $bootstrapper
+            if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') { throw 'Invalid Microsoft bootstrapper signature' }
+            $install = Start-Process $bootstrapper -ArgumentList '/silent','/install' -PassThru -Wait
+            $version = Get-WebViewVersion
+            if (!$version) { throw "WebView2 Runtime installation failed (exit $($install.ExitCode))" }
+          }
+          Write-Host "Installed WebView2 Runtime: $version"
       - name: Verify Windows architecture and run the native application
         shell: pwsh
         run: |
