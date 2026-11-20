@@ -133,13 +133,18 @@ jobs:
             if (!$version) { throw "WebView2 Runtime installation failed (exit $($install.ExitCode))" }
           }
           Write-Host "Installed WebView2 Runtime: $version"
-      - name: Verify Windows architecture and run the native application
+      - name: Verify Windows architecture
         shell: pwsh
         run: |
           $architecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
           if ($architecture -ne '${{ matrix.arch }}') { throw "Unexpected Windows architecture: $architecture" }
           Write-Host "Running BlotStudio on native Windows $architecture"
-          node scripts/test-webview2.mjs dist/windows-${{ matrix.arch }}/BlotStudio.exe
+      - name: Exercise x64 WebView2, native dialogs and scale
+        if: matrix.arch == 'x64'
+        run: node scripts/test-webview2.mjs dist/windows-x64/BlotStudio.exe
+      - name: Verify ARM64 native startup, 16-bit TIFF and close/restore through UI Automation
+        if: matrix.arch == 'arm64'
+        run: node scripts/test-windows-arm.mjs dist/windows-arm64/BlotStudio.exe
       - run: node scripts/package-release.mjs windows ${{ matrix.arch }}
       - uses: actions/upload-artifact@v4
         with:
