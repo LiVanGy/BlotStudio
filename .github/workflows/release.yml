@@ -31,21 +31,39 @@ jobs:
           path: release/*.zip
   mac:
     needs: test
-    runs-on: macos-15
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        arch: [arm64, x64]
+        include:
+          - arch: arm64
+            runner: macos-15
+            machine: arm64
+          - arch: x64
+            runner: macos-15-intel
+            machine: x86_64
+    env:
+      EXPECTED_MAC_MACHINE: ${{ matrix.machine }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Verify the native macOS runner architecture
+        run: |
+          machine=$(uname -m)
+          echo "macOS runner architecture: $machine"
+          test "$machine" = "$EXPECTED_MAC_MACHINE"
       - run: node --test native/tests/*.test.cjs
       - run: node scripts/test-webkit.mjs
       - run: npm run build:mac
         env:
           BLOTSTUDIO_MAC_ARCH: ${{ matrix.arch }}
+      - name: Verify the application binary architecture
+        run: |
+          binary_archs=$(lipo -archs dist/BlotStudio.app/Contents/MacOS/BlotStudio)
+          echo "BlotStudio binary architecture: $binary_archs"
+          test "$binary_archs" = "$EXPECTED_MAC_MACHINE"
       - run: node scripts/package-release.mjs mac ${{ matrix.arch }}
       - uses: actions/upload-artifact@v4
         with:
