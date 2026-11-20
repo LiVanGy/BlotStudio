@@ -97,8 +97,12 @@ internal sealed class MainWindow : Form
         {
             using var document = JsonDocument.Parse(e.WebMessageAsJson);
             var body = document.RootElement;
-            if (body.GetProperty("type").GetString() == "workspace") { await HandleWorkspaceAsync(body); return; }
-            if (body.GetProperty("type").GetString() != "saveFile") return;
+            var type = body.GetProperty("type").GetString();
+            if (type != "workspace" && type != "saveFile") return;
+            // A WinForms file picker creates a nested message loop. Leave the
+            // WebView2 event callback before opening the modal window.
+            await Task.Yield();
+            if (type == "workspace") { await HandleWorkspaceAsync(body); return; }
             id = body.GetProperty("id").GetString();
             if (string.IsNullOrEmpty(id) || id.Length > 200) return;
             if (saving || closing) { await ReplyAsync(id, "error", "请先完成当前对话框。"); return; }
