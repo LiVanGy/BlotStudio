@@ -91,7 +91,7 @@
         if(o.type==='image'){
           const s=sources.get(o.sourceId);if(!s)throw Error('图像来源缺失。');if(o.analysis){if(!B.validateAnalysis)throw Error('缺少灰度方法模块。');B.validateAnalysis(o.analysis);}for(const field of ['controlId','totalId'])if(o[field]&&(o[field]===o.id||!imageIds.has(o[field])))throw Error('内参或总蛋白对应关系无效。');B.assertRect(s,o.crop,'裁剪范围');
           if(!Array.isArray(o.rois)||o.rois.length>g.samples.length||new Set(o.rois.map(r=>r?.id)).size!==o.rois.length||new Set(o.rois.map(r=>r?.sampleIndex)).size!==o.rois.length)throw Error('ROI 参数无效或同一泳道有重复 ROI。');
-          for(const r of o.rois){if(!r||!id(r.id)||!Number.isInteger(r.sampleIndex)||r.sampleIndex<0||r.sampleIndex>=g.samples.length)throw Error('ROI 样本对应关系无效。');B.assertRect(s,r,'条带 ROI');if(r.shape&&!['rect','ellipse','profile'].includes(r.shape))throw Error('ROI 形状无效。');for(const f of ['baselineStart','baselineEnd'])if(r[f]!==undefined&&(!Number.isFinite(r[f])||r[f]<0))throw Error('峰图基线无效。');}
+          for(const r of o.rois){if(!r||!id(r.id)||!Number.isInteger(r.sampleIndex)||r.sampleIndex<0||r.sampleIndex>=g.samples.length)throw Error('ROI 样本对应关系无效。');B.assertRect(s,r,'条带 ROI');if(r.shape&&!['rect','ellipse','profile'].includes(r.shape))throw Error('ROI 形状无效。');for(const f of ['baselineStart','baselineEnd'])if(r[f]!==undefined&&!Number.isFinite(r[f]))throw Error('峰图基线无效。');}
           if(o.background)B.assertRect(s,o.background,'背景 ROI');
           if(o.referenceId&&(o.referenceId===o.id||!imageIds.has(o.referenceId)))throw Error('参照蛋白缺失或不能引用自身。');
           for(const key of ['brightness','contrast'])if(!Number.isFinite(o[key])||o[key]<0||o[key]>200)throw Error('图像显示参数无效。');

@@ -22,6 +22,11 @@
   B.autoROIs=(crop,count)=>{if(!crop||![crop.x,crop.y,crop.w,crop.h].every(Number.isFinite)||crop.w<=0||crop.h<=0||!Number.isInteger(count)||count<1||count>200||crop.w/count<1)throw Error('自动 ROI 需要有效裁剪范围及 1–200 条泳道，每条泳道至少占 1 个原图像素。');return Array.from({length:count},(_,i)=>({id:B.uid(),x:crop.x+(i+.15)*crop.w/count,y:crop.y+crop.h*.22,w:crop.w/count*.7,h:crop.h*.56,sampleIndex:i}));};
   B.mean=a=>{if(!a.length||!a.every(Number.isFinite))return NaN;const scale=a.reduce((s,v)=>Math.max(s,Math.abs(v)),0);return scale===0?0:a.reduce((s,v)=>s+v/scale,0)/a.length*scale;};
   B.summary=a=>{const mean=B.mean(a),scale=a.reduce((s,v)=>Math.max(s,Math.abs(v)),0),m=scale?mean/scale:0,sd=a.length>1&&Number.isFinite(mean)?(scale?Math.sqrt(a.reduce((s,v)=>s+(v/scale-m)**2,0)/(a.length-1))*scale:0):NaN;return{n:a.length,mean,sd,sem:sd/Math.sqrt(a.length)};};
+  function measurementScale(record){
+    const unit=record.units||(record.method==='profile'?'mean intensity × profile pixel':'gray level × pixel');
+    const nativeDepth=record.bitDepth;
+    return JSON.stringify([unit,nativeDepth,record.analysisBitDepth||nativeDepth,record.range8||null]);
+  }
   B.records=(project,group)=>{
     const images=group.objects.filter(o=>o.type==='image'),all=[],sampleCounts=new Map();
     for(const s of group.samples)sampleCounts.set(s.id,(sampleCounts.get(s.id)||0)+1);
@@ -33,22 +38,44 @@
         const m=o.analysis?B.quantify(s,roi,o.background,o.polarity,o.analysis):B.measure(s,roi,o.background,o.polarity),issues=[];let valid=true;
         if(sampleCounts.get(sample.id)!==1||!String(sample.id??'').trim()){issues.push('样本 ID 缺失或重复');valid=false;}
         if(roiCounts.get(idx)!==1){issues.push('同一样本重复分配 ROI');valid=false;}
-        if(m.corrected<=0)issues.push('背景校正后信号 ≤ 0');if(m.saturation>.01)issues.push('饱和像素 > 1%');if(m.clipped)issues.push('ROI 超出原图，按图内像素计算');if(m.backgroundClipped)issues.push('背景框超出原图，按图内像素计算');
+        if(m.corrected===null)issues.push('请框选背景 ROI 后计算校正信号');else if(m.corrected<=0)issues.push('背景校正后信号 ≤ 0');if(m.saturation>.01)issues.push('饱和像素 > 1%');if(m.clipped)issues.push('ROI 超出原图，按图内像素计算');if(m.backgroundClipped)issues.push('背景框超出原图，按图内像素计算');
         if(m.backgroundRect){const b=m.backgroundRect,r=m.rect;if(r.x<b.x+b.w&&r.x+r.w>b.x&&r.y<b.y+b.h&&r.y+r.h>b.y)issues.push('背景框与条带 ROI 重叠');}
-        all.push({objectId:o.id,protein:o.protein||o.name,sourceName:s.name,sourceId:s.id,hash:s.hash||'',bitDepth:s.bitDepth,sampleId:sample.id,group:sample.group,replicate:sample.replicate,lane:idx+1,include:sample.include!==false&&valid,valid,...m,roi,referenceId:o.referenceId,ratio:null,controlRatio:null,totalRatio:null,fold:null,issue:issues.join('；')});
+        all.push({objectId:o.id,protein:o.protein||o.name,sourceName:s.name,sourceId:s.id,hash:s.hash||'',bitDepth:s.bitDepth,polarity:o.polarity||'dark',sampleId:sample.id,group:sample.group,replicate:sample.replicate,lane:idx+1,include:sample.include!==false&&valid,valid,...m,roi,referenceId:o.referenceId,ratio:null,controlRatio:null,totalRatio:null,fold:null,issue:issues.join('；')});
       }
     }
     for(const r of all){
       if(all.some(v=>v!==r&&v.objectId===r.objectId&&r.rect.x<v.rect.x+v.rect.w&&r.rect.x+r.rect.w>v.rect.x&&r.rect.y<v.rect.y+v.rect.h&&r.rect.y+r.rect.h>v.rect.y))r.issue=[r.issue,'条带 ROI 之间重叠'].filter(Boolean).join('；');
     }
     const ownIssues=new Map(all.map(r=>[r,r.issue]));
-    for(const r of all){if(r.referenceId){
-      const matches=all.filter(v=>v.objectId===r.referenceId&&v.sampleId===r.sampleId);
-      if(r.referenceId!==r.objectId&&matches.length===1&&matches[0].valid&&r.valid&&matches[0].corrected>0&&r.corrected>0){r.ratio=r.corrected/matches[0].corrected;if(ownIssues.get(matches[0]))r.issue=[r.issue,'参照：'+ownIssues.get(matches[0])].filter(Boolean).join('；');}
-      else r.issue=[r.issue,r.referenceId===r.objectId?'不能将蛋白自身设为参照':'参照蛋白缺失、重复或信号 ≤ 0'].filter(Boolean).join('；');
-    }}
-    for(const r of all){const object=images.find(o=>o.id===r.objectId);for(const [field,target] of [['controlRatio',object.controlId],['totalRatio',object.totalId]]){if(!target)continue;const matches=all.filter(v=>v.objectId===target&&v.sampleId===r.sampleId);if(matches.length===1&&matches[0].valid&&r.valid&&matches[0].corrected>0&&r.corrected>0)r[field]=r.corrected/matches[0].corrected;else r.issue=[r.issue,field==='totalRatio'?'总蛋白缺失或信号无效':'内参缺失或信号无效'].filter(Boolean).join('；');}}
-    for(const r of all)if(!r.referenceId)r.ratio=r.controlRatio??r.totalRatio;
+    for(const r of all){
+      const image=images.find(o=>o.id===r.objectId);
+      const links=[['ratio',image.referenceId,'参照'],['controlRatio',image.controlId,'内参'],['totalRatio',image.totalId,'总蛋白']];
+      const warnings=new Set();
+      r.referenceProteins={};
+      for(const [field,target,label] of links){
+        if(!target)continue;
+        const matches=all.filter(other=>other.objectId===target&&other.sampleId===r.sampleId);
+        const ref=matches[0];
+        const denominator=images.find(o=>o.id===target);
+        if(denominator)r.referenceProteins[field]=denominator.protein||denominator.name;
+        if(target===r.objectId){
+          warnings.add('不能将蛋白自身设为'+label);
+        }else if(matches.length!==1||!ref.valid||!r.valid||!(ref.corrected>0&&r.corrected>0)){
+          warnings.add(label+'缺失、重复或信号无效');
+        }else if(measurementScale(r)!==measurementScale(ref)){
+          warnings.add(label+'与目的蛋白的积分单位、位深或缩放范围不同，请使用相同计算尺度（16-bit 可选原生位深）');
+        }else{
+          r[field]=r.corrected/ref.corrected;
+          if(ownIssues.get(ref))warnings.add(label+'：'+ownIssues.get(ref));
+        }
+      }
+      if(!image.referenceId){
+        const field=image.controlId?'controlRatio':'totalRatio';
+        r.ratio=r[field];
+        r.referenceProteins.ratio=r.referenceProteins[field];
+      }
+      r.issue=[r.issue,...warnings].filter(Boolean).join('；');
+    }
     return all;
   };
   // Continued fraction for regularized incomplete beta, used for Student t probabilities.
@@ -69,7 +96,8 @@
   B.statData=(records,protein,metric='corrected',control='',normalize=false)=>{
     if(!['corrected','raw','ratio','controlRatio','totalRatio'].includes(metric))return {rows:[],groups:[],tests:[],error:'统计指标无效。'};
     const a=records.filter(r=>r.protein===protein&&r.include&&r.valid!==false&&Number.isFinite(r[metric])&&r[metric]>0).map(r=>({...r,value:r[metric]}));
-    if(new Set(a.map(r=>JSON.stringify([r.method||'rect',r.analysisBitDepth||r.bitDepth,r.analysisSettings?[r.analysisSettings.convert8,r.analysisSettings.rgb,r.analysisSettings.background,r.analysisSettings.radius,r.analysisSettings.presmooth,r.analysisSettings.method,r.analysisSettings.rotation||0,r.analysisSettings.profileAxis||'y']:null]))).size>1)return {rows:[],groups:[],tests:[],error:'分析方法、位深或预处理设置不一致，请统一方法后再合并统计。'};
+    if(new Set(a.map(r=>JSON.stringify([r.method||'rect',measurementScale(r),r.polarity||'dark',r.referenceProteins?.[metric]||'',
+      r.analysisSettings?[r.analysisSettings.convert8,r.analysisSettings.rgb,r.analysisSettings.background,r.analysisSettings.radius,r.analysisSettings.presmooth,r.analysisSettings.method,r.analysisSettings.rotation||0,r.analysisSettings.profileAxis||'y']:[r.backgroundRect?'roi':'none']]))).size>1)return {rows:[],groups:[],tests:[],error:'分析方法、位深、缩放范围、信号方向或参照蛋白不一致，请统一后再合并统计。'};
     const seen=new Set(),duplicates=new Set();for(const r of a){if(typeof r.sampleId!=='string'||!r.sampleId)continue;if(seen.has(r.sampleId))duplicates.add(r.sampleId);seen.add(r.sampleId);}
     if(duplicates.size)return {rows:[],groups:[],tests:[],error:'同一蛋白存在重复样本 ID（'+[...duplicates].slice(0,8).join('、')+'）。请区分独立样本；重复曝光或技术重复不能重复计入 n。'};
     const base=B.mean(a.filter(r=>r.group===control).map(r=>r.value));if(normalize){if(!(base>0))return {rows:[],groups:[],tests:[],error:'对照组没有有效正值，不能归一化。'};for(const r of a)r.value/=base;}
