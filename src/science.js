@@ -60,8 +60,12 @@
         if(denominator)r.referenceProteins[field]=denominator.protein||denominator.name;
         if(target===r.objectId){
           warnings.add('不能将蛋白自身设为'+label);
-        }else if(matches.length!==1||!ref.valid||!r.valid||!(ref.corrected>0&&r.corrected>0)){
-          warnings.add(label+'缺失、重复或信号无效');
+        }else if(matches.length!==1||!ref.valid||!r.valid){
+          warnings.add(label+'缺失、重复或样本无效');
+        }else if(!Number.isFinite(ref.corrected)||ref.corrected<=0){
+          warnings.add(label+'校正信号缺失或 ≤ 0，无法作为分母');
+        }else if(!Number.isFinite(r.corrected)){
+          warnings.add('目的蛋白校正信号缺失，无法计算比值');
         }else if(measurementScale(r)!==measurementScale(ref)){
           warnings.add(label+'与目的蛋白的积分单位、位深或缩放范围不同，请使用相同计算尺度（16-bit 可选原生位深）');
         }else{
@@ -95,12 +99,12 @@
   };
   B.statData=(records,protein,metric='corrected',control='',normalize=false)=>{
     if(!['corrected','raw','ratio','controlRatio','totalRatio'].includes(metric))return {rows:[],groups:[],tests:[],error:'统计指标无效。'};
-    const a=records.filter(r=>r.protein===protein&&r.include&&r.valid!==false&&Number.isFinite(r[metric])&&r[metric]>0).map(r=>({...r,value:r[metric]}));
+    const a=records.filter(r=>r.protein===protein&&r.include&&r.valid!==false&&Number.isFinite(r[metric])).map(r=>({...r,value:r[metric]}));
     if(new Set(a.map(r=>JSON.stringify([r.method||'rect',measurementScale(r),r.polarity||'dark',r.referenceProteins?.[metric]||'',
       r.analysisSettings?[r.analysisSettings.convert8,r.analysisSettings.rgb,r.analysisSettings.background,r.analysisSettings.radius,r.analysisSettings.presmooth,r.analysisSettings.method,r.analysisSettings.rotation||0,r.analysisSettings.profileAxis||'y']:[r.backgroundRect?'roi':'none']]))).size>1)return {rows:[],groups:[],tests:[],error:'分析方法、位深、缩放范围、信号方向或参照蛋白不一致，请统一后再合并统计。'};
     const seen=new Set(),duplicates=new Set();for(const r of a){if(typeof r.sampleId!=='string'||!r.sampleId)continue;if(seen.has(r.sampleId))duplicates.add(r.sampleId);seen.add(r.sampleId);}
     if(duplicates.size)return {rows:[],groups:[],tests:[],error:'同一蛋白存在重复样本 ID（'+[...duplicates].slice(0,8).join('、')+'）。请区分独立样本；重复曝光或技术重复不能重复计入 n。'};
-    const base=B.mean(a.filter(r=>r.group===control).map(r=>r.value));if(normalize){if(!(base>0))return {rows:[],groups:[],tests:[],error:'对照组没有有效正值，不能归一化。'};for(const r of a)r.value/=base;}
+    const base=B.mean(a.filter(r=>r.group===control).map(r=>r.value));if(normalize){if(!Number.isFinite(base)||base<=0)return {rows:[],groups:[],tests:[],error:'对照组有效样本的均值必须大于 0 才能归一化。'};for(const r of a)r.value/=base;}
     const groups=[...new Set(a.map(r=>r.group))].map(name=>({name,...B.summary(a.filter(r=>r.group===name).map(r=>r.value)),values:a.filter(r=>r.group===name).map(r=>r.value)}));
     const tests=B.holm(groups.filter(g=>g.name!==control).map(g=>({group:g.name,...B.welch(g.values,a.filter(r=>r.group===control).map(r=>r.value))})));
     return {rows:a,groups,tests,base};
