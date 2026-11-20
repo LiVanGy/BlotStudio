@@ -118,6 +118,21 @@
     B.render();
     assert(one('#analysis-image').getAttribute('data-analysis-rotation')==='30','Analysis rotation was lost');
     assert(document.querySelector('#analysis-image [data-roi] ellipse'),'ROI overlay was lost on return');
+    B.commit('SYNTHETIC mixed legacy ROI shapes',(_project,group)=>{
+      const obj=group.objects.find(o=>o.id===shape.id);
+      obj.analysis.method='rect';
+      obj.rois[0].shape='ellipse';
+      obj.rois[1].shape='profile';
+    });
+    const mixed=B.getAnalysis();
+    B.state.ui.roiId=mixed.rois[1].id;
+    B.render();
+    const rows=B.records(B.state.p,B.getGroup()).filter(r=>r.objectId===shape.id);
+    assert(rows[0].method==='ellipse'&&rows[1].method==='profile','Measurement lost individual ROI methods');
+    assert(one('#analysis-image [data-roi="'+mixed.rois[0].id+'"]').querySelector('ellipse'),'Individual ellipse drawn as a rectangle');
+    assert(one('#analysis-image [data-roi="'+mixed.rois[1].id+'"]').querySelector('rect'),'Profile bounds drawn as an ellipse');
+    assert(document.querySelector('.profile-panel'),'Individual profile has no plot or baseline controls');
+
     reset();
   });
   webkit.messageHandlers.qaResult.postMessage({suite:'real WebKit app components',passed:tests.filter(v=>v.pass).length,total:tests.length,tests,errors,exports:saved.map(v=>({name:v.name,bytes:v.bytes.length,mime:v.mime}))});
